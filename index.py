@@ -27522,6 +27522,44 @@ async def process_replacement_logic(req, user_info, trade_link, supabase):
             logging.info(f"[BG-REPLACEMENT] Юзер {user_id} выбрал складской скин {m_name}, но по условию ИДЕМ НА МАРКЕТ.")
 
         # ==========================================
+        # 🛡️ ЖЕЛЕЗНЫЙ ЩИТ: СВЕРКА ЦЕН (АНТИ-СКАМ)
+        # ==========================================
+        orig_req = await supabase.get(
+            "/cs_history",
+            params={
+                "id": f"eq.{req.history_id}",
+                "select": "item:cs_items(price, price_rub), replaced_price"
+            }
+        )
+        orig_data = orig_req.json()
+        
+        if not orig_data:
+            logging.error(f"[BG-REPLACEMENT] Не найден оригинальный предмет {req.history_id}")
+            return
+
+        orig_row = orig_data[0]
+        
+        orig_replaced = orig_row.get('replaced_price')
+        if orig_replaced is not None and float(str(orig_replaced).replace(',', '.')) > 0:
+            original_price = float(str(orig_replaced).replace(',', '.'))
+        else:
+            item_dict = orig_row.get('item') or {}
+            original_price = float(str(item_dict.get('price_rub') or item_dict.get('price') or 0.0).replace(',', '.'))
+
+        # Защита от нулевого бюджета (если оригинал стоил 0, разрешаем замену только на копейки)
+        if original_price <= 0:
+            original_price = 1.0
+
+        if float(replaced_price) > (original_price + 5.0):
+            logging.critical(f"[SCAM ALERT] Юзер {user_id} пытается забрать {m_name} ({replaced_price} руб) вместо оригинала за {original_price} руб!")
+            await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
+                "status": "failed", 
+                "details": f"Ошибка безопасности: выбрана слишком дорогая замена ({replaced_price} > {original_price}).",
+                "updated_at": now_iso
+            })
+            return
+
+        # ==========================================
         # 🔥 ТОЛЬКО МАРКЕТ (ПЛАН А)
         # ==========================================
         tm_api_key = os.getenv("CSGO_MARKET_API_KEY")
@@ -27566,7 +27604,7 @@ async def process_replacement_logic(req, user_info, trade_link, supabase):
 
                 logging.info(f"[MARKET API] Покупка {m_name} (ID: {unique_market_id})")
                 
-                # Умный бюджет
+                # Умный бюджет (базируется на цене ЗАМЕНЫ, что безопасно, так как мы её уже проверили)
                 base_p = float(replaced_price)
                 max_budget = base_p + 3.0 if base_p < 50.0 else base_p * 1.10
 
