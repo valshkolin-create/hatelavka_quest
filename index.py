@@ -11124,15 +11124,15 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
         # =========================================================
         # ФАЗА 1: ПРОВЕРКА ТРЕЙДОВ МАРКЕТА
         # =========================================================
-        res = await supabase.get(
-            "/cs_history", 
-            params={
-                "status": "in.(waiting,processing,market_pending,sent,auto_queued)",
-                "select": "id, updated_at, status, tradeofferid",
-                "order": "updated_at.asc",
-                "limit": "25" 
-            }
-        )
+        rres = await supabase.get(
+        "/cs_history", 
+        params={
+            "status": "in.(exchanged,pending,waiting,processing,market_pending)", 
+            "select": "id, updated_at, status, tradeofferid", # 🔥 ДОБАВИЛИ tradeofferid
+            "order": "updated_at.asc",
+            "limit": "25" 
+        }
+    )
         
         if res.status_code >= 400:
             err_msg = f"CRON FATAL: Ошибка при запросе списка трейдов из БД: {res.text}"
@@ -11167,10 +11167,13 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
                     
                 minutes_passed = (now - trade_time).total_seconds() / 60
 
-                try:
-                    tm_res = await client.get(
-                        f"https://cs2.market/api/v2/get-buy-info-by-custom-id?key={TM_API_KEY}&custom_id={market_custom_id}"
-                    )
+                # 🔥 Достаем реальный custom_id маркета (с префиксом wd_), иначе маркет ничего не найдет!
+            custom_market_id = trade.get("tradeofferid") or str(trade_id)
+
+            try:
+                tm_res = await client.get(
+                    f"https://cs2.market/api/v2/get-buy-info-by-custom-id?key={TM_API_KEY}&custom_id={custom_market_id}"
+                )
                     
                     if tm_res.status_code != 200:
                         msg = f"#{trade_id}: TM API Error {tm_res.status_code} -> waiting"
@@ -24475,6 +24478,7 @@ async def check_trade_status_endpoint(
             print(f"Time parse error in check_trade: {e}")
 
     try:
+        try:
         # Увеличиваем таймаут, так как Маркет может долго «думать»
         async with httpx.AsyncClient(timeout=15.0) as client:
             tm_res = await client.get(
@@ -24484,6 +24488,14 @@ async def check_trade_status_endpoint(
                     "custom_id": custom_id
                 }
             )
+            
+            # 🔥 Защита от падения маркета (500, 502, 504)
+            if tm_res.status_code != 200:
+                return {
+                    "success": False, 
+                    "message": f"Маркет временно недоступен (Код: {tm_res.status_code}). Попробуйте позже."
+                }
+
             tm_data = tm_res.json()
             
             print(f"DEBUG TM FOR ITEM {custom_id}: {tm_data}")
@@ -26829,16 +26841,28 @@ async def withdraw_inventory_item(
             except Exception as e:
                 logging.error(f"[MARKET SYNC] Ошибка при проверке custom_id {unique_market_id}: {e}")
 
-        err_msg = str(delivery_res.get("error", "")).lower()
+        err_msg_lower = str(delivery_res.get("error", "")).lower()
         err_code = delivery_res.get("market_error_code")
-        if "таймаут" in err_msg or "timeout" in err_msg or err_code in [500, 502, 504]:
-            logging.warning(f"[SCHRODINGER] Маркет отвалился по таймауту.")
+        
+        # Расширенная проверка на ошибки серверов Маркета (500, 502, 503, 504) прямо в тексте
+        is_timeout = (
+            "таймаут" in err_msg_lower or 
+            "timeout" in err_msg_lower or 
+            "500" in err_msg_lower or 
+            "502" in err_msg_lower or 
+            "503" in err_msg_lower or 
+            "504" in err_msg_lower or 
+            err_code in [500, 502, 503, 504]
+        )
+
+        if is_timeout:
+            logging.warning(f"[SCHRODINGER] Маркет отвалился или выдал 5xx ошибку. Переводим в ожидание.")
             await supabase.patch("/cs_history", params={"id": f"eq.{req.history_id}"}, json={
                 "status": "market_pending",
                 "tradeofferid": unique_market_id,
                 "updated_at": now_iso
             })
-            return {"success": True, "message": "Маркет сильно загружен, но ваш заказ в очереди."}
+            return {"success": True, "message": "Маркет сильно загружен, ваш заказ обрабатывается. Обновите статус через пару минут."}
 
 # ==========================================
     # 🎁 ЭТАП 3: ПРЕДЛОЖЕНИЕ ЗАМЕН (ИСПРАВЛЕНО: ЗАЩИТА ОТ ДЮПА)
