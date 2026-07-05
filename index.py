@@ -24554,18 +24554,28 @@ async def check_trade_status_endpoint(
                     "message": f"Ошибка Маркета: {tm_data.get('error', 'Неизвестно')}"
                 }
             
-           # =========================================================
-            # ИСПРАВЛЕННЫЙ КОД (БЕЗ settlement И С ОБНОВЛЕНИЕМ СТАДИИ 1)
+# =========================================================
+            # ИСПРАВЛЕННЫЙ КОД (ПРАВИЛЬНЫЙ УЧЕТ СТАТУСОВ И SETTLEMENT)
             # =========================================================
             trade_info = tm_data.get("data", {})
             stage = str(trade_info.get("stage"))
+            settlement_val = trade_info.get("settlement")
+            
+            # Проверяем settlement: если он > 0, покупатель УЖЕ забрал предмет
+            is_settled = False
+            if settlement_val:
+                try:
+                    if int(settlement_val) > 0:
+                        is_settled = True
+                except (ValueError, TypeError):
+                    pass
             
             tm_buy_time = int(trade_info.get("time") or 0)
             now_ts = int(now_utc.timestamp())
             seconds_passed = now_ts - tm_buy_time
             
-            # 1. УСПЕХ (Stage 2)
-            if stage == "2":
+            # 1. УСПЕХ (Stage 2 ИЛИ settlement > 0)
+            if stage == "2" or is_settled:
                 update_payload = {"status": "received", "updated_at": now_iso}
                 
                 if not item.get("image_url") and trade_info.get("classid"):
@@ -24618,21 +24628,16 @@ async def check_trade_status_endpoint(
                     "new_status": "available"
                 }
                 
-            # 3. ОЖИДАНИЕ (Stage 1) - ТЕПЕРЬ ОБНОВЛЯЕТ БАЗУ!
+            # 3. НАСТОЯЩЕЕ ОЖИДАНИЕ (Stage 1 и предмет еще не забран)
             elif stage == "1":
                 time_left = max(1, int((1800 - seconds_passed) / 60))
                 
-                # Создаем payload специально для стадии ожидания
-                update_payload = {"status": "offer_sent", "updated_at": now_iso}
-                
-                patch_res = await supabase.patch("/cs_history", 
-                    params={"id": f"eq.{history_id}", "status": f"eq.{current_status}"}, 
-                    json=update_payload,
-                    headers={"Prefer": "return=representation"}
-                )
-                
-                if patch_res.status_code >= 400:
-                    return {"success": False, "message": f"Ошибка БД ({patch_res.status_code}): {patch_res.text}"}
+                # Обновляем локальный статус в БД на offer_sent, если он еще не там
+                if current_status != "offer_sent":
+                    await supabase.patch("/cs_history", 
+                        params={"id": f"eq.{history_id}"}, 
+                        json={"status": "offer_sent", "updated_at": now_iso}
+                    )
                 
                 return {
                     "success": False, 
@@ -24640,7 +24645,7 @@ async def check_trade_status_endpoint(
                     "new_status": "offer_sent"
                 }
             
-            # 4. ЛЮБОЙ ДРУГОЙ СТАТУС
+            # 4. ПРОЧИЕ СТАТУСЫ
             else:
                 return {
                     "success": False, 
@@ -26587,6 +26592,7 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
     from datetime import datetime, timezone
     from dateutil import parser
     
+    # Этот принт 100% появится в логах Vercel при запуске крона
     print(f"[{datetime.now(timezone.utc).isoformat()}] CRON STARTED: check_tm_trades")
 
     try:
@@ -26625,10 +26631,11 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
         # =========================================================
         # ФАЗА 1: ПРОВЕРКА ТРЕЙДОВ МАРКЕТА
         # =========================================================
+        # 🔥 ДОБАВЛЕН СТАТУС 'offer_sent', ИНАЧЕ КРОН ИХ НЕ УВИДИТ
         res = await supabase.get(
             "/cs_history", 
             params={
-                "status": "in.(exchanged,pending,waiting,processing,market_pending)", 
+                "status": "in.(exchanged,pending,waiting,processing,market_pending,offer_sent)", 
                 "select": "id, updated_at, status, tradeofferid",
                 "order": "updated_at.asc",
                 "limit": "25" 
@@ -26668,6 +26675,7 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
                     
                 minutes_passed = (now - trade_time).total_seconds() / 60
 
+                # 🔥 Достаем реальный custom_id маркета (с префиксом wd_)
                 custom_market_id = trade.get("tradeofferid") or str(trade_id)
 
                 try:
@@ -26696,14 +26704,26 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
                             else:
                                 msg = f"#{trade_id}: Not found on TM 15m -> available"
                                 
-                            print(f"CRON LOG: {msg}")
-                            results_log.append(msg)
+                        print(f"CRON LOG: {msg}")
+                        results_log.append(msg)
                         continue
 
                     stage = str(trade_info.get("stage"))
-                    settlement = int(trade_info.get("settlement") or 0)
+                    
+                    # =========================================================
+                    # 🔥 БЕЗОПАСНАЯ ПРОВЕРКА SETTLEMENT
+                    # =========================================================
+                    settlement_val = trade_info.get("settlement")
+                    is_settled = False
+                    if settlement_val:
+                        try:
+                            if int(settlement_val) > 0:
+                                is_settled = True
+                        except (ValueError, TypeError):
+                            pass
 
-                    if settlement > 0 or stage == "2":
+                    # УСПЕХ: Если settlement > 0 ИЛИ stage == 2
+                    if is_settled or stage == "2":
                         patch_res = await supabase.patch("/cs_history", 
                             params={"id": f"eq.{trade_id}", "status": f"eq.{current_status}"}, 
                             json={"status": "received", "updated_at": now_iso},
@@ -26712,7 +26732,7 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
                         if patch_res.status_code >= 400:
                             msg = f"#{trade_id}: DB ERROR ON SUCCESS -> {patch_res.text}"
                         else:
-                            msg = f"#{trade_id}: Success -> received"
+                            msg = f"#{trade_id}: Success -> received (Settled: {is_settled})"
 
                     elif stage in ["4", "5"]:
                         patch_res = await supabase.patch("/cs_history", 
@@ -26725,19 +26745,15 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
                         else:
                             msg = f"#{trade_id}: TM Canceled -> available"
 
+                    # =========================================================
+                    # БЕЗОПАСНАЯ ЛОГИКА ОЖИДАНИЯ (БЕЗ АВТО-ОТМЕНЫ)
+                    # =========================================================
                     elif stage == "1":
-                        if minutes_passed >= 25:
-                            patch_res = await supabase.patch("/cs_history", 
-                                params={"id": f"eq.{trade_id}", "status": f"eq.{current_status}"}, 
-                                json={"status": "available", "updated_at": now_iso},
-                                headers={"Prefer": "return=representation"}
-                            )
-                            if patch_res.status_code >= 400:
-                                msg = f"#{trade_id}: DB ERROR ON TIMEOUT -> {patch_res.text}"
-                            else:
-                                msg = f"#{trade_id}: 25m Timeout -> available"
-                        else:
-                            msg = f"#{trade_id}: Stage 1 (Waiting) -> passed {int(minutes_passed)}m"
+                        # Просто логируем ожидание, НИЧЕГО НЕ МЕНЯЕМ В БАЗЕ
+                        msg = f"#{trade_id}: Stage 1 (Waiting) -> passed {int(minutes_passed)}m"
+
+                    else:
+                        msg = f"#{trade_id}: Stage {stage} (Unknown) -> passed {int(minutes_passed)}m"
 
                     print(f"CRON LOG: {msg}")
                     results_log.append(msg)
@@ -26755,6 +26771,7 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
         }
 
     except Exception as e:
+        # ГЛОБАЛЬНЫЙ ПЕРЕХВАТ ОШИБОК КРОНА
         error_trace = traceback.format_exc()
         print(f"CRON FATAL EXCEPTION:\n{error_trace}")
         return {
