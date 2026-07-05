@@ -24607,6 +24607,7 @@ async def check_trade_status_endpoint(
     except Exception as e:
         print(f"TM API ERROR: {e}")
         return JSONResponse({"success": False, "message": "Временная ошибка связи с Маркетом. Попробуйте позже."})
+
 # 2. Обменять скин на билеты (FIX 400 ERROR)
 
 class SwapRequest(BaseModel):
@@ -26340,7 +26341,7 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
     """
     TM_API_KEY = os.getenv("CSGO_MARKET_API_KEY")
     if not TM_API_KEY:
-        return {"status": "error", "message": "No TM API key"}
+        return {"status": "error", "message": "Отсутствует API ключ TM"}
 
     results_log = []
 
@@ -26365,10 +26366,9 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
                     p_id = rec.get("id")
                     # Удаляем фантома, чтобы он не выдавал ошибку при продаже
                     await supabase.delete("/cs_history", params={"id": f"eq.{p_id}"})
-                    results_log.append(f"CLEANUP: Deleted phantom item #{p_id}")
+                    results_log.append(f"ОЧИСТКА: Удален фантомный предмет #{p_id}")
     except Exception as e:
-        logging.error(f"Cleanup error: {e}")
-
+        logging.error(f"Ошибка очистки: {e}")
 
     # =========================================================
     # ФАЗА 1: ПРОВЕРКА ТРЕЙДОВ МАРКЕТА
@@ -26394,6 +26394,10 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
             trade_id = trade["id"]
             updated_at_str = trade.get("updated_at")
             
+            # Добавлено для работы patch-запросов (чтобы избежать NameError)
+            current_status = trade.get("status")
+            now_iso = now.isoformat()
+            
             trade_time = parser.parse(updated_at_str) if updated_at_str else now
             minutes_passed = (now - trade_time).total_seconds() / 60
 
@@ -26405,7 +26409,7 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
                 if tm_res.status_code != 200:
                     if minutes_passed > 15: 
                         await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "available"})
-                        results_log.append(f"#{trade_id}: TM API Silent -> available")
+                        results_log.append(f"#{trade_id}: TM API не отвечает -> доступен (available)")
                     continue
 
                 tm_data = tm_res.json()
@@ -26414,35 +26418,35 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
                 if not tm_data.get("success") or not trade_info:
                     if minutes_passed > 10:
                         await supabase.patch("/cs_history", params={"id": f"eq.{trade_id}"}, json={"status": "available"})
-                        results_log.append(f"#{trade_id}: Not found on TM 10m -> available")
+                        results_log.append(f"#{trade_id}: Не найден на TM спустя 10 мин -> доступен (available)")
                     continue
 
                 stage = str(trade_info.get("stage"))
 
-                    if stage == "2":
-                        patch_res = await supabase.patch("/cs_history", 
-                            params={"id": f"eq.{trade_id}", "status": f"eq.{current_status}"}, 
-                            json={"status": "received", "updated_at": now_iso},
-                            headers={"Prefer": "return=representation"}
-                        )
-                        if patch_res.status_code >= 400:
-                            msg = f"#{trade_id}: DB ERROR ON SUCCESS -> {patch_res.text}"
-                        else:
-                            msg = f"#{trade_id}: Success -> received"
+                if stage == "2":
+                    patch_res = await supabase.patch("/cs_history", 
+                        params={"id": f"eq.{trade_id}", "status": f"eq.{current_status}"}, 
+                        json={"status": "received", "updated_at": now_iso},
+                        headers={"Prefer": "return=representation"}
+                    )
+                    if patch_res.status_code >= 400:
+                        results_log.append(f"#{trade_id}: ОШИБКА БД ПРИ УСПЕХЕ -> {patch_res.text}")
+                    else:
+                        results_log.append(f"#{trade_id}: Успех -> получен (received)")
 
-                    elif stage in ["4", "5"]:
-                        patch_res = await supabase.patch("/cs_history", 
-                            params={"id": f"eq.{trade_id}", "status": f"eq.{current_status}"}, 
-                            json={"status": "available", "updated_at": now_iso},
-                            headers={"Prefer": "return=representation"}
-                        )
-                        if patch_res.status_code >= 400:
-                            msg = f"#{trade_id}: DB ERROR ON TM CANCEL -> {patch_res.text}"
-                        else:
-                            msg = f"#{trade_id}: TM Canceled -> available"
-                
+                elif stage in ["4", "5"]:
+                    patch_res = await supabase.patch("/cs_history", 
+                        params={"id": f"eq.{trade_id}", "status": f"eq.{current_status}"}, 
+                        json={"status": "available", "updated_at": now_iso},
+                        headers={"Prefer": "return=representation"}
+                    )
+                    if patch_res.status_code >= 400:
+                        results_log.append(f"#{trade_id}: ОШИБКА БД ПРИ ОТМЕНЕ TM -> {patch_res.text}")
+                    else:
+                        results_log.append(f"#{trade_id}: Отменено TM -> доступен (available)")
+            
             except Exception as e:
-                results_log.append(f"#{trade_id}: Error -> {str(e)}")
+                results_log.append(f"#{trade_id}: Ошибка -> {str(e)}")
                 continue
 
     return {
