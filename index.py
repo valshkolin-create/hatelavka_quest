@@ -29126,61 +29126,43 @@ async def admin_manage_cp(
     req: AdminCpRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """(Админ) Управляет уровнями или EXP Чекпоинта. Триггер БД сам пересчитает уровень!"""
+    """(Админ) Устанавливает ТОЧНОЕ значение уровня или EXP. Триггер БД сам пересчитает уровень."""
     user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     try:
-        resp = await supabase.get("/users", params={"telegram_id": f"eq.{req.user_id}", "select": "checkpoint_level, checkpoint_stars"})
+        # Проверяем, существует ли вообще пользователь
+        resp = await supabase.get("/users", params={"telegram_id": f"eq.{req.user_id}", "select": "telegram_id"})
         resp.raise_for_status()
-        data = resp.json()
-        
-        if not data:
+        if not resp.json():
             raise HTTPException(status_code=404, detail="Пользователь не найден.")
-        
-        current_level = data[0].get("checkpoint_level") or 0
-        current_stars = float(data[0].get("checkpoint_stars") or 0.0)
-        
-        final_stars = current_stars
 
-        # РЕЖИМ 1: ПРЯМОЕ УПРАВЛЕНИЕ ОПЫТОМ (EXP)
+        # Берем введенную тобой цифру (с защитой от отрицательных значений)
+        target_val = max(0.0, float(req.amount))
+        final_stars = 0.0
+
+        # РЕЖИМ 1: УСТАНОВКА КОНКРЕТНОГО ОПЫТА (EXP)
         if getattr(req, "target", "levels") == "exp":
-            if req.action_type == "add":
-                final_stars += req.amount
-            else:
-                final_stars = max(0.0, current_stars - req.amount)
+            final_stars = target_val
                 
-        # РЕЖИМ 2: УПРАВЛЕНИЕ УРОВНЯМИ (с сохранением излишка EXP)
+        # РЕЖИМ 2: УСТАНОВКА КОНКРЕТНОГО УРОВНЯ
         else:
-            current_base_stars = 0.0
-            if current_level > 0:
-                cur_tier_resp = await supabase.get("/checkpoint_tiers", params={"level": f"eq.{current_level}", "select": "required_stars"})
-                if cur_tier_resp.is_success and cur_tier_resp.json():
-                    current_base_stars = float(cur_tier_resp.json()[0].get("required_stars", 0.0))
-            
-            excess_stars = max(0.0, current_stars - current_base_stars)
-
-            if req.action_type == "add":
-                new_level = current_level + int(req.amount)
-            else:
-                new_level = max(0, current_level - int(req.amount))
-
-            new_stars = 0.0
-            if new_level > 0:
-                tier_resp = await supabase.get("/checkpoint_tiers", params={"level": f"eq.{new_level}", "select": "required_stars"})
+            target_level = int(target_val)
+            if target_level > 0:
+                # Идем в БД и смотрим, сколько звезд стоит этот конкретный уровень
+                tier_resp = await supabase.get("/checkpoint_tiers", params={"level": f"eq.{target_level}", "select": "required_stars"})
                 if tier_resp.is_success and tier_resp.json():
-                    new_stars = float(tier_resp.json()[0].get("required_stars", 0.0))
+                    final_stars = float(tier_resp.json()[0].get("required_stars", 0.0))
                 else:
+                    # ЗАЩИТА: Если ты вписал уровень больше максимального, берем самый последний
                     max_tier_resp = await supabase.get("/checkpoint_tiers", params={"select": "level, required_stars", "order": "level.desc", "limit": "1"})
                     if max_tier_resp.is_success and max_tier_resp.json():
                         max_tier = max_tier_resp.json()[0]
-                        if new_level > max_tier["level"]:
-                            new_stars = float(max_tier["required_stars"])
+                        if target_level > max_tier["level"]:
+                            final_stars = float(max_tier["required_stars"])
 
-            final_stars = new_stars + excess_stars
-
-        # Сохраняем ТОЛЬКО звезды. Триггер базы данных сам мгновенно пересчитает уровень!
+        # Сохраняем ТОЛЬКО звезды. Автопилот (триггер) в базе сам присвоит нужный уровень!
         patch_resp = await supabase.patch(
             "/users", 
             params={"telegram_id": f"eq.{req.user_id}"}, 
@@ -29188,9 +29170,9 @@ async def admin_manage_cp(
         )
         patch_resp.raise_for_status()
 
-        return {"message": f"Прогресс обновлен! Звезд: {final_stars}"}
+        return {"message": f"Прогресс установлен! Звезд: {final_stars}"}
     except Exception as e:
-        logging.error(f"Ошибка изменения прогресса CP для {req.user_id}: {e}")
+        logging.error(f"Ошибка установки прогресса CP для {req.user_id}: {e}")
         raise HTTPException(status_code=500, detail="Ошибка базы данных.")
 
 
