@@ -249,12 +249,12 @@
                     <div>
                         <label>💬 Twitch (Сообщ.)</label>
                         <div style="display: flex; gap: 8px;">
-                            <select name="msg_period" style="width: 40%; padding: 12px; background: var(--card-bg); border: 1px solid var(--card-border); color: var(--text); border-radius: 12px; font-size: 14px; outline: none;" onchange="updatePreview()">
+                            <select name="msg_period" style="flex: 1; padding: 12px; background: var(--card-bg); border: 1px solid var(--card-border); color: var(--text); border-radius: 12px; font-size: 14px; outline: none;" onchange="updatePreview()">
                                 <option value="daily">За стрим</option>
                                 <option value="weekly">За неделю</option>
                                 <option value="monthly">За месяц</option>
                             </select>
-                            <input type="number" name="min_msgs" placeholder="0" oninput="updatePreview()" style="width: 60%;">
+                            <input type="number" name="min_msgs" placeholder="0" oninput="updatePreview()" style="width: 75px; flex-shrink: 0; text-align: center;">
                         </div>
                     </div>
 
@@ -275,7 +275,7 @@
                 </div>
 
                 <label style="margin-top:15px;">🏷 Обязательный тег в нике</label>
-                <input type="text" name="name_tag" placeholder="Например: HATE" oninput="updatePreview()">
+                <input type="text" name="name_tag" placeholder="Например: HATE" oninput="updatePreview()" style="margin-bottom: 10px;">
             </div>
             
             <div class="section-box">
@@ -758,9 +758,16 @@
                 btn.innerHTML = `<i class="fa-solid fa-check"></i><span>СОЗДАТЬ ОТЛОЖЕННЫЙ</span>`;
                 btn.style.background = "var(--primary)";
                 btn.style.color = "#000";
-                document.querySelector('.admin-form').scrollIntoView({ behavior: 'smooth' });
+                
+                // Плавно скроллим прямо к полю времени и фокусируемся на нем
+                box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                setTimeout(() => {
+                    const startInp = document.getElementById('inp-start-time');
+                    if (startInp) startInp.focus(); // Вызовет системный календарь/клавиатуру
+                }, 300);
             } else {
-                submitRaffle(true);
+                // Изменил на false, чтобы отложенный розыгрыш не создавался "тихим" по умолчанию
+                submitRaffle(false); 
             }
         }
         
@@ -1260,6 +1267,28 @@ async function showParts(id) {
         }
 
 // Защита даты (блокируем прошлое и подставляем текущее время)
+        function toggleScheduleMode() {
+            const box = document.getElementById('schedule-setup');
+            const btn = document.getElementById('btn-schedule');
+            
+            if (box.classList.contains('hidden')) {
+                box.classList.remove('hidden');
+                btn.innerHTML = `<i class="fa-solid fa-check"></i><span>СОЗДАТЬ ОТЛОЖЕННЫЙ</span>`;
+                btn.style.background = "var(--primary)";
+                btn.style.color = "#000";
+                
+                // 🔥 Плавно направляем на выбор времени и открываем календарь
+                box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                setTimeout(() => {
+                    const startInp = document.getElementById('inp-start-time');
+                    if (startInp) startInp.focus();
+                }, 300);
+            } else {
+                submitRaffle(false); 
+            }
+        }
+
+        // Защита даты (блокируем прошлое, но НЕ подставляем время автоматически)
         function initDateProtection() {
             const now = new Date();
             // Выравниваем часовой пояс для корректного отображения в datetime-local
@@ -1270,15 +1299,18 @@ async function showParts(id) {
             const startTimeInput = document.getElementById('inp-start-time');
             
             if (endTimeInput) {
+                // Ставим защиту, чтобы календарь начинался с 2026 года и не давал выбрать прошлое
                 endTimeInput.min = minDateTime;
                 endTimeInput.addEventListener('focus', function() {
-                    if (!this.value) this.value = minDateTime;
+                    // Автоподстановка отключена, как ты и просил:
+                    // if (!this.value) this.value = minDateTime; 
                 });
             }
             if (startTimeInput) {
                 startTimeInput.min = minDateTime;
                 startTimeInput.addEventListener('focus', function() {
-                    if (!this.value) this.value = minDateTime;
+                    // Автоподстановка отключена:
+                    // if (!this.value) this.value = minDateTime; 
                 });
             }
         }
@@ -1289,4 +1321,5 @@ async function showParts(id) {
         switchTab('create');
     </script>
 </body>
+</html>
 </html>
