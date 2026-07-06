@@ -1536,6 +1536,10 @@ class RaffleSettings(BaseModel):
     # Старые проверки
     min_daily_messages: int = 0          # Twitch сообщения
     requires_telegram_sub: bool = False  # Подписка на канал
+
+    # 🔥 НОВЫЕ ТВИЧ-УСЛОВИЯ (Добавили, чтобы Pydantic их не удалял!)
+    min_messages: int = 0
+    message_period: str = "daily"
     
     # 🔥 ПРОВЕРКИ ЮЗЕРА (Под твою БД)
     ticket_cost: int = 0                 # Цена в билетах (списываем с tickets)
