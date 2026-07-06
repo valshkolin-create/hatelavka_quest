@@ -343,6 +343,10 @@ function updateLoading(percent) {
 
             // 💀 1. ВЕЧНЫЙ ЭКРАН СМЕРТИ (403 BANNED)
             if (response.status === 403 && errorDetail.includes("BAN")) {
+    
+    // 👇 УБИВАЕМ СТИЛЬ АНТИ-ФЛЕША, ИНАЧЕ ОН СКРОЕТ ЭКРАН БАНА 👇
+    const antiFlash = document.getElementById('anti-flash-style');
+    if (antiFlash) antiFlash.remove();
                 document.body.innerHTML = `
                     <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #000; z-index: 2147483647; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #ff3b30; text-align: center; padding: 30px; box-sizing: border-box; font-family: -apple-system, system-ui, sans-serif;">
                         <i class="fa-solid fa-skull-crossbones" style="font-size: 100px; margin-bottom: 25px; filter: drop-shadow(0 0 20px rgba(255, 59, 48, 0.6)); animation: banPulse 2s infinite;"></i>
