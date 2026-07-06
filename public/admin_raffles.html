@@ -43,9 +43,9 @@
         .icon-btn { width: 36px; height: 36px; border-radius: 12px; background: rgba(255,255,255,0.1); border: 1px solid var(--card-border); color: var(--text); display: flex; align-items: center; justify-content: center; text-decoration: none; font-size: 14px; transition: 0.2s; }
         .icon-btn:active { transform: scale(0.9); background: rgba(255,255,255,0.2); }
 
-        /* --- Tabs --- */
-        .tabs { display: flex; background: rgba(255,255,255,0.05); padding: 4px; border-radius: 14px; margin-bottom: 20px; gap: 5px; overflow-x: auto; }
-        .tab { flex: 1; border: none; background: none; color: var(--text-sec); padding: 10px; font-weight: 600; font-size: 13px; border-radius: 10px; transition: 0.3s; cursor: pointer; white-space: nowrap; text-align: center; }
+       /* --- Tabs --- */
+        .tabs { display: flex; background: rgba(255,255,255,0.05); padding: 4px; border-radius: 12px; margin-bottom: 20px; gap: 4px; overflow-x: auto; }
+        .tab { flex: 1; border: none; background: none; color: var(--text-sec); padding: 8px 4px; font-weight: 600; font-size: 11px; border-radius: 8px; transition: 0.3s; cursor: pointer; white-space: nowrap; text-align: center; }
         .tab.active { background: rgba(255,255,255,0.1); color: var(--text); box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
 
         /* --- Forms --- */
@@ -986,16 +986,35 @@
         }
 
         async function loadRaffles() {
+            const cActive = document.getElementById('list-container');
+            const cSched = document.getElementById('scheduled-container');
+            const cCompl = document.getElementById('completed-container');
+            
+            // Ставим крутилку во все вкладки перед запросом
+            const loader = '<div style="text-align:center; padding: 40px; color: var(--text-sec);"><i class="fa-solid fa-circle-notch fa-spin"></i> Загрузка...</div>';
+            cActive.innerHTML = loader;
+            cSched.innerHTML = loader;
+            cCompl.innerHTML = loader;
+
             try {
                 const res = await fetch('/api/v1/admin/raffles/list', {
                     method: 'POST', headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({initData: tg.initData})
                 });
                 const data = await res.json();
+                
+                // Защита: если прилетела ошибка (объект) вместо массива
+                if (!Array.isArray(data)) {
+                    throw new Error(data.detail || 'Ответ сервера не является массивом');
+                }
+                
                 renderList(data);
             } catch(e) { 
-                console.error(e);
-                document.getElementById('list-container').innerHTML = '<p style="text-align:center; color:#ff4d4d;">Ошибка</p>';
+                console.error("Ошибка загрузки списков:", e);
+                const errMsg = '<div style="text-align:center; padding: 40px; color:#ff4d4d;"><i class="fa-solid fa-triangle-exclamation"></i> Ошибка загрузки данных</div>';
+                cActive.innerHTML = errMsg;
+                cSched.innerHTML = errMsg;
+                cCompl.innerHTML = errMsg;
             }
         }
 
