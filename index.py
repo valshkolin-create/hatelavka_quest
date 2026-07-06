@@ -23017,35 +23017,24 @@ async def get_admin_raffles(
     if not user_info or user_info['id'] not in ADMIN_IDS: 
         raise HTTPException(status_code=403, detail="Доступ запрещен")
 
-    # 1. Запрашиваем данные. 
-    # Если foreign key называется winner_id, надежнее использовать: "winner:users!winner_id(...)"
-    main_query_params = {
-        "select": "*, winner:users(full_name, username, trade_link)", 
-        "order": "created_at.desc"
-    }
-
-    resp = await supabase.get("/raffles", params=main_query_params)
+    # Используем точный Foreign Key из твоей схемы для связи с таблицей users
+    resp = await supabase.get(
+        "/raffles", 
+        params={
+            "select": "*, winner:users!raffles_winner_id_fkey(full_name, username, trade_link)", 
+            "order": "created_at.desc"
+        }
+    )
     
-    # 2. Fallback: если Supabase ругается на связи (ошибка 400), пробуем вытащить без джоина
     if resp.status_code not in (200, 201):
-        print(f"⚠️ Ошибка Join'а с users: {resp.text}")
-        print("🔄 Пробую загрузить список без победителей...")
-        
-        resp = await supabase.get(
-            "/raffles", 
-            params={"select": "*", "order": "created_at.desc"}
-        )
-        
-        if resp.status_code not in (200, 201):
-            print(f"❌ ФАТАЛЬНАЯ ОШИБКА БД: {resp.text}")
-            raise HTTPException(status_code=500, detail="Ошибка базы данных при загрузке списка")
+        print(f"❌ ФАТАЛЬНАЯ ОШИБКА БД: {resp.text}")
+        raise HTTPException(status_code=500, detail="Ошибка базы данных при загрузке списка")
 
-    raw_data = resp.json()
-    formatted_data = []
-
-    # 3. Чистим и готовим данные для капризного фронтенда
-    for row in raw_data:
-        # А. Железобетонный парсинг settings. Если база отдала строку — превращаем в словарь.
+    data = resp.json()
+    
+    # Железобетонная обработка данных для фронтенда
+    for row in data:
+        # 1. Защита парсинга settings
         settings = row.get("settings", {})
         if isinstance(settings, str):
             try:
@@ -23054,14 +23043,14 @@ async def get_admin_raffles(
                 settings = {}
         row["settings"] = settings
 
-        # Б. Фикс формата победителя. Supabase иногда оборачивает join в массив [{...}]
-        winner_data = row.get("winner")
-        if isinstance(winner_data, list):
-            row["winner"] = winner_data[0] if len(winner_data) > 0 else None
-            
-        formatted_data.append(row)
+        # 2. Supabase иногда отдает связанную запись как массив, фронту нужен объект
+        w = row.get("winner")
+        if isinstance(w, list) and len(w) > 0:
+            row["winner"] = w[0]
+        elif isinstance(w, list):
+            row["winner"] = None
 
-    return formatted_data
+    return data
 
 # 2.5 (Админ) Получить список участников
 @app.post("/api/v1/admin/raffles/participants")
