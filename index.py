@@ -22995,7 +22995,7 @@ async def get_admin_raffles(
 ):
     user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
     if not user_info or user_info['id'] not in ADMIN_IDS: 
-        raise HTTPException(status_code=403)
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
 
     resp = await supabase.get(
         "/raffles", 
@@ -23004,6 +23004,12 @@ async def get_admin_raffles(
             "order": "created_at.desc"
         }
     )
+    
+    # 🔥 ХИРУРГИЧЕСКАЯ ПРОВЕРКА: Ловим тихие ошибки Supabase
+    if resp.status_code not in (200, 201):
+        print(f"❌ ОШИБКА БД ПРИ ЗАГРУЗКЕ СПИСКА: {resp.text}")
+        raise HTTPException(status_code=500, detail="Ошибка базы данных при загрузке списка")
+        
     return resp.json()
 
 # 2.5 (Админ) Получить список участников
