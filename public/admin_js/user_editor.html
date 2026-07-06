@@ -269,7 +269,7 @@
 
             <!-- Тумблер Premium -->
             <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: rgba(255, 215, 0, 0.05); border: 1px solid rgba(255, 215, 0, 0.3); border-radius: 12px; margin-bottom: 15px;">
-                <span style="font-size: 14px; font-weight: 700; color: var(--primary);"><i class="fa-solid fa-star"></i> Checkpoint Premium</span>
+                <span style="font-size: 14px; font-weight: 700; color: var(--primary);"><i class="fa-solid fa-star"></i> PREMIUM награда</span>
                 <label class="toggle-switch" style="margin: 0; transform: scale(0.9);">
                     <input type="checkbox" id="hasPremium" onchange="submitStatus(true)">
                     <span class="slider"></span>
@@ -600,6 +600,7 @@ window.makeApiRequest = async function(endpoint, arg2 = 'GET', arg3 = null) {
             document.getElementById('searchInput').value = '';
             document.getElementById('searchResults').style.display = 'none';
             currentUser = null;
+            renderSearchHistory(); // <--- ВОТ ЭТА СТРОКА ДОСТАЕТ ИСТОРИЮ ИЗ КЭША ПРИ СТАРТЕ
             loadBannedUsers(); 
         }
 
