@@ -4,14 +4,23 @@
     // ==========================================
     function triggerBanScreen() {
         try {
-            // Полностью уничтожаем всю страницу и рисуем экран смерти с нуля
-            document.documentElement.innerHTML = `
+            // 1. Экстренно останавливаем загрузку всех остальных скриптов и ресурсов
+            window.stop();
+
+            // 2. Уничтожаем старый DOM и пишем новый с чистого листа. 
+            // Это надежнее, чем innerHTML, так как убивает всех привязанных MutationObserver'ов.
+            document.open();
+            document.write(`
+                <!DOCTYPE html>
+                <html lang="ru">
                 <head>
+                    <meta charset="UTF-8">
                     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
                     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
                     <title>Доступ закрыт</title>
                     <style>
-                        body { margin: 0; padding: 0; background: #000; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: -apple-system, BlinkMacSystemFont, sans-serif; text-align: center; color: #ff3b30; }
+                        /* Добавлены !important для защиты от остаточных стилей приложения */
+                        body { margin: 0 !important; padding: 0 !important; background: #000 !important; overflow: hidden !important; display: flex !important; flex-direction: column !important; align-items: center !important; justify-content: center !important; height: 100vh !important; font-family: -apple-system, BlinkMacSystemFont, sans-serif !important; text-align: center !important; color: #ff3b30 !important; }
                         .skull { font-size: 100px; margin-bottom: 20px; animation: pulse 2s infinite; filter: drop-shadow(0 0 20px rgba(255, 59, 48, 0.6)); }
                         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); opacity: 0.8; } 100% { transform: scale(1); } }
                         h1 { font-size: 28px; font-weight: 900; color: #fff; text-transform: uppercase; margin: 0 0 10px 0; letter-spacing: 1px; }
@@ -28,8 +37,10 @@
                     <a href="https://t.me/hatelove_twitch"><i class="fa-brands fa-telegram" style="font-size: 18px;"></i> СВЯЗАТЬСЯ СО МНОЙ</a>
                     <div class="footer">Если ты считаешь, что это произошло по ошибке,<br>напиши в поддержку для разбора ситуации.</div>
                 </body>
-            `;
-            
+                </html>
+            `);
+            document.close();
+
             if (window.Telegram?.WebApp?.HapticFeedback) {
                 Telegram.WebApp.HapticFeedback.notificationOccurred('error');
             }
@@ -38,7 +49,7 @@
         }
     }
 
-    // Делаем доступной извне на всякий случай
+    // Жестко фиксируем метод в window
     if (!window.triggerBanScreen) {
         Object.defineProperty(window, 'triggerBanScreen', { value: triggerBanScreen, writable: false, configurable: false });
     }
@@ -48,21 +59,20 @@
     // ==========================================
     const originalFetch = window.fetch;
     window.fetch = async function(...args) {
-        const response = await originalFetch.apply(this, args);
+        // Принудительно используем window как контекст
+        const response = await originalFetch.apply(window, args);
         
-        if (!response.ok) {
+        // Перехватываем только 403 статус, чтобы не тратить ресурсы на каждый чих
+        if (!response.ok && response.status === 403) {
             try {
                 const clone = response.clone();
-                // Читаем как текст, чтобы не упало, если сервер вернул не JSON
                 const text = await clone.text(); 
                 const upperText = text.toUpperCase();
                 
-                // Ищем признаки блокировки
                 if (upperText.includes("BAN") || upperText.includes("BANNED") || upperText.includes("ЗАБЛОКИРОВАН")) {
                     console.error("💀 [BAN.JS] СЕРВЕР ОТВЕТИЛ БАНОМ! БЛОКИРУЮ ИНТЕРФЕЙС!");
-                    triggerBanScreen();
+                    window.triggerBanScreen();
                     
-                    // Жестко пишем в кэш
                     try {
                         const cached = JSON.parse(localStorage.getItem('cache_bootstrap') || '{}');
                         if (!cached.user) cached.user = {};
@@ -70,7 +80,7 @@
                         localStorage.setItem('cache_bootstrap', JSON.stringify(cached));
                     } catch(e) {}
                     
-                    // Замораживаем весь остальной JS на странице
+                    // Замораживаем код, ожидавший ответа от сервера
                     return new Promise(() => {});
                 }
             } catch (e) {
@@ -87,13 +97,12 @@
     function checkCache() {
         try {
             const cached = JSON.parse(localStorage.getItem('cache_bootstrap') || '{}');
-            if (cached && cached.user && cached.user.is_banned === true) {
+            if (cached?.user?.is_banned) {
                 console.error("💀 [BAN.JS] ЮЗЕР УЖЕ В БАНЕ ПО КЭШУ!");
-                triggerBanScreen();
+                window.triggerBanScreen();
             }
         } catch (e) {}
     }
     
     checkCache();
-
 })();
