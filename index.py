@@ -29218,33 +29218,54 @@ async def admin_unbind_account(
 # =========================================================================
 # УПРАВЛЕНИЕ ГРИНДОМ (Стрик, Монеты, Твич)
 # =========================================================================
-@app.post("/api/v1/admin/users/manage-grind")
-async def admin_manage_grind(
-    req: AdminGrindRequest,
+@app.post("/api/v1/admin/users/manage-cp")
+async def admin_manage_cp(
+    req: AdminCpRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """(Админ) Изменяет стрик, гринд-монеты и статус Twitch."""
+    """(Админ) Добавляет или забирает уровни Чекпоинта (Battle Pass) и синхронизирует XP (звезды)."""
     user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     try:
-        update_data = {
-            "streak_days": req.streak_days,
-            "coins": req.coins,
-            "twitch_status": req.twitch_status
-        }
+        # 1. Получаем текущий уровень И ЗВЕЗДЫ пользователя
+        resp = await supabase.get("/users", params={"telegram_id": f"eq.{req.user_id}", "select": "checkpoint_level, checkpoint_stars"})
+        resp.raise_for_status()
+        data = resp.json()
         
-        resp = await supabase.patch(
+        if not data:
+            raise HTTPException(status_code=404, detail="Пользователь не найден.")
+        
+        current_level = data[0].get("checkpoint_level") or 0
+        current_stars = float(data[0].get("checkpoint_stars") or 0.0)
+        
+        # Переводим уровни из запроса в звезды (1 уровень = 10 звезд)
+        stars_amount = req.amount * 10
+
+        # 2. Считаем новые значения
+        if req.action_type == "add":
+            new_level = current_level + req.amount
+            new_stars = current_stars + stars_amount
+        else:
+            # Защита от ухода в минус для обоих параметров
+            new_level = max(0, current_level - req.amount)
+            new_stars = max(0.0, current_stars - stars_amount)
+
+        # 3. Сохраняем в базу ОБА параметра
+        patch_resp = await supabase.patch(
             "/users", 
             params={"telegram_id": f"eq.{req.user_id}"}, 
-            json=update_data
+            json={
+                "checkpoint_level": new_level,
+                "checkpoint_stars": new_stars
+            }
         )
-        resp.raise_for_status()
+        patch_resp.raise_for_status()
 
-        return {"message": "Гринд статус успешно обновлен!"}
+        return {"message": f"Уровни обновлены! Текущий уровень: {new_level}"}
     except Exception as e:
-        logging.error(f"Ошибка изменения гринд статуса для {req.user_id}: {e}")
+        logging.error(f"Ошибка изменения уровней CP для {req.user_id}: {e}")
         raise HTTPException(status_code=500, detail="Ошибка базы данных.")
 
 @app.get("/api/v1/admin/users/{user_id}/full_profile")
