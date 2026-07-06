@@ -23017,33 +23017,35 @@ async def get_admin_raffles(
     if not user_info or user_info['id'] not in ADMIN_IDS: 
         raise HTTPException(status_code=403, detail="Доступ запрещен")
 
-    # Используем точный Foreign Key из твоей схемы для связи с таблицей users
-    resp = await supabase.get(
-        "/raffles", 
-        params={
-            "select": "*, winner:users!raffles_winner_id_fkey(full_name, username, trade_link)", 
-            "order": "created_at.desc"
-        }
-    )
-    
-    if resp.status_code not in (200, 201):
-        print(f"❌ ФАТАЛЬНАЯ ОШИБКА БД: {resp.text}")
-        raise HTTPException(status_code=500, detail="Ошибка базы данных при загрузке списка")
+    # 🔥 ПРОБИВАЕМ БД: Пробуем все варианты синтаксиса от самого строгого к базовому
+    select_variants = [
+        "*, winner:users!raffles_winner_id_fkey(full_name, username, trade_link)",
+        "*, winner:users!winner_id(full_name, username, trade_link)",
+        "*, winner:users(full_name, username, trade_link)",
+        "*" # Экстренный фолбэк: отдаем розыгрыши без данных победителя
+    ]
+
+    resp = None
+    for sel in select_variants:
+        resp = await supabase.get("/raffles", params={"select": sel, "order": "created_at.desc"})
+        if resp.status_code in (200, 201):
+            break # Успех! Выходим из цикла
+
+    if not resp or resp.status_code not in (200, 201):
+        raise HTTPException(status_code=500, detail=f"Ошибка БД: {resp.text}")
 
     data = resp.json()
     
-    # Железобетонная обработка данных для фронтенда
+    # 🔥 ЖЕЛЕЗОБЕТОННАЯ ПОДГОТОВКА ДАННЫХ ДЛЯ ФРОНТА
     for row in data:
-        # 1. Защита парсинга settings
+        # 1. Защита парсинга настроек
         settings = row.get("settings", {})
         if isinstance(settings, str):
-            try:
-                settings = json.loads(settings)
-            except json.JSONDecodeError:
-                settings = {}
+            try: settings = json.loads(settings)
+            except: settings = {}
         row["settings"] = settings
 
-        # 2. Supabase иногда отдает связанную запись как массив, фронту нужен объект
+        # 2. Вытаскиваем победителя из массива (Supabase любит отдавать связи списком)
         w = row.get("winner")
         if isinstance(w, list) and len(w) > 0:
             row["winner"] = w[0]
