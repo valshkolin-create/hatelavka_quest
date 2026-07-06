@@ -1588,9 +1588,9 @@ async function renderFullInterface(data) {
 
                 if (unclaimedQuestsCount > 0) {
                     cpAlertEl.style.display = 'inline-block';
-                    
-                    // Делаем текст призывным, а иконку — пульсирующей
-                    cpAlertEl.innerHTML = `<i class="fa-solid fa-fire fa-beat" style="margin-right: 5px; color: #ff3b30;"></i>ДОСТУПНО НАГРАД: ${unclaimedQuestsCount}`;
+    
+                    // Заменили текст, убрали счетчик и поставили иконку подарка
+                    cpAlertEl.innerHTML = `<i class="fa-solid fa-gift fa-bounce" style="margin-right: 5px; color: #ff3b30;"></i>ЗАБЕРИ НАГРАДУ ЗА ЗАДАНИЕ`;
                     
                     // Накидываем "агрессивные" стили для привлечения внимания
                     cpAlertEl.style.background = '#FFD700'; // Золотой фон
