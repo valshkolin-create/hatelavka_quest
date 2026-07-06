@@ -97,12 +97,18 @@
     function checkCache() {
         try {
             const cached = JSON.parse(localStorage.getItem('cache_bootstrap') || '{}');
-            if (cached?.user?.is_banned) {
+            if (cached && cached.user && cached.user.is_banned === true) {
                 console.error("💀 [BAN.JS] ЮЗЕР УЖЕ В БАНЕ ПО КЭШУ!");
-                window.triggerBanScreen();
+                triggerBanScreen();
             }
         } catch (e) {}
     }
     
-    checkCache();
-})();
+    // Ждем, пока DOM построится, чтобы было куда рисовать экран смерти
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', checkCache);
+    } else {
+        checkCache();
+    }
+
+})(); // Конец файла ban.js
