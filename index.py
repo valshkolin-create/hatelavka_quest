@@ -29096,8 +29096,9 @@ async def commit_tg_slider(
 class AdminCpRequest(BaseModel):
     initData: str
     user_id: int
-    action_type: str  # 'add' или 'subtract'
-    amount: int
+    action_type: str
+    amount: float # Лучше сделать float, так как EXP может быть с копейками
+    target: str = "levels" # 'levels' или 'exp'
 
 class AdminGrindRequest(BaseModel):
     initData: str
@@ -29125,14 +29126,13 @@ async def admin_manage_cp(
     req: AdminCpRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """(Админ) Добавляет или забирает уровни Чекпоинта (Battle Pass)."""
+    """(Админ) Управляет уровнями или EXP Чекпоинта. Триггер БД сам пересчитает уровень!"""
     user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     try:
-        # 1. Получаем текущий уровень пользователя
-        resp = await supabase.get("/users", params={"telegram_id": f"eq.{req.user_id}", "select": "checkpoint_level"})
+        resp = await supabase.get("/users", params={"telegram_id": f"eq.{req.user_id}", "select": "checkpoint_level, checkpoint_stars"})
         resp.raise_for_status()
         data = resp.json()
         
@@ -29140,25 +29140,57 @@ async def admin_manage_cp(
             raise HTTPException(status_code=404, detail="Пользователь не найден.")
         
         current_level = data[0].get("checkpoint_level") or 0
+        current_stars = float(data[0].get("checkpoint_stars") or 0.0)
         
-        # 2. Считаем новый уровень
-        if req.action_type == "add":
-            new_level = current_level + req.amount
-        else:
-            # Защита от ухода в минус
-            new_level = max(0, current_level - req.amount)
+        final_stars = current_stars
 
-        # 3. Сохраняем в базу
+        # РЕЖИМ 1: ПРЯМОЕ УПРАВЛЕНИЕ ОПЫТОМ (EXP)
+        if getattr(req, "target", "levels") == "exp":
+            if req.action_type == "add":
+                final_stars += req.amount
+            else:
+                final_stars = max(0.0, current_stars - req.amount)
+                
+        # РЕЖИМ 2: УПРАВЛЕНИЕ УРОВНЯМИ (с сохранением излишка EXP)
+        else:
+            current_base_stars = 0.0
+            if current_level > 0:
+                cur_tier_resp = await supabase.get("/checkpoint_tiers", params={"level": f"eq.{current_level}", "select": "required_stars"})
+                if cur_tier_resp.is_success and cur_tier_resp.json():
+                    current_base_stars = float(cur_tier_resp.json()[0].get("required_stars", 0.0))
+            
+            excess_stars = max(0.0, current_stars - current_base_stars)
+
+            if req.action_type == "add":
+                new_level = current_level + int(req.amount)
+            else:
+                new_level = max(0, current_level - int(req.amount))
+
+            new_stars = 0.0
+            if new_level > 0:
+                tier_resp = await supabase.get("/checkpoint_tiers", params={"level": f"eq.{new_level}", "select": "required_stars"})
+                if tier_resp.is_success and tier_resp.json():
+                    new_stars = float(tier_resp.json()[0].get("required_stars", 0.0))
+                else:
+                    max_tier_resp = await supabase.get("/checkpoint_tiers", params={"select": "level, required_stars", "order": "level.desc", "limit": "1"})
+                    if max_tier_resp.is_success and max_tier_resp.json():
+                        max_tier = max_tier_resp.json()[0]
+                        if new_level > max_tier["level"]:
+                            new_stars = float(max_tier["required_stars"])
+
+            final_stars = new_stars + excess_stars
+
+        # Сохраняем ТОЛЬКО звезды. Триггер базы данных сам мгновенно пересчитает уровень!
         patch_resp = await supabase.patch(
             "/users", 
             params={"telegram_id": f"eq.{req.user_id}"}, 
-            json={"checkpoint_level": new_level}
+            json={"checkpoint_stars": final_stars}
         )
         patch_resp.raise_for_status()
 
-        return {"message": f"Уровни обновлены! Текущий уровень: {new_level}"}
+        return {"message": f"Прогресс обновлен! Звезд: {final_stars}"}
     except Exception as e:
-        logging.error(f"Ошибка изменения уровней CP для {req.user_id}: {e}")
+        logging.error(f"Ошибка изменения прогресса CP для {req.user_id}: {e}")
         raise HTTPException(status_code=500, detail="Ошибка базы данных.")
 
 
