@@ -178,7 +178,7 @@
                         <span>Билеты</span>
                         <small id="statTickets">...</small>
                     </button>
-                    <button class="action-btn" onclick="openModal('cpModal')" style="border-color: rgba(255, 71, 87, 0.3); background: rgba(255, 71, 87, 0.05);">
+                    <button class="action-btn" onclick="openCpModal()" style="border-color: rgba(255, 71, 87, 0.3); background: rgba(255, 71, 87, 0.05);">
                         <i class="fa-solid fa-flag-checkered" style="color: #ff4757;"></i>
                         <span>Battle Pass</span>
                         <small id="statCpLevel">...</small>
@@ -239,25 +239,24 @@
     <div id="cpModal" class="modal-overlay" onclick="closeOnDim(event)">
         <div class="bottom-sheet admin-form">
             <div class="modal-header">
-                <h3 style="margin:0; font-size: 16px; font-weight: 800; color: #ff4757;"><i class="fa-solid fa-flag-checkered"></i> Прогресс Battle Pass</h3>
+                <h3 style="margin:0; font-size: 16px; font-weight: 800; color: #ff4757;"><i class="fa-solid fa-flag-checkered"></i> Установка прогресса</h3>
                 <button class="back-btn" onclick="closeModal('cpModal')"><i class="fa-solid fa-xmark" style="font-size: 20px;"></i></button>
+            </div>
+            
+            <div style="background: rgba(255, 71, 87, 0.1); border: 1px dashed rgba(255, 71, 87, 0.3); border-radius: 12px; padding: 12px; margin-bottom: 15px; text-align: center;">
+                <div style="font-size: 11px; color: var(--text-sec); margin-bottom: 4px;">Текущие показатели:</div>
+                <div style="font-size: 18px; font-weight: 900; color: #fff;" id="modalCurrentCpStats">LVL: 0 | 0 EXP</div>
             </div>
             
             <label>Что меняем?</label>
             <select id="cpTargetType">
-                <option value="levels">Уровни</option>
-                <option value="exp">Опыт (EXP)</option>
-            </select>
-
-            <label>Действие</label>
-            <select id="cpAction">
-                <option value="add">Начислить (+)</option>
-                <option value="subtract">Списать (-)</option>
+                <option value="levels">Установить точный Уровень</option>
+                <option value="exp">Установить точный Опыт (EXP)</option>
             </select>
             
-            <label>Количество</label>
-            <input type="number" step="0.1" id="cpAmount" placeholder="Например: 5" min="0">
-            <button class="admin-action-btn" onclick="submitCp()" style="background: #ff4757; color: #fff;">Применить</button>
+            <label>Новое значение</label>
+            <input type="number" step="0.1" id="cpAmount" placeholder="Впиши новую цифру" min="0">
+            <button class="admin-action-btn" onclick="submitCp()" style="background: #ff4757; color: #fff;">Сохранить новое значение</button>
         </div>
     </div>
 
@@ -791,27 +790,43 @@ async function submitCoins() {
             finally { tg.MainButton.hideProgress(); }
         }
 
-       async function submitCp() {
+      // Специальная функция открытия, которая подтягивает цифры
+        function openCpModal() {
+            if (!currentUser) return;
+            
+            const lvl = currentUser.checkpoint_level || 0;
+            const exp = currentUser.checkpoint_stars || 0;
+            
+            // Вписываем цифры в модалку
+            document.getElementById('modalCurrentCpStats').innerHTML = `LVL: <span style="color:#ff4757;">${lvl}</span> | <span style="color:var(--primary);">${exp} EXP</span>`;
+            
+            // Очищаем поле ввода на всякий случай
+            document.getElementById('cpAmount').value = '';
+            
+            openModal('cpModal');
+        }
+
+        async function submitCp() {
             const amount = parseFloat(document.getElementById('cpAmount').value);
-            const action = document.getElementById('cpAction').value;
             const targetType = document.getElementById('cpTargetType').value;
             
-            if (!amount || amount <= 0) return tg.showAlert("Введите корректное число");
+            if (isNaN(amount) || amount < 0) return tg.showAlert("Введите корректное число");
 
             tg.MainButton.showProgress();
             try {
                 await fetchApi('/api/v1/admin/users/manage-cp', { 
                     user_id: currentUser.telegram_id, 
-                    action_type: action, 
+                    action_type: 'set', // Отправляем как заглушку для Pydantic модели
                     amount: amount,
-                    target: targetType // <--- ПЕРЕДАЕМ НА БЭКЕНД, ЧТО ИМЕННО МЕНЯЕМ
+                    target: targetType 
                 });
                 
                 if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-                tg.showPopup({message: 'Прогресс Battle Pass обновлен!'});
+                tg.showPopup({message: 'Прогресс успешно установлен!'});
                 closeModal('cpModal');
-                document.getElementById('cpAmount').value = '';
-                loadUser(currentUser.telegram_id); // Сразу перезагрузит профиль и покажет новые EXP и LVL
+                
+                // Перезагружаем профиль, чтобы сразу обновить цифры везде
+                loadUser(currentUser.telegram_id);
             } catch (err) { 
                 tg.showAlert(err.message); 
             } finally { 
