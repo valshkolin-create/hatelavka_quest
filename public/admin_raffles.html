@@ -941,6 +941,7 @@
                     required_name_tag: fd.get('name_tag'),
                     
                     min_messages: parseInt(fd.get('min_msgs') || 0),
+                    min_daily_messages: parseInt(fd.get('min_msgs') || 0), // 🔥 Добавили старый ключ для бэкенда
                     message_period: fd.get('msg_period') || 'daily',
                     
                     is_refund_enabled: fd.get('is_refund_enabled') === 'on',
