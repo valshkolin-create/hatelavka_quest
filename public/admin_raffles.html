@@ -241,9 +241,15 @@
                     </div>
                     <div>
                         <label>💬 Twitch (Сообщ.)</label>
-                        <input type="number" name="min_msgs" placeholder="0" oninput="updatePreview()">
+                        <div style="display: flex; gap: 8px;">
+                            <select name="msg_period" style="width: 40%; padding: 12px; background: var(--card-bg); border: 1px solid var(--card-border); color: var(--text); border-radius: 12px; font-size: 14px; outline: none;" onchange="updatePreview()">
+                                <option value="daily">За стрим</option>
+                                <option value="weekly">За неделю</option>
+                                <option value="monthly">За месяц</option>
+                            </select>
+                            <input type="number" name="min_msgs" placeholder="0" oninput="updatePreview()" style="width: 60%;">
+                        </div>
                     </div>
-                </div>
 
                 <div id="refund-section" class="refund-box">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
@@ -809,6 +815,8 @@
             const minParts = getInpVal('min_participants');
             const tag = getInpVal('name_tag');
             const msgs = getInpVal('min_msgs');
+            const periodSelect = document.querySelector('select[name="msg_period"]');
+            const periodText = periodSelect ? periodSelect.options[periodSelect.selectedIndex].text.toLowerCase() : '';
             const sub = getCheck('sub_req');
             
             const prizeFull = quality ? `${prize} (${quality})` : prize;
@@ -823,7 +831,7 @@
             if(minParts > 0) html += `└ Минимум участников: ${minParts} 👥\n`;
             if(refs > 0) html += `└ Пригласить друзей: ${refs} 👥\n`;
             if(tag) html += `└ Никнейм содержит: «${tag}» 🏷\n`;
-            if(msgs > 0) html += `└ Активность на стриме (${msgs} сообщ.)\n`;
+            if(msgs > 0) html += `└ Активность на стриме (${msgs} сообщ. ${periodText})\n`;
 
             const dateVal = getInpVal('end_time');
             if (dateVal) {
@@ -917,7 +925,9 @@
                     min_referrals: parseInt(fd.get('min_referrals') || 0),
                     min_participants: parseInt(fd.get('min_participants') || 0),
                     required_name_tag: fd.get('name_tag'),
-                    min_daily_messages: parseInt(fd.get('min_msgs') || 0),
+                    
+                    min_messages: parseInt(fd.get('min_msgs') || 0),
+                    message_period: fd.get('msg_period') || 'daily',
                     
                     is_refund_enabled: fd.get('is_refund_enabled') === 'on',
                     refund_percent: parseInt(fd.get('refund_percent') || 100)
@@ -1086,7 +1096,11 @@
             document.querySelector('input[name="min_referrals"]').value = s.min_referrals || '';
             document.querySelector('input[name="min_participants"]').value = s.min_participants || ''; 
             document.querySelector('input[name="name_tag"]').value = s.required_name_tag || '';
-            document.querySelector('input[name="min_msgs"]').value = s.min_daily_messages || '';
+            
+            document.querySelector('input[name="min_msgs"]').value = s.min_messages || s.min_daily_messages || '';
+            const msgPeriodSelect = document.querySelector('select[name="msg_period"]');
+            if (msgPeriodSelect) msgPeriodSelect.value = s.message_period || 'daily';
+
             document.querySelector('input[name="sub_req"]').checked = s.requires_telegram_sub;
             
             document.querySelector('input[name="is_refund_enabled"]').checked = s.is_refund_enabled;
@@ -1238,7 +1252,32 @@ async function showParts(id) {
             m.classList.add('modal-active');
         }
 
+// Защита даты (блокируем прошлое и подставляем текущее время)
+        function initDateProtection() {
+            const now = new Date();
+            // Выравниваем часовой пояс для корректного отображения в datetime-local
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            const minDateTime = now.toISOString().slice(0, 16); 
+            
+            const endTimeInput = document.querySelector('input[name="end_time"]');
+            const startTimeInput = document.getElementById('inp-start-time');
+            
+            if (endTimeInput) {
+                endTimeInput.min = minDateTime;
+                endTimeInput.addEventListener('focus', function() {
+                    if (!this.value) this.value = minDateTime;
+                });
+            }
+            if (startTimeInput) {
+                startTimeInput.min = minDateTime;
+                startTimeInput.addEventListener('focus', function() {
+                    if (!this.value) this.value = minDateTime;
+                });
+            }
+        }
+
         // Инициализация
+        initDateProtection();
         updatePreview();
         switchTab('create');
     </script>
