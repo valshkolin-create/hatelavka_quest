@@ -22990,6 +22990,22 @@ async def create_raffle(
             print(f"⚠️ Ошибка таймера публикации: {e}")
 
     return {"status": "created", "id": new_id}
+
+@app.get("/api/v1/debug-db")
+async def debug_supabase_direct(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    # Идем в БД в лоб, берем 3 последних розыгрыша, без всяких джоинов
+    resp = await supabase.get(
+        "/raffles", 
+        params={"limit": 3, "order": "created_at.desc"}
+    )
+    
+    # Возвращаем всё прямо в браузер
+    return {
+        "status_code": resp.status_code,
+        "is_success": resp.status_code in (200, 201),
+        "raw_text_from_db": resp.text,  # Тут будет текст ошибки, если она есть
+        "parsed_json": resp.json() if resp.status_code in (200, 201) else None
+    }
     
 # 2. (Админ) Список
 @app.post("/api/v1/admin/raffles/list")
