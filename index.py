@@ -23017,43 +23017,48 @@ async def get_admin_raffles(
     if not user_info or user_info['id'] not in ADMIN_IDS: 
         raise HTTPException(status_code=403, detail="Доступ запрещен")
 
-    # 🔥 ПРОБИВАЕМ БД: Пробуем все варианты синтаксиса от самого строгого к базовому
-    select_variants = [
-        "*, winner:users!raffles_winner_id_fkey(full_name, username, trade_link)",
-        "*, winner:users!winner_id(full_name, username, trade_link)",
-        "*, winner:users(full_name, username, trade_link)",
-        "*" # Экстренный фолбэк: отдаем розыгрыши без данных победителя
-    ]
-
-    resp = None
-    for sel in select_variants:
-        resp = await supabase.get("/raffles", params={"select": sel, "order": "created_at.desc"})
-        if resp.status_code in (200, 201):
-            break # Успех! Выходим из цикла
-
-    if not resp or resp.status_code not in (200, 201):
+    # 1. Достаем просто розыгрыши (базовый запрос, который работает всегда)
+    resp = await supabase.get("/raffles", params={"order": "created_at.desc"})
+    if resp.status_code not in (200, 201):
         raise HTTPException(status_code=500, detail=f"Ошибка БД: {resp.text}")
 
-    data = resp.json()
+    raffles = resp.json()
+
+    # 2. Собираем ID всех победителей, которые есть в списке
+    winner_ids = [str(r["winner_id"]) for r in raffles if r.get("winner_id")]
     
-    # 🔥 ЖЕЛЕЗОБЕТОННАЯ ПОДГОТОВКА ДАННЫХ ДЛЯ ФРОНТА
-    for row in data:
-        # 1. Защита парсинга настроек
-        settings = row.get("settings", {})
+    users_map = {}
+    if winner_ids:
+        # 3. Отдельным запросом вытаскиваем инфу победителей
+        users_resp = await supabase.get(
+            "/users", 
+            params={
+                "telegram_id": f"in.({','.join(winner_ids)})",
+                "select": "telegram_id,full_name,username,trade_link"
+            }
+        )
+        if users_resp.status_code in (200, 201):
+            # Собираем словарь {id: данные_пользователя} для быстрого склеивания
+            users_map = {u["telegram_id"]: u for u in users_resp.json()}
+
+    # 4. Соединяем всё вместе и защищаем настройки
+    for r in raffles:
+        # Гарантируем, что settings — это объект, а не строка
+        settings = r.get("settings", {})
         if isinstance(settings, str):
             try: settings = json.loads(settings)
             except: settings = {}
-        row["settings"] = settings
+        r["settings"] = settings
 
-        # 2. Вытаскиваем победителя из массива (Supabase любит отдавать связи списком)
-        w = row.get("winner")
-        if isinstance(w, list) and len(w) > 0:
-            row["winner"] = w[0]
-        elif isinstance(w, list):
-            row["winner"] = None
+        # Вшиваем победителя
+        wid = r.get("winner_id")
+        if wid and wid in users_map:
+            r["winner"] = users_map[wid]
+        else:
+            r["winner"] = None
 
-    return data
-
+    return raffles
+    
 # 2.5 (Админ) Получить список участников
 @app.post("/api/v1/admin/raffles/participants")
 async def get_raffle_participants(
