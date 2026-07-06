@@ -11,7 +11,6 @@
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
         
-        /* Жесткое отображение, если активен */
         #global-ban-overlay.active {
             display: flex !important;
         }
@@ -51,11 +50,7 @@
 
     let isInitialized = false;
 
-    // ==========================================
-    // 3. ДОМИНАНТНАЯ ЛОГИКА
-    // ==========================================
-
-    // Блокируем функцию от перезаписи (как в top_nav.js)
+    // Блокируем функцию от перезаписи
     function lockGlobalFunction(name, fn) {
         if (window[name]) return;
         Object.defineProperty(window, name, {
@@ -68,7 +63,6 @@
     function injectBanDOM() {
         if (document.getElementById('global-ban-overlay')) return; 
 
-        // Внедряем CSS
         if (!document.getElementById('hatelavka-ban-styles')) {
             const styleEl = document.createElement('style');
             styleEl.id = 'hatelavka-ban-styles';
@@ -76,14 +70,13 @@
             document.head.appendChild(styleEl);
         }
 
-        // Внедряем HTML в конец body
         const container = document.createElement('div');
         container.innerHTML = banHtml;
         document.body.appendChild(container.firstElementChild);
     }
 
     // ==========================================
-    // 4. ГЛОБАЛЬНАЯ ЗАЩИЩЕННАЯ ФУНКЦИЯ
+    // 3. ГЛОБАЛЬНАЯ ЗАЩИЩЕННАЯ ФУНКЦИЯ БЛОКИРОВКИ
     // ==========================================
     lockGlobalFunction('triggerBanScreen', function() {
         const overlay = document.getElementById('global-ban-overlay');
@@ -96,11 +89,43 @@
                 Telegram.WebApp.HapticFeedback.notificationOccurred('error');
             }
         } else {
-            // Если по какой-то причине удалили из DOM, восстанавливаем и запускаем снова
             injectBanDOM();
             window.triggerBanScreen();
         }
     });
+
+    // ==========================================
+    // 4. ГЛОБАЛЬНЫЙ ПЕРЕХВАТЧИК ВСЕХ ЗАПРОСОВ (FETCH)
+    // ==========================================
+    const originalFetch = window.fetch;
+    window.fetch = async function(...args) {
+        const response = await originalFetch.apply(this, args);
+        
+        // Как только любой скрипт на любой странице ловит 403
+        if (response.status === 403) {
+            const clone = response.clone();
+            try {
+                const err = await clone.json();
+                const errorDetail = err.detail ? err.detail.toUpperCase() : (err.message ? err.message.toUpperCase() : "");
+                
+                // Если это БАН
+                if (errorDetail.includes("BAN")) {
+                    window.triggerBanScreen(); // Рубим экран
+                    
+                    // Жестко записываем бан в кэш, чтобы после F5 он тоже никуда не делся
+                    try {
+                        const cached = JSON.parse(localStorage.getItem('cache_bootstrap') || '{}');
+                        if (!cached.user) cached.user = {};
+                        cached.user.is_banned = true;
+                        localStorage.setItem('cache_bootstrap', JSON.stringify(cached));
+                    } catch(e) {}
+                    
+                    throw new Error("USER_BANNED"); // Крашим текущий запрос, чтобы он не прошел дальше
+                }
+            } catch (e) {}
+        }
+        return response;
+    };
 
     // ==========================================
     // 5. ИНИЦИАЛИЗАЦИЯ И НАБЛЮДАТЕЛЬ
@@ -111,9 +136,7 @@
             if (cachedBootstrap && cachedBootstrap.user && cachedBootstrap.user.is_banned === true) {
                 window.triggerBanScreen();
             }
-        } catch (e) {
-            console.warn("Ошибка проверки бана:", e);
-        }
+        } catch (e) {}
     }
 
     function bootstrapBan() {
@@ -121,13 +144,12 @@
         isInitialized = true;
 
         injectBanDOM();
-        checkBanStatus();
+        checkBanStatus(); // Проверяем при старте из кэша
 
-        // Наблюдатель (Observer): Если юзер забанен и пытается удалить экран через консоль
+        // Наблюдатель: восстанавливает экран, если юзер попытался удалить его код через консоль
         const observer = new MutationObserver(() => {
             if (!document.getElementById('global-ban-overlay') || !document.getElementById('hatelavka-ban-styles')) {
                 injectBanDOM();
-                // Если боди всё еще заблокировано (был бан) — сразу поднимаем экран обратно
                 if (document.body.classList.contains('banned-locked')) {
                     window.triggerBanScreen();
                 }
