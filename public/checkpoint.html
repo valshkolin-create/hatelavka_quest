@@ -1531,12 +1531,22 @@ window.makeApiRequest = async function(url, data = {}, method = 'POST', addInitD
     
     if (!response.ok) {
         const err = await response.json().catch(() => ({}));
+        const errorDetail = err.detail ? err.detail.toUpperCase() : (err.message ? err.message.toUpperCase() : "");
+        
+        // 🔥 ПРОВЕРКА НА БАН 🔥
+        if (response.status === 403 && errorDetail.includes("BAN")) {
+            if (typeof window.triggerBanScreen === 'function') {
+                window.triggerBanScreen();
+            }
+            throw new Error("USER_BANNED");
+        }
+
         throw new Error(err.detail || 'Ошибка API');
     }
     
     return await response.json();
 };
-
+    
     window.closeAllModals = function() {
     haptic('light');
     document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('modal-active'));
