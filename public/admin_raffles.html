@@ -1288,29 +1288,34 @@ async function showParts(id) {
             }
         }
 
-        // Защита даты (блокируем прошлое, но НЕ подставляем время автоматически)
+        // Защита даты (блокируем прошлое, подставляем текущий год/месяц/день, а время ставим 00:00)
         function initDateProtection() {
             const now = new Date();
-            // Выравниваем часовой пояс для корректного отображения в datetime-local
+            // Выравниваем часовой пояс
             now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            
+            // Точная дата для лимита min (чтобы системный календарь блокировал прошлое)
             const minDateTime = now.toISOString().slice(0, 16); 
+            
+            // Хитрость: берем год, месяц и день из текущей даты, а время обнуляем
+            // Пример: "2026-07-06T00:00"
+            const baseDate = minDateTime.slice(0, 11) + "00:00"; 
             
             const endTimeInput = document.querySelector('input[name="end_time"]');
             const startTimeInput = document.getElementById('inp-start-time');
             
             if (endTimeInput) {
-                // Ставим защиту, чтобы календарь начинался с 2026 года и не давал выбрать прошлое
                 endTimeInput.min = minDateTime;
                 endTimeInput.addEventListener('focus', function() {
-                    // Автоподстановка отключена, как ты и просил:
-                    // if (!this.value) this.value = minDateTime; 
+                    // Подставляем базу, если поле пустое
+                    if (!this.value) this.value = baseDate; 
                 });
             }
             if (startTimeInput) {
                 startTimeInput.min = minDateTime;
                 startTimeInput.addEventListener('focus', function() {
-                    // Автоподстановка отключена:
-                    // if (!this.value) this.value = minDateTime; 
+                    // Подставляем базу, если поле пустое
+                    if (!this.value) this.value = baseDate; 
                 });
             }
         }
@@ -1321,5 +1326,4 @@ async function showParts(id) {
         switchTab('create');
     </script>
 </body>
-</html>
 </html>
