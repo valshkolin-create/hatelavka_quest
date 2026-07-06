@@ -23154,8 +23154,15 @@ async def publish_raffle_webhook(
         min_refs = int(s.get('min_referrals', 0))
         min_coins = float(s.get('min_coins', 0.0))
         name_tag = s.get('required_name_tag')
-        min_msgs = int(s.get('min_daily_messages', 0))
         sub_req = s.get('requires_telegram_sub', False)
+
+        # ==========================================
+        # 🔥 ИСПРАВЛЕННАЯ ЛОГИКА TWITCH (КАК В CREATE_RAFFLE)
+        # ==========================================
+        min_msgs = int(s.get('min_messages') or s.get('min_daily_messages') or 0)
+        msg_period = s.get('message_period', 'daily')
+        period_map = {'daily': 'за стрим', 'weekly': 'за неделю', 'monthly': 'за месяц'}
+        period_str = period_map.get(msg_period, 'за стрим')
 
         txt = f"🚀 <b>РОЗЫГРЫШ ДЛЯ МОИХ ПАЧАНОВ</b>\n\n"
         if desc: txt += f"<i>{desc}</i>\n\n"
@@ -23178,8 +23185,10 @@ async def publish_raffle_webhook(
             txt += f"└ Баланс в боте: {int(min_coins)} монет 💰\n"
         if name_tag:
             txt += f"└ Никнейм содержит: «{name_tag}» 🏷\n"
+            
+        # 🔥 ТЕПЕРЬ ТЕКСТ ПОДСТАВЛЯЕТСЯ ПРАВИЛЬНО
         if min_msgs > 0:
-            txt += f"└ Активность на стриме ({min_msgs} сообщ.)\n"
+            txt += f"└ Активность на стриме ({min_msgs} сообщ. {period_str})\n"
 
         if raffle.get('end_time'):
             try:
