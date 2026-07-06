@@ -22791,8 +22791,6 @@ async def update_raffle_button(bot, channel_id, message_id, raffle_id, count):
         print(f"⚠️ Button Update Skip: {e}")
 
 
-# 1. (Админ) Создать розыгрыш + Пост + Таймер
-# 1. (Админ) Создать розыгрыш + Пост + Таймер
 @app.post("/api/v1/admin/raffles/create")
 async def create_raffle(
     req: RaffleCreateRequest, 
@@ -22903,7 +22901,11 @@ async def create_raffle(
                 price = s.get('price_rub')
 
                 # Условия
-                min_msgs = int(s.get('min_daily_messages', 0))
+                min_msgs = int(s.get('min_messages') or s.get('min_daily_messages') or 0)
+                msg_period = s.get('message_period', 'daily')
+                period_map = {'daily': 'за стрим', 'weekly': 'за неделю', 'monthly': 'за месяц'}
+                period_str = period_map.get(msg_period, 'за стрим')
+
                 ticket_cost = int(s.get('ticket_cost', 0))
                 min_refs = int(s.get('min_referrals', 0))
                 min_participants = int(s.get('min_participants', 0)) 
@@ -22935,7 +22937,7 @@ async def create_raffle(
                 if name_tag:
                     txt += f"└ Никнейм содержит: «{name_tag}» 🏷\n"
                 if min_msgs > 0:
-                    txt += f"└ Активность на стриме ({min_msgs} сообщ.)\n"
+                    txt += f"└ Активность на стриме ({min_msgs} сообщ. {period_str})\n"
 
                 if req.end_time:
                     try:
@@ -23227,16 +23229,23 @@ async def join_raffle(
         raise HTTPException(status_code=400, detail="⚠️ Укажите Trade Link в профиле!")
 
     # --- ПРОВЕРКА СООБЩЕНИЙ (TWITCH) ---
-    min_msgs = int(settings.get('min_daily_messages', 0))
+    min_msgs = int(settings.get('min_messages') or settings.get('min_daily_messages') or 0)
+    msg_period = settings.get('message_period', 'daily')
+
+    period_db_map = {
+        'daily': ('daily_message_count', 'за сегодня'),
+        'weekly': ('weekly_message_count', 'за неделю'),
+        'monthly': ('monthly_message_count', 'за месяц')
+    }
     
-    # Берем именно daily_message_count (это твич, судя по JSON)
-    user_msgs = int(user_row.get('daily_message_count', 0))
+    db_field, period_text = period_db_map.get(msg_period, period_db_map['daily'])
+    user_msgs = int(user_row.get(db_field, 0))
 
     if min_msgs > 0 and user_msgs < min_msgs:
-        print(f"❌ Join Error: Мало сообщений ({user_msgs} < {min_msgs})")
+        print(f"❌ Join Error: Мало сообщений {msg_period} ({user_msgs} < {min_msgs})")
         raise HTTPException(
             status_code=400, 
-            detail=f"⚠️ Мало актива на стриме! Нужно: {min_msgs} сообщ. за сегодня (у тебя: {user_msgs})"
+            detail=f"⚠️ Мало актива на стриме! Нужно: {min_msgs} сообщ. {period_text} (у тебя: {user_msgs})"
         )
 
     ticket_cost = int(settings.get('ticket_cost', 0))
@@ -23246,13 +23255,12 @@ async def join_raffle(
         print(f"❌ Join Error: Мало билетов ({user_tickets} < {ticket_cost})")
         raise HTTPException(status_code=400, detail=f"⚠️ Не хватает билетов! Нужно: {ticket_cost}")
 
-
     # Если всё ок
     if ticket_cost > 0:
         new_balance = user_tickets - ticket_cost
         await supabase.patch("/users", params={"telegram_id": f"eq.{user_id}"}, json={"tickets": new_balance})
 
-    source_type = "twitch" if int(settings.get('min_daily_messages', 0)) > 0 else "telegram"
+    source_type = "twitch" if min_msgs > 0 else "telegram"
     
     await supabase.post("/raffle_participants", json={
         "raffle_id": req.raffle_id,
@@ -23291,7 +23299,6 @@ async def join_raffle(
     # Стандартное сообщение
     success_msg = "Участие принято! 🍀"
     
-    # Проверяем наличие чужого бота (убедись, что функция check_bot_penalty добавлена в код выше)
     # Проверяем наличие чужого бота
     if check_bot_penalty(full_name, username):
         success_msg = (
