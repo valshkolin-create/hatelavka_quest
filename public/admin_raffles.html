@@ -26,6 +26,13 @@
             margin: 0; padding: 20px;
             -webkit-tap-highlight-color: transparent;
             padding-bottom: 100px;
+            
+            /* 🔥 МАГИЯ МАСШТАБА 🔥 */
+            /* 1.0 — это 100%, 0.85 — это 85% от оригинального размера */
+            zoom: 0.85; 
+            /* Для некоторых версий Firefox (если будешь открывать с ПК) */
+            -moz-transform: scale(0.85); 
+            -moz-transform-origin: top center;
         }
 
         /* --- Header --- */
