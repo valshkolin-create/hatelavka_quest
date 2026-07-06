@@ -112,6 +112,15 @@
         .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 2px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; }
         input:checked + .slider { background-color: var(--primary); }
         input:checked + .slider:before { transform: translateX(18px); }
+        /* --- История поиска --- */
+        .history-wrapper { margin-top: 15px; display: none; animation: fadeIn 0.3s ease; }
+        .history-title { font-size: 11px; color: var(--text-sec); margin-bottom: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+        .history-list { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 5px; -webkit-overflow-scrolling: touch; }
+        .history-list::-webkit-scrollbar { display: none; }
+        .history-chip { display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.05); padding: 4px 10px 4px 4px; border-radius: 20px; cursor: pointer; border: 1px solid rgba(255,255,255,0.05); transition: 0.2s; flex-shrink: 0; }
+        .history-chip:active { transform: scale(0.95); background: rgba(255,255,255,0.1); border-color: var(--primary); }
+        .history-chip img { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; background: #000; }
+        .history-chip span { font-size: 11px; font-weight: 600; color: var(--text); white-space: nowrap; max-width: 80px; overflow: hidden; text-overflow: ellipsis; }
     </style>
 </head>
 <body>
@@ -127,6 +136,16 @@
                 <input type="text" id="searchInput" placeholder="Telegram ID, @ник или Twitch..." autocomplete="off">
                 <div id="searchResults" style="display: none; margin-top: 10px; max-height: 250px; overflow-y: auto;"></div>
             </div>
+
+            <div id="searchHistoryWrapper" class="history-wrapper">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <div class="history-title" style="margin-bottom: 0;"><i class="fa-solid fa-clock-rotate-left"></i> Недавние</div>
+                        <button onclick="clearSearchHistory()" style="background: none; border: none; color: var(--text-sec); font-size: 14px; cursor: pointer; padding: 4px; transition: 0.2s;" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--text-sec)'">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                    <div id="searchHistoryList" class="history-list"></div>
+                </div>
 
             <div class="section-box" id="bannedSection" style="border-color: rgba(255, 77, 77, 0.3); background: rgba(255, 77, 77, 0.05);">
                 <h3 class="sec-title" style="color: var(--danger); justify-content: space-between; cursor: pointer; margin: 0;" onclick="toggleBanned()">
@@ -247,8 +266,17 @@
                 <div style="font-size: 11px; color: var(--text-sec); margin-bottom: 4px;">Текущие показатели:</div>
                 <div style="font-size: 18px; font-weight: 900; color: #fff;" id="modalCurrentCpStats">LVL: 0 | 0 EXP</div>
             </div>
+
+            <!-- Тумблер Premium -->
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: rgba(255, 215, 0, 0.05); border: 1px solid rgba(255, 215, 0, 0.3); border-radius: 12px; margin-bottom: 15px;">
+                <span style="font-size: 14px; font-weight: 700; color: var(--primary);"><i class="fa-solid fa-star"></i> Checkpoint Premium</span>
+                <label class="toggle-switch" style="margin: 0; transform: scale(0.9);">
+                    <input type="checkbox" id="hasPremium" onchange="submitStatus(true)">
+                    <span class="slider"></span>
+                </label>
+            </div>
             
-            <label>Что меняем?</label>
+            <label>Что меняем? (Прогресс)</label>
             <select id="cpTargetType">
                 <option value="levels">Установить точный Уровень</option>
                 <option value="exp">Установить точный Опыт (EXP)</option>
@@ -259,7 +287,7 @@
             <button class="admin-action-btn" onclick="submitCp()" style="background: #ff4757; color: #fff;">Сохранить новое значение</button>
         </div>
     </div>
-
+    
     <div id="grindModal" class="modal-overlay" onclick="closeOnDim(event)">
         <div class="bottom-sheet admin-form">
             <div class="modal-header">
@@ -360,20 +388,19 @@
     <div id="statusModal" class="modal-overlay" onclick="closeOnDim(event)">
         <div class="bottom-sheet admin-form">
             <div class="modal-header">
-                <h3 style="margin:0; font-size: 16px; font-weight: 800; color: var(--danger);"><i class="fa-solid fa-gavel"></i> Бан и Доступы</h3>
+                <h3 style="margin:0; font-size: 16px; font-weight: 800; color: var(--danger);"><i class="fa-solid fa-gavel"></i> Блокировка</h3>
                 <button class="back-btn" onclick="closeModal('statusModal')"><i class="fa-solid fa-xmark" style="font-size: 20px;"></i></button>
             </div>
-            <label>Блокировка аккаунта</label>
-            <select id="isBanned" style="color: var(--danger); font-weight: bold;">
-                <option value="false" style="color: var(--text);">Активен</option>
-                <option value="true">ЗАБЛОКИРОВАН</option>
-            </select>
-            <label>Checkpoint Premium</label>
-            <select id="hasPremium" style="color: var(--primary); font-weight: bold;">
-                <option value="false" style="color: var(--text);">Нет Premium</option>
-                <option value="true">Premium АКТИВЕН</option>
-            </select>
-            <button class="admin-action-btn danger" onclick="submitStatus()">Обновить статусы</button>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: rgba(255, 77, 77, 0.05); border: 1px solid rgba(255, 77, 77, 0.3); border-radius: 12px; margin-bottom: 20px;">
+                <span style="font-size: 14px; font-weight: 700; color: var(--danger);"><i class="fa-solid fa-ban"></i> Заблокировать аккаунт</span>
+                <label class="toggle-switch" style="margin: 0; transform: scale(0.9);">
+                    <input type="checkbox" id="isBanned" onchange="submitStatus(true)">
+                    <span class="slider"></span>
+                </label>
+            </div>
+
+            <button class="admin-action-btn danger" onclick="submitStatus(false)">Сохранить статус</button>
         </div>
     </div>
 
@@ -512,6 +539,49 @@ window.makeApiRequest = async function(endpoint, arg2 = 'GET', arg3 = null) {
     return resData;
 };
 
+        // --- Логика истории поиска ---
+        const HISTORY_KEY = 'hatelavka_search_history';
+        const MAX_HISTORY = 6;
+
+        function saveToSearchHistory(user) {
+            let history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+            // Удаляем, если уже есть, чтобы переместить в начало
+            history = history.filter(u => u.telegram_id !== user.telegram_id);
+            history.unshift({
+                telegram_id: user.telegram_id,
+                full_name: user.full_name || user.username || 'Без имени',
+                photo_url: user.photo_url || defaultAvatar
+            });
+            if (history.length > MAX_HISTORY) history.pop();
+            localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+            renderSearchHistory();
+        }
+
+        function clearSearchHistory() {
+            if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.impactOccurred('light');
+            localStorage.removeItem(HISTORY_KEY);
+            renderSearchHistory();
+        }
+
+        function renderSearchHistory() {
+            const history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+            const container = document.getElementById('searchHistoryList');
+            const wrapper = document.getElementById('searchHistoryWrapper');
+            
+            if (history.length === 0) {
+                wrapper.style.display = 'none';
+                return;
+            }
+            
+            wrapper.style.display = 'block';
+            container.innerHTML = history.map(u => `
+                <div class="history-chip" onclick="loadUser(${u.telegram_id})">
+                    <img src="${u.photo_url}" onerror="this.onerror=null; this.src=defaultAvatar;">
+                    <span>${escapeHTML(u.full_name.split(' ')[0])}</span>
+                </div>
+            `).join('');
+        }
+
         function goBack() { 
             console.log('[LOG] Клик: Вызван goBack');
             const openModal = document.querySelector('.modal-overlay.modal-active');
@@ -628,6 +698,7 @@ window.makeApiRequest = async function(endpoint, arg2 = 'GET', arg3 = null) {
 
             try {
                 currentUser = await fetchApi(`/api/v1/admin/users/${id}/full_profile`, null, 'GET');
+                saveToSearchHistory(currentUser); // <--- ДОБАВИТЬ ЭТУ СТРОКУ
                 
                 document.getElementById('userAvatar').src = currentUser.photo_url || defaultAvatar;
                 document.getElementById('userName').textContent = currentUser.full_name || 'Без имени';
@@ -696,8 +767,8 @@ window.makeApiRequest = async function(endpoint, arg2 = 'GET', arg3 = null) {
                 document.getElementById('trustLevel').value = currentUser.trust_level || 'green';
                 document.getElementById('trustScore').value = currentUser.trust_score || 0;
                 document.getElementById('penaltyPoints').value = currentUser.penalty_points || 0;
-                document.getElementById('isBanned').value = currentUser.is_banned ? "true" : "false";
-                document.getElementById('hasPremium').value = currentUser.has_cp_premium ? "true" : "false";
+                document.getElementById('isBanned').checked = currentUser.is_banned;
+                document.getElementById('hasPremium').checked = currentUser.has_cp_premium;
 
                 // --- ФОНОВЫЙ ПОДСЧЕТ СУММЫ ВЫВОДОВ ---
                 document.getElementById('withdrawnBlock').style.display = 'none';
@@ -874,24 +945,49 @@ async function submitCoins() {
             finally { tg.MainButton.hideProgress(); }
         }
 
-       async function submitStatus() {
+       async function submitStatus(isQuiet = false) {
             const payload = {
                 user_id: currentUser.telegram_id,
-                is_banned: document.getElementById('isBanned').value === "true",
-                has_cp_premium: document.getElementById('hasPremium').value === "true"
+                is_banned: document.getElementById('isBanned').checked,
+                has_cp_premium: document.getElementById('hasPremium').checked
             };
 
-            tg.MainButton.showProgress();
+            if (!isQuiet) tg.MainButton.showProgress();
+            
             try {
                 await fetchApi('/api/v1/admin/users/manage-status', payload);
                 if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-                tg.showPopup({message: 'Статусы обновлены!'});
-                closeModal('statusModal');
-                loadUser(currentUser.telegram_id);
+                
+                // Синхронизируем локальный объект
+                currentUser.is_banned = payload.is_banned;
+                currentUser.has_cp_premium = payload.has_cp_premium;
+                
+                if (!isQuiet) {
+                    tg.showPopup({message: 'Статусы обновлены!'});
+                    closeModal('statusModal');
+                    loadUser(currentUser.telegram_id);
+                } else {
+                    // Тихое обновление бейджей без перезагрузки профиля
+                    let badgesHTML = '';
+                    if (currentUser.is_banned) badgesHTML += '<span class="badge red">ЗАБАНЕН</span>';
+                    if (currentUser.has_cp_premium) badgesHTML += '<span class="badge premium">PREMIUM</span>';
+                    if (currentUser.trust_level === 'red') badgesHTML += '<span class="badge red">КРАСНЫЙ ТРАСТ</span>';
+                    if (currentUser.trust_level === 'green') badgesHTML += '<span class="badge green">ЗЕЛЕНЫЙ ТРАСТ</span>';
+                    document.getElementById('userBadges').innerHTML = badgesHTML;
+                    document.getElementById('statStatus').textContent = currentUser.is_banned ? 'ЗАБАНЕН' : 'АКТИВЕН';
+                }
+                
                 loadBannedUsers();
-            } catch (err) { tg.showAlert(err.message); }
-            finally { tg.MainButton.hideProgress(); }
+            } catch (err) { 
+                tg.showAlert(err.message); 
+                // Откат визуального тумблера при ошибке
+                document.getElementById('isBanned').checked = currentUser.is_banned;
+                document.getElementById('hasPremium').checked = currentUser.has_cp_premium;
+            } finally { 
+                if (!isQuiet) tg.MainButton.hideProgress(); 
+            }
         }
+        
         async function submitUnbind(type) {
             const confirmMsg = type === 'twitch' ? 'Точно отвязать Twitch аккаунт?' : 'Точно удалить Trade-ссылку?';
             if (!confirm(confirmMsg)) return;
