@@ -2811,6 +2811,10 @@ const processedQuests = weekQuests.map(cfg => {
             if (res.ok) {
                 tg.HapticFeedback.notificationOccurred('success');
                 if (actionToSend === 'exchange') {
+
+                    // 👇 ФИКС БАГА ДЛЯ УРОВНЕЙ
+                localStorage.removeItem('cache_bootstrap');
+                    
                     if (eventPos) playStarAnimation(eventPos.x, eventPos.y);
                 } else {
                     // Вычисляем правильную картинку через нашу новую функцию
@@ -2892,6 +2896,10 @@ window.claimQuestReward = async function(questId, week) {
         if (res.ok) {
             tg.HapticFeedback.notificationOccurred('success');
             showCustomAlert('Награда получена!', `Тебе начислено +${data.earned_exp} EXP`, 'success');
+
+         // 👇 ФИКС БАГА: Убиваем старый кэш менюшки, чтобы плашка на главной 100% исчезла
+            localStorage.removeItem('cache_bootstrap');
+            
         } else {
             tg.HapticFeedback.notificationOccurred('error');
             showCustomAlert('Ошибка', data.detail || 'Не удалось получить награду', 'error');
