@@ -50,7 +50,6 @@
 
     let isInitialized = false;
 
-    // Блокируем функцию от перезаписи
     function lockGlobalFunction(name, fn) {
         if (window[name]) return;
         Object.defineProperty(window, name, {
@@ -95,24 +94,29 @@
     });
 
     // ==========================================
-    // 4. ГЛОБАЛЬНЫЙ ПЕРЕХВАТЧИК ВСЕХ ЗАПРОСОВ (FETCH)
+    // 4. ЖЕЛЕЗОБЕТОННЫЙ ПЕРЕХВАТЧИК FETCH
     // ==========================================
     const originalFetch = window.fetch;
     window.fetch = async function(...args) {
-        const response = await originalFetch.apply(this, args);
+        // Вызываем оригинальный fetch безопасно
+        const response = await originalFetch.call(window, ...args);
         
-        // Как только любой скрипт на любой странице ловит 403
-        if (response.status === 403) {
-            const clone = response.clone();
+        // Проверяем ЛЮБОЙ запрос, который вернулся с ошибкой (400, 401, 403, 500)
+        if (!response.ok) {
             try {
-                const err = await clone.json();
-                const errorDetail = err.detail ? err.detail.toUpperCase() : (err.message ? err.message.toUpperCase() : "");
+                // Клонируем ответ, чтобы не сломать чтение в основном коде
+                const clone = response.clone();
+                // Читаем как ТЕКСТ. Это спасет, если сервер отдал HTML или кривой JSON
+                const text = await clone.text(); 
+                const upperText = text.toUpperCase();
                 
-                // Если это БАН
-                if (errorDetail.includes("BAN")) {
-                    window.triggerBanScreen(); // Рубим экран
+                // Ищем признаки блокировки (можно добавить свои слова)
+                if (upperText.includes("BAN") || upperText.includes("BANNED") || upperText.includes("ЗАБЛОКИРОВАН")) {
                     
-                    // Жестко записываем бан в кэш, чтобы после F5 он тоже никуда не делся
+                    // 1. Показываем экран смерти
+                    window.triggerBanScreen(); 
+                    
+                    // 2. Жестко фиксируем в кэше
                     try {
                         const cached = JSON.parse(localStorage.getItem('cache_bootstrap') || '{}');
                         if (!cached.user) cached.user = {};
@@ -120,10 +124,15 @@
                         localStorage.setItem('cache_bootstrap', JSON.stringify(cached));
                     } catch(e) {}
                     
-                    throw new Error("USER_BANNED"); // Крашим текущий запрос, чтобы он не прошел дальше
+                    // 3. ВЕЧНЫЙ ПРОМИС. Код, который делал запрос, зависнет здесь навсегда. 
+                    // Никакие catch() и finally() в твоих функциях не сработают.
+                    return new Promise(() => {}); 
                 }
-            } catch (e) {}
+            } catch (e) {
+                console.warn("Ban Interceptor failed to read response:", e);
+            }
         }
+        
         return response;
     };
 
@@ -144,9 +153,8 @@
         isInitialized = true;
 
         injectBanDOM();
-        checkBanStatus(); // Проверяем при старте из кэша
+        checkBanStatus(); 
 
-        // Наблюдатель: восстанавливает экран, если юзер попытался удалить его код через консоль
         const observer = new MutationObserver(() => {
             if (!document.getElementById('global-ban-overlay') || !document.getElementById('hatelavka-ban-styles')) {
                 injectBanDOM();
