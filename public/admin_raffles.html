@@ -991,31 +991,38 @@
             const cSched = document.getElementById('scheduled-container');
             const cCompl = document.getElementById('completed-container');
             
-            // Ставим крутилку во все вкладки перед запросом
-            const loader = '<div style="text-align:center; padding: 40px; color: var(--text-sec);"><i class="fa-solid fa-circle-notch fa-spin"></i> Загрузка...</div>';
-            cActive.innerHTML = loader;
-            cSched.innerHTML = loader;
-            cCompl.innerHTML = loader;
+            cActive.innerHTML = '<div style="text-align:center; padding:40px;">Диагностика сети...</div>';
 
             try {
                 const res = await fetch('/api/v1/admin/raffles/list', {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    method: 'POST', 
+                    headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({initData: tg.initData})
                 });
-                const data = await res.json();
                 
-                // Защита: если прилетела ошибка (объект) вместо массива
+                // Читаем ответ как СЫРОЙ текст, чтобы скрипт не крашился при парсинге
+                const rawText = await res.text(); 
+                
+                // 🔥 ВЫВОДИМ ЖЕСТКИЙ АЛЕРТ СО ВСЕЙ ПРАВДОЙ
+                alert(`Код ответа: ${res.status}\n\nСырой ответ от сервера:\n${rawText.substring(0, 500)}`);
+                
+                // Пробуем превратить текст в JSON
+                const data = JSON.parse(rawText);
+                
                 if (!Array.isArray(data)) {
-                    throw new Error(data.detail || 'Ответ сервера не является массивом');
+                    throw new Error(data.detail || 'Сервер вернул не массив');
                 }
                 
                 renderList(data);
             } catch(e) { 
-                console.error("Ошибка загрузки списков:", e);
-                const errMsg = '<div style="text-align:center; padding: 40px; color:#ff4d4d;"><i class="fa-solid fa-triangle-exclamation"></i> Ошибка загрузки данных</div>';
+                console.error(e);
+                const errMsg = `<div style="text-align:center; padding:40px; color:#ff4d4d;">JS Ошибка: ${e.message}</div>`;
                 cActive.innerHTML = errMsg;
                 cSched.innerHTML = errMsg;
                 cCompl.innerHTML = errMsg;
+                
+                // Если сломалось на этапе парсинга, тоже выводим
+                alert(`Критическая ошибка JS:\n${e.message}`);
             }
         }
 
