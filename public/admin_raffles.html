@@ -987,35 +987,52 @@
         }
 
         async function loadRaffles() {
-            const cActive = document.getElementById('list-container');
-            const cSched = document.getElementById('scheduled-container');
-            const cCompl = document.getElementById('completed-container');
-            
-            const loader = '<div style="text-align:center; padding: 40px; color: var(--text-sec);"><i class="fa-solid fa-circle-notch fa-spin"></i> Загрузка...</div>';
-            cActive.innerHTML = loader;
-            cSched.innerHTML = loader;
-            cCompl.innerHTML = loader;
+    const cActive = document.getElementById('list-container');
+    const cSched = document.getElementById('scheduled-container');
+    const cCompl = document.getElementById('completed-container');
+    
+    const loader = '<div style="text-align:center; padding: 40px; color: var(--text-sec);"><i class="fa-solid fa-circle-notch fa-spin"></i> Загрузка...</div>';
+    cActive.innerHTML = loader;
+    cSched.innerHTML = loader;
+    cCompl.innerHTML = loader;
 
-            try {
-                const res = await fetch('/api/v1/admin/raffles/list', {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({initData: tg.initData})
-                });
-                const data = await res.json();
-                
-                if (!Array.isArray(data)) {
-                    throw new Error(data.detail || 'Сервер вернул не массив');
-                }
-                
-                renderList(data);
-            } catch(e) { 
-                console.error("Ошибка загрузки списков:", e);
-                const errMsg = '<div style="text-align:center; padding: 40px; color:#ff4d4d;"><i class="fa-solid fa-triangle-exclamation"></i> Ошибка сети или сервера</div>';
-                cActive.innerHTML = errMsg;
-                cSched.innerHTML = errMsg;
-                cCompl.innerHTML = errMsg;
-            }
+    try {
+        const res = await fetch('/api/v1/admin/raffles/list', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({initData: tg.initData})
+        });
+        
+        // Читаем ответ как текст, чтобы поймать скрытые краши сервера
+        const textData = await res.text();
+        let data;
+        try {
+            data = JSON.parse(textData);
+        } catch(e) {
+            throw new Error("Сбой сервера (Не JSON): " + textData.substring(0, 60) + "...");
         }
+
+        if (!res.ok) {
+            throw new Error(data.detail || `Код ошибки сервера: ${res.status}`);
+        }
+
+        if (!Array.isArray(data)) {
+            throw new Error('Сервер вернул неправильный формат данных');
+        }
+        
+        renderList(data);
+    } catch(e) { 
+        console.error("Ошибка загрузки:", e);
+        // 🔥 ВЫВОДИМ ОШИБКУ ПРЯМО НА ЭКРАН
+        const errMsg = `<div style="text-align:center; padding: 40px; color:var(--danger); font-size:14px; line-height:1.5;">
+            <i class="fa-solid fa-triangle-exclamation" style="font-size:24px; margin-bottom:10px;"></i><br>
+            <b>ОШИБКА ЗАГРУЗКИ</b><br>
+            <span style="color:var(--text-sec); font-size:12px;">${e.message}</span>
+        </div>`;
+        cActive.innerHTML = errMsg;
+        cSched.innerHTML = errMsg;
+        cCompl.innerHTML = errMsg;
+    }
+}
 
         function renderList(list) {
             const cActive = document.getElementById('list-container');
