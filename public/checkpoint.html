@@ -1507,6 +1507,33 @@
     
 <script>
 
+    // ==========================================
+    // ГЛОБАЛЬНЫЙ ПЕРЕХВАТЧИК ВСЕХ ЗАПРОСОВ (Защита от сырого fetch)
+    // ==========================================
+    const originalFetch = window.fetch;
+    window.fetch = async function(...args) {
+        const response = await originalFetch.apply(this, args);
+        
+        // Ловим ошибку 403 на лету
+        if (response.status === 403) {
+            // Клонируем ответ, чтобы твой остальной код тоже мог прочитать .json()
+            const clonedResponse = response.clone();
+            try {
+                const err = await clonedResponse.json();
+                const errorDetail = err.detail ? err.detail.toUpperCase() : (err.message ? err.message.toUpperCase() : "");
+                
+                // Если видим БАН — стреляем экраном смерти и блокируем выполнение
+                if (errorDetail.includes("BAN")) {
+                    if (typeof window.triggerBanScreen === 'function') {
+                        window.triggerBanScreen();
+                    }
+                    throw new Error("USER_BANNED");
+                }
+            } catch (e) {}
+        }
+        return response;
+    };
+
     // Глобальная функция для запросов, которую ждет top_nav.js
 window.makeApiRequest = async function(url, data = {}, method = 'POST', addInitData = true) {
     const tg = window.Telegram.WebApp;
