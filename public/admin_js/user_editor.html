@@ -239,16 +239,24 @@
     <div id="cpModal" class="modal-overlay" onclick="closeOnDim(event)">
         <div class="bottom-sheet admin-form">
             <div class="modal-header">
-                <h3 style="margin:0; font-size: 16px; font-weight: 800; color: #ff4757;"><i class="fa-solid fa-flag-checkered"></i> Уровни Battle Pass</h3>
+                <h3 style="margin:0; font-size: 16px; font-weight: 800; color: #ff4757;"><i class="fa-solid fa-flag-checkered"></i> Прогресс Battle Pass</h3>
                 <button class="back-btn" onclick="closeModal('cpModal')"><i class="fa-solid fa-xmark" style="font-size: 20px;"></i></button>
             </div>
+            
+            <label>Что меняем?</label>
+            <select id="cpTargetType">
+                <option value="levels">Уровни</option>
+                <option value="exp">Опыт (EXP)</option>
+            </select>
+
             <label>Действие</label>
             <select id="cpAction">
-                <option value="add">Добавить уровни (+)</option>
-                <option value="subtract">Забрать уровни (-)</option>
+                <option value="add">Начислить (+)</option>
+                <option value="subtract">Списать (-)</option>
             </select>
-            <label>Количество уровней</label>
-            <input type="number" id="cpAmount" placeholder="Например: 5" min="1">
+            
+            <label>Количество</label>
+            <input type="number" step="0.1" id="cpAmount" placeholder="Например: 5" min="0">
             <button class="admin-action-btn" onclick="submitCp()" style="background: #ff4757; color: #fff;">Применить</button>
         </div>
     </div>
@@ -638,7 +646,7 @@ window.makeApiRequest = async function(endpoint, arg2 = 'GET', arg3 = null) {
                 document.getElementById('statTickets').innerHTML = `${currentUser.tickets || 0} <i class="fa-solid fa-ticket" style="color:var(--text-sec); font-size:10px;"></i>`;
                 document.getElementById('statTrust').textContent = `Score: ${currentUser.trust_score || 0}`;
                 document.getElementById('statStatus').textContent = currentUser.is_banned ? 'ЗАБАНЕН' : 'АКТИВЕН';
-                document.getElementById('statCpLevel').textContent = `LVL: ${currentUser.checkpoint_level || 0}`;
+                document.getElementById('statCpLevel').innerHTML = `LVL: ${currentUser.checkpoint_level || 0}<br><span style="font-size: 10px; color: var(--text-sec); font-weight: 600;">${currentUser.checkpoint_stars || 0} EXP</span>`;
                 
                 let hoursAgoText = "Никогда";
                 if (currentUser.last_grind_at) {
@@ -783,23 +791,33 @@ async function submitCoins() {
             finally { tg.MainButton.hideProgress(); }
         }
 
-        async function submitCp() {
-            const amount = parseInt(document.getElementById('cpAmount').value);
+       async function submitCp() {
+            const amount = parseFloat(document.getElementById('cpAmount').value);
             const action = document.getElementById('cpAction').value;
-            if (!amount || amount <= 0) return tg.showAlert("Введите корректное число уровней");
+            const targetType = document.getElementById('cpTargetType').value;
+            
+            if (!amount || amount <= 0) return tg.showAlert("Введите корректное число");
 
             tg.MainButton.showProgress();
             try {
-                await fetchApi('/api/v1/admin/users/manage-cp', { user_id: currentUser.telegram_id, action_type: action, amount: amount });
+                await fetchApi('/api/v1/admin/users/manage-cp', { 
+                    user_id: currentUser.telegram_id, 
+                    action_type: action, 
+                    amount: amount,
+                    target: targetType // <--- ПЕРЕДАЕМ НА БЭКЕНД, ЧТО ИМЕННО МЕНЯЕМ
+                });
+                
                 if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-                tg.showPopup({message: 'Уровни обновлены!'});
+                tg.showPopup({message: 'Прогресс Battle Pass обновлен!'});
                 closeModal('cpModal');
                 document.getElementById('cpAmount').value = '';
-                loadUser(currentUser.telegram_id);
-            } catch (err) { tg.showAlert(err.message); }
-            finally { tg.MainButton.hideProgress(); }
+                loadUser(currentUser.telegram_id); // Сразу перезагрузит профиль и покажет новые EXP и LVL
+            } catch (err) { 
+                tg.showAlert(err.message); 
+            } finally { 
+                tg.MainButton.hideProgress(); 
+            }
         }
-
         async function submitGrind() {
             const streak = parseInt(document.getElementById('streakDays').value);
             const coins = parseFloat(document.getElementById('grindCoins').value);
