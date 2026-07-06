@@ -526,7 +526,22 @@ function render(data) {
                 let conditions = '';
                 if (!done) {
                     if (s.requires_telegram_sub) conditions += `<div class="cond-row"><i class="fa-brands fa-telegram"></i> Канал</div>`;
-                    if (s.min_daily_messages > 0) conditions += `<div class="cond-row"><i class="fa-brands fa-twitch"></i> Сообщений за стрим: ${s.min_daily_messages}</div>`;
+                    
+                    // --- НОВАЯ ЛОГИКА ПЕРИОДОВ ---
+                    const minMsgs = s.min_messages || s.min_daily_messages || 0;
+                    const msgPeriod = s.message_period || 'daily';
+                    const periodMap = {
+                        'daily': 'за стрим',
+                        'weekly': 'за неделю',
+                        'monthly': 'за месяц'
+                    };
+                    const periodStr = periodMap[msgPeriod] || 'за стрим';
+
+                    if (minMsgs > 0) {
+                        conditions += `<div class="cond-row"><i class="fa-brands fa-twitch"></i> Сообщений ${periodStr}: ${minMsgs}</div>`;
+                    }
+                    // -----------------------------
+                    
                     if (s.min_participants > 0) conditions += `<div class="cond-row"><i class="fa-solid fa-users"></i> Мин. участников: ${s.min_participants}</div>`;
                 }
 
