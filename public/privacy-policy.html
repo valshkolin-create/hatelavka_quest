@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Политика конфиденциальности | HATElove</title>
+
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="/bottom-nav.js" defer></script>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+    <style>
+        :root {
+            --bg-color: #121212;
+            --surface-bg: rgba(255, 255, 255, 0.03);
+            --surface-border: rgba(255, 255, 255, 0.08);
+            --primary: #ffd700;
+            --primary-glow: rgba(255, 215, 0, 0.2);
+            --text-main: #ffffff;
+            --text-muted: #8e8e93;
+        }
+
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            /* Запрещаем скролл по горизонтали */
+            overflow-x: hidden;
+            scroll-behavior: smooth;
+        }
+
+        /* Шапка теперь статичная и скроллится вместе со страницей */
+        .header {
+            background: linear-gradient(to bottom, rgba(255, 215, 0, 0.05) 0%, rgba(18, 18, 18, 0.1) 100%);
+            padding-top: calc(var(--tg-content-safe-area-inset-top, var(--tg-safe-area-inset-top, env(safe-area-inset-top, 24px))) + 55px) !important;
+            padding-bottom: 20px;
+            padding-left: 20px;
+            padding-right: 20px;
+            text-align: center;
+            border-bottom: 1px solid var(--surface-border);
+            position: relative;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 800;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            text-shadow: 0 0 10px var(--primary-glow);
+        }
+
+        .header p {
+            margin: 5px 0 0 0;
+            font-size: 11px;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        /* Увеличен отступ снизу до +120px, чтобы обойти bottom-nav */
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px 20px calc(var(--tg-content-safe-area-inset-bottom, env(safe-area-inset-bottom, 24px)) + 120px) 20px;
+        }
+
+        .agreement-block {
+            background: var(--surface-bg);
+            border: 1px solid var(--surface-border);
+            border-radius: 16px;
+            padding: 25px 20px;
+            margin-bottom: 20px;
+        }
+
+        h2 {
+            font-size: 14px;
+            font-weight: 800;
+            color: var(--text-main);
+            margin-top: 0;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-transform: uppercase;
+            line-height: 1.4;
+        }
+
+        h2 i {
+            color: var(--primary);
+            font-size: 16px;
+            min-width: 20px;
+            text-align: center;
+        }
+
+        p, li {
+            font-size: 12px;
+            color: #ccc;
+            margin-bottom: 10px;
+            font-weight: 400;
+        }
+
+        ul, ol {
+            padding-left: 20px;
+            margin-top: 5px;
+            margin-bottom: 15px;
+        }
+
+        li {
+            margin-bottom: 8px;
+            line-height: 1.5;
+        }
+
+        strong {
+            color: var(--text-main);
+            font-weight: 700;
+        }
+
+        .highlight-box {
+            background: rgba(255, 215, 0, 0.05);
+            border-left: 3px solid var(--primary);
+            padding: 12px 15px;
+            border-radius: 0 8px 8px 0;
+            margin: 20px 0;
+        }
+
+        .highlight-box p {
+            margin: 0;
+            color: #fff;
+            font-weight: 600;
+        }
+
+        .download-btn {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            background: linear-gradient(135deg, #ffd700 0%, #e6c200 100%);
+            color: #121212;
+            padding: 16px;
+            border-radius: 14px;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 800;
+            margin-top: 10px;
+            transition: transform 0.1s;
+            box-shadow: 0 8px 20px rgba(255, 215, 0, 0.2);
+        }
+
+        .download-btn:active {
+            transform: scale(0.96);
+        }
+
+        /* Плавающая кнопка возврата наверх */
+        .scroll-top-btn {
+            position: fixed;
+            bottom: calc(var(--tg-content-safe-area-inset-bottom, env(safe-area-inset-bottom, 24px)) + 100px);
+            right: 20px;
+            width: 44px;
+            height: 44px;
+            background: rgba(28, 28, 30, 0.8);
+            border: 1px solid var(--surface-border);
+            color: var(--primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            cursor: pointer;
+            z-index: 999;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(20px);
+            transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+
+        .scroll-top-btn.visible {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        .scroll-top-btn:active {
+            transform: scale(0.9);
+            background: rgba(255, 215, 0, 0.2);
+        }
+
+        /* Кастомный скроллбар */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-color); }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 215, 0, 0.3); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 215, 0, 0.5); }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>ПОЛИТИКА ОБРАБОТКИ ПЕРСОНАЛЬНЫХ ДАННЫХ</h1>
+        <p>Документ, обязательный к ознакомлению</p>
+    </div>
+
+    <div class="container">
+
+        <div class="agreement-block">
+            <p><strong>Использование Веб-приложения означает ваше безоговорочное согласие с настоящей Политикой и указанными в ней условиями обработки вашей персональной информации.</strong> В случае несогласия с этими условиями вы должны воздержаться от использования Сервиса.</p>
+            <p>Настоящая Политика составлена в соответствии с требованиями Федерального закона от 27.07.2006 № 152-ФЗ «О персональных данных» и определяет порядок обработки персональных данных и меры по обеспечению их безопасности, которые предпринимает Плательщик Налога на профессиональный доход (Самозанятый) <strong>ШКОЛИН ВАЛЕНТИН АЛЕКСАНДРОВИЧ</strong> (ИНН 600902063478), далее — «Оператор».</p>
+        </div>
+
+        <div class="agreement-block">
+            <h2><i class="fa-solid fa-database"></i> 1. Какие данные мы собираем</h2>
+            <p>Для обеспечения полноценной работы Веб-приложения, отслеживания прогресса и выдачи наград, мы автоматически собираем и сохраняем следующие данные:</p>
+            <ul>
+                <li><strong>Данные профиля Telegram:</strong> уникальный идентификатор (ID), никнейм (username), имя (full name) и публичная фотография профиля (photo_url).</li>
+                <li><strong>Данные платформы Twitch:</strong> уникальный Twitch ID, логин (twitch_login), статус канала (VIP/User и т.д.), а также токены авторизации (access_token и refresh_token) для безопасной синхронизации аккаунта.</li>
+                <li><strong>Игровая и сервисная статистика:</strong> время просмотра стримов (uptime_minutes), количество отправленных сообщений в чат, уровень доверия (trust_score), текущий прогресс квестов, баланс монет и билетов.</li>
+                <li><strong>Дополнительные данные:</strong> ссылка на обмен Steam (Trade Link) для автоматической выдачи внутриигровых предметов (скинов), а также IP-адрес и технические данные устройства при обращении к нашим серверам.</li>
+            </ul>
+        </div>
+
+        <div class="agreement-block">
+            <h2><i class="fa-solid fa-crosshairs"></i> 2. Цели обработки данных</h2>
+            <p>Мы собираем вашу информацию исключительно для того, чтобы Веб-приложение работало корректно. Основные цели:</p>
+            <ul>
+                <li>Идентификация Пользователя и создание Личного кабинета;</li>
+                <li>Синхронизация вашей активности на Twitch (сообщения, время просмотра стрима) с игровым прогрессом (Battle Pass, задания);</li>
+                <li>Автоматизированная выдача цифровых наград и отправка предметов через предоставленную Trade-ссылку Steam;</li>
+                <li>Обеспечение безопасности, выявление фактов использования ботов, мультиаккаунтов или нарушений правил Сервиса (анализ trust_level);</li>
+                <li>Осуществление технической поддержки и отправка важных сервисных уведомлений.</li>
+            </ul>
+        </div>
+
+        <div class="agreement-block">
+            <h2><i class="fa-solid fa-lock"></i> 3. Безопасность и защита данных</h2>
+            <p><strong>3.1.</strong> Оператор применяет все необходимые правовые, организационные и технические меры для защиты данных от неправомерного доступа, изменения, раскрытия или уничтожения.</p>
+            
+            <div class="highlight-box">
+                <p><strong>Важно о Twitch авторизации:</strong> Мы не получаем доступ к вашим паролям. Авторизация происходит по протоколу OAuth. Полученные токены доступа (Access/Refresh Tokens) хранятся в зашифрованном виде и используются нашими серверами исключительно для подтверждения вашей личности и получения публичной статистики просмотра трансляций.</p>
+            </div>
+
+            <p><strong>3.2.</strong> Оператор <strong>не продает, не сдает в аренду и не передает</strong> ваши персональные данные третьим лицам в коммерческих целях. Передача данных возможна только в случаях, прямо предусмотренных законодательством Российской Федерации (по обоснованному запросу уполномоченных органов).</p>
+        </div>
+
+        <div class="agreement-block">
+            <h2><i class="fa-solid fa-server"></i> 4. Сроки обработки и хранения</h2>
+            <p><strong>4.1.</strong> Обработка персональных данных осуществляется бессрочно — до момента удаления вашего аккаунта или отзыва согласия на обработку.</p>
+            <p><strong>4.2.</strong> Базы данных, в которых хранятся персональные данные граждан Российской Федерации, располагаются на серверах, находящихся на территории РФ, в строгом соответствии с 152-ФЗ.</p>
+        </div>
+
+        <div class="agreement-block">
+            <h2><i class="fa-solid fa-trash-can"></i> 5. Права пользователя и удаление данных</h2>
+            <p><strong>5.1.</strong> Пользователь имеет право в любой момент запросить информацию о том, какие именно его данные хранятся на серверах Сервиса.</p>
+            <p><strong>5.2.</strong> Пользователь вправе отозвать свое согласие на обработку персональных данных и потребовать их полного удаления. Для этого необходимо направить запрос в службу поддержки (по контактам, указанным ниже).</p>
+            <p><strong>5.3.</strong> Обратите внимание: удаление данных повлечет за собой безвозвратное удаление вашего Личного кабинета, обнуление всего накопленного опыта (EXP), баланса монет, билетов и сброс прогресса Battle Pass без возможности восстановления.</p>
+        </div>
+
+        <div class="agreement-block">
+            <h2><i class="fa-solid fa-address-card"></i> Контакты Оператора</h2>
+            <p>В случае возникновения вопросов, предложений или для отзыва согласия на обработку данных, вы можете связаться с нами:</p>
+            <p><strong>Оператор:</strong> НПД (Самозанятый) ШКОЛИН ВАЛЕНТИН АЛЕКСАНДРОВИЧ<br>
+            <strong>ИНН:</strong> 600902063478<br>
+            <strong>Электронная почта:</strong> val.shkolin@gmail.com<br>
+            <strong>Telegram поддержки:</strong> @hatelove_twitch</p>
+        </div>
+
+        <a href="https://disk.yandex.ru/i/ВАША_ССЫЛКА_НА_PDF" class="download-btn" target="_blank">
+            <i class="fa-solid fa-file-pdf"></i> Скачать документ (Яндекс Диск)
+        </a>
+
+    </div>
+
+    <button id="scrollToTopBtn" class="scroll-top-btn" aria-label="Наверх">
+        <i class="fa-solid fa-chevron-up"></i>
+    </button>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // 1. Инициализация Telegram Web App
+            if (window.Telegram && window.Telegram.WebApp) {
+                const tg = window.Telegram.WebApp;
+                tg.ready();
+                
+                if (tg.BackButton) {
+                    tg.BackButton.show();
+                    tg.BackButton.onClick(() => {
+                        window.history.back(); 
+                    });
+                }
+            }
+
+            // 2. Логика кнопки "Скролл наверх"
+            const scrollBtn = document.getElementById('scrollToTopBtn');
+            
+            window.addEventListener('scroll', () => {
+                if (window.scrollY > 300) {
+                    scrollBtn.classList.add('visible');
+                } else {
+                    scrollBtn.classList.remove('visible');
+                }
+            });
+
+            scrollBtn.addEventListener('click', () => {
+                window.scrollTo({
+                    top: 0,
+                    behavior: 'smooth'
+                });
+            });
+        });
+    </script>
+</body>
+</html>
