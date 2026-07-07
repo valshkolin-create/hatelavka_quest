@@ -1361,7 +1361,7 @@
                         7.4. Полный возврат средств возможен исключительно в случае зафиксированного технического сбоя на стороне Исполнителя, вследствие которого оплаченный цифровой контент или Premium Статус не был предоставлен Пользователю в течение 24 часов с момента оплаты, при условии своевременного обращения в службу поддержки. В случае одобрения возврата, денежные средства возвращаются исключительно на ту же банковскую карту (или счет), с которой производилась оплата, в сроки, установленные банком-эмитентом (от 3 до 30 рабочих дней).</p>
 
                         <p><strong>8. Персональные данные</strong><br>
-                        8.1. При авторизации в Сервисе через Twitch Пользователь свободно, своей волей и в своем интересе дает согласие Исполнителю на обработку своих персональных данных в соответствии с Федеральным законом № 152-ФЗ «О персональных данных». Подробные условия обработки данных изложены в <a href="#" onclick="event.preventDefault(); event.stopPropagation(); window.Telegram.WebApp.openLink(window.location.origin + '/privacy-policy.html');" style="color: var(--primary); text-decoration: none; border-bottom: 1px dashed var(--primary);">Политике конфиденциальности</a>.<br>
+                        8.1. При авторизации в Сервисе через Twitch Пользователь свободно, своей волей и в своем интересе дает согласие Исполнителю на обработку своих персональных данных в соответствии с Федеральным законом № 152-ФЗ «О персональных данных». Подробные условия обработки данных изложены в <a href="#" onclick="event.preventDefault(); event.stopPropagation(); window.location.href = '/privacy-policy.html';" style="color: var(--primary); text-decoration: none; border-bottom: 1px dashed var(--primary);">Политике конфиденциальности</a>.<br>
                         8.2. Обработке подлежат общедоступные данные учетной записи Twitch (уникальный ID аккаунта, никнейм, профильное изображение/аватар) и данные, предоставляемые при оплате.<br>
                         8.3. Обработка данных осуществляется с целью исполнения обязательств по настоящему Соглашению, авторизации в Личном кабинете, корректного начисления наград, а также для осуществления технической поддержки.<br>
                         8.4. Исполнитель обеспечивает конфиденциальность данных и принимает необходимые правовые, организационные и технические меры для защиты персональной информации от неправомерного доступа.</p>
@@ -1389,7 +1389,7 @@
 
                     <label class="checkbox-label">
                         <input type="checkbox" id="terms-agree-checkbox" onchange="window.toggleAgreementNext(this.checked)">
-                        <span>Я принимаю условия <a href="#" onclick="event.preventDefault(); event.stopPropagation(); window.Telegram.WebApp.openLink(window.location.origin + '/agreement.html');" style="color: var(--primary); text-decoration: none; border-bottom: 1px dashed var(--primary);">пользовательского соглашения</a> и оферты.</span>
+                        <span>Я принимаю условия <a href="#" onclick="event.preventDefault(); event.stopPropagation(); window.location.href = '/agreement.html';" style="color: var(--primary); text-decoration: none; border-bottom: 1px dashed var(--primary);">пользовательского соглашения</a> и оферты.</span>
                     </label>
 
                     <button id="premium-next-stage-btn" class="btn-claim ready disabled-terms" style="margin-top: 5px;" disabled onclick="window.confirmRublePayment()">
@@ -1728,7 +1728,7 @@
                         7.4. Полный возврат средств возможен исключительно в случае зафиксированного технического сбоя на стороне Исполнителя, вследствие которого оплаченный цифровой контент или Premium Статус не был предоставлен Пользователю в течение 24 часов с момента оплаты, при условии своевременного обращения в службу поддержки. В случае одобрения возврата, денежные средства возвращаются исключительно на ту же банковскую карту (или счет), с которой производилась оплата, в сроки, установленные банком-эмитентом (от 3 до 30 рабочих дней).</p>
 
                         <p><strong>8. Персональные данные</strong><br>
-                        8.1. При авторизации в Сервисе через Twitch Пользователь свободно, своей волей и в своем интересе дает согласие Исполнителю на обработку своих персональных данных в соответствии с Федеральным законом № 152-ФЗ «О персональных данных». Подробные условия обработки данных изложены в <a href="#" onclick="event.preventDefault(); event.stopPropagation(); window.Telegram.WebApp.openLink(window.location.origin + '/privacy-policy.html');" style="color: var(--primary); text-decoration: none; border-bottom: 1px dashed var(--primary);">Политике конфиденциальности</a>.<br>
+                        8.1. При авторизации в Сервисе через Twitch Пользователь свободно, своей волей и в своем интересе дает согласие Исполнителю на обработку своих персональных данных в соответствии с Федеральным законом № 152-ФЗ «О персональных данных». Подробные условия обработки данных изложены в <a href="#"onclick="event.preventDefault(); event.stopPropagation(); window.location.href = '/privacy-policy.html';" style="color: var(--primary); text-decoration: none; border-bottom: 1px dashed var(--primary);">Политике конфиденциальности</a>.<br>
                         8.2. Обработке подлежат общедоступные данные учетной записи Twitch (уникальный ID аккаунта, никнейм, профильное изображение/аватар) и данные, предоставляемые при оплате.<br>
                         8.3. Обработка данных осуществляется с целью исполнения обязательств по настоящему Соглашению, авторизации в Личном кабинете, корректного начисления наград, а также для осуществления технической поддержки.<br>
                         8.4. Исполнитель обеспечивает конфиденциальность данных и принимает необходимые правовые, организационные и технические меры для защиты персональной информации от неправомерного доступа.</p>
@@ -4045,23 +4045,28 @@ window.smoothScrollTo = function(element) {
     };
 
     // 3. Универсальная перехватывающая функция для ЛЮБОЙ валюты
-    // 3. Универсальная перехватывающая функция для ЛЮБОЙ валюты
-    window.initiateBuyExp = function(currency) {
-        haptic('light');
-        pendingExpCurrency = currency; // Запоминаем выбор
-        
-        // 🔥 Бронебойная проверка оферты
-        const isAccepted = userData && (userData.has_accepted_oferta === true || userData.has_accepted_oferta === 'true' || userData.has_accepted_oferta === 1);
-        
-        if (isAccepted) {
-            // Если уже принимал — никаких лишних окон, СРАЗУ платим
-            window.executeExpPayment();
-        } else {
-            // Если НЕ принимал — прячем выбор валюты, показываем оферту
-            document.getElementById('buy-exp-stage-selection').style.display = 'none';
-            document.getElementById('buy-exp-stage-agreement').style.display = 'block';
-        }
-    };
+window.initiateBuyExp = function(currency) {
+    haptic('light');
+    pendingExpCurrency = currency; // Запоминаем выбор
+    
+    // Если оплата внутренней валютой, оферта не нужна — сразу платим
+    if (currency === 'coins' || currency === 'tickets') {
+        window.executeExpPayment();
+        return; 
+    }
+    
+    // 🔥 Логика ниже срабатывает ТОЛЬКО для рублей ('rub')
+    const isAccepted = userData && (userData.has_accepted_oferta === true || userData.has_accepted_oferta === 'true' || userData.has_accepted_oferta === 1);
+    
+    if (isAccepted) {
+        // Если уже принимал — никаких лишних окон, СРАЗУ платим
+        window.executeExpPayment();
+    } else {
+        // Если НЕ принимал — прячем выбор валюты, показываем оферту
+        document.getElementById('buy-exp-stage-selection').style.display = 'none';
+        document.getElementById('buy-exp-stage-agreement').style.display = 'block';
+    }
+};
 
     // Поддержка кнопок из HTML (чтобы тебе не пришлось их переписывать)
     window.clickBuyExpRub = function() {
