@@ -799,6 +799,7 @@ async def send_steam_trade_offer(account_id: int, assetids: list[str], trade_url
 class BaseAuthRequest(BaseModel):
     initData: str
     platform: str = "tg" # По умолчанию Telegram
+    platform_type: Optional[str] = None # 🔥 ДОБАВЛЯЕМ СЮДА
 # --------------------------------------------------------
 
 class InitDataRequest(BaseModel):
