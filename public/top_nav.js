@@ -1,78 +1,3 @@
-// ==========================================
-// БРОНЕБОЙНАЯ СИСТЕМА БАНА (ПЕРЕХВАТЧИК)
-// ==========================================
-(function initBanSystem() {
-    window.triggerBanScreen = function() {
-        try {
-            // Жестко стираем весь HTML и рисуем череп
-            document.documentElement.innerHTML = `
-                <head>
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-                    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
-                    <title>Доступ закрыт</title>
-                    <style>
-                        body { margin: 0; padding: 0; background: #000; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: -apple-system, BlinkMacSystemFont, sans-serif; text-align: center; color: #ff3b30; }
-                        .skull { font-size: 100px; margin-bottom: 20px; animation: pulse 2s infinite; filter: drop-shadow(0 0 20px rgba(255, 59, 48, 0.6)); }
-                        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); opacity: 0.8; } 100% { transform: scale(1); } }
-                        h1 { font-size: 28px; font-weight: 900; color: #fff; text-transform: uppercase; margin: 0 0 10px 0; letter-spacing: 1px; }
-                        p { color: #fff; font-size: 16px; margin: 0 0 30px 0; opacity: 0.9; max-width: 300px; line-height: 1.4; }
-                        a { background: #2AABEE; color: #fff; text-decoration: none; padding: 14px 24px; border-radius: 14px; font-weight: 800; font-size: 14px; display: inline-flex; align-items: center; gap: 10px; box-shadow: 0 4px 20px rgba(42, 171, 238, 0.3); transition: 0.2s; }
-                        a:active { transform: scale(0.95); }
-                        .footer { color: #555; font-size: 11px; margin-top: 25px; line-height: 1.4; }
-                    </style>
-                </head>
-                <body>
-                    <i class="fa-solid fa-skull-crossbones skull"></i>
-                    <h1>Доступ ограничен</h1>
-                    <p>Твой аккаунт заблокирован за нарушение правил системы.</p>
-                    <a href="https://t.me/hatelove_twitch"><i class="fa-brands fa-telegram" style="font-size: 18px;"></i> СВЯЗАТЬСЯ СО МНОЙ</a>
-                    <div class="footer">Если ты считаешь, что это произошло по ошибке,<br>напиши в поддержку для разбора ситуации.</div>
-                </body>
-            `;
-            if (window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('error');
-        } catch(e) {}
-    };
-
-    // ПЕРЕХВАТЫВАЕМ ВООБЩЕ ВСЕ ЗАПРОСЫ БРАУЗЕРА
-    const originalFetch = window.fetch;
-    window.fetch = async function(...args) {
-        const response = await originalFetch.apply(this, args);
-        
-        // Если прилетела ошибка 403
-        if (!response.ok && response.status === 403) {
-            try {
-                const clone = response.clone();
-                const text = await clone.text();
-                const upperText = text.toUpperCase();
-                
-                // Если сервер ругается на БАН
-                if (upperText.includes("BAN") || upperText.includes("BANNED")) {
-                    window.triggerBanScreen(); // Вызываем череп
-                    
-                    // Записываем в кэш, чтобы при обновлении страницы он сразу ловил бан
-                    try {
-                        const cached = JSON.parse(localStorage.getItem('cache_bootstrap') || '{}');
-                        if (!cached.user) cached.user = {};
-                        cached.user.is_banned = true;
-                        localStorage.setItem('cache_bootstrap', JSON.stringify(cached));
-                    } catch(e) {}
-                    
-                    // МАГИЯ: Возвращаем бесконечный промис. 
-                    // Код страницы зависнет, и модалка даже не попытается закрыться или обновиться
-                    return new Promise(() => {}); 
-                }
-            } catch(e) {}
-        }
-        return response;
-    };
-
-    // Проверяем кэш при загрузке. Если забанен — сразу череп, до загрузки остального интерфейса
-    try {
-        const cached = JSON.parse(localStorage.getItem('cache_bootstrap') || '{}');
-        if (cached?.user?.is_banned) window.triggerBanScreen();
-    } catch(e) {}
-})();
-
 (function() {
     // ==========================================
     // 1. CSS ШАПКИ И МЕНЮ
@@ -150,8 +75,18 @@
 
         .side-menu-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(5px); z-index: 9999; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
         .side-menu-overlay.active { opacity: 1; pointer-events: auto; }
-        .side-menu-content { position: absolute; top: 0; right: -100%; width: 100%; height: 100%; background: rgba(28, 28, 30, 0.75); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); transition: right 0.4s cubic-bezier(0.25, 1, 0.5, 1); padding: calc(var(--tg-content-safe-area-inset-top, env(safe-area-inset-top, 24px)) + 65px) 25px 25px 25px; box-sizing: border-box; display: flex; flex-direction: column; }
+        /* Уменьшили боковые паддинги с 25px до 20px */
+        .side-menu-content { position: absolute; top: 0; right: -100%; width: 100%; height: 100%; background: rgba(28, 28, 30, 0.75); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); transition: right 0.4s cubic-bezier(0.25, 1, 0.5, 1); padding: calc(var(--tg-content-safe-area-inset-top, env(safe-area-inset-top, 24px)) + 55px) 20px 20px 20px; box-sizing: border-box; display: flex; flex-direction: column; }
         .side-menu-overlay.active .side-menu-content { right: 0; }
+        /* Уменьшили нижний отступ шапки меню */
+        .side-menu-header { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 20px; padding-top: 10px; }
+        /* Уменьшили крестик закрытия */
+        .icon-btn { background: transparent; border: none; color: #fff; font-size: 20px; cursor: pointer; outline: none; }
+        // Уменьшили расстояние между кнопками */
+        .side-nav { display: flex; flex-direction: column; gap: 8px; }
+        /* Сделали сами кнопки компактнее: шрифт 14px, паддинг 12px, скругление 10px */
+        .side-nav a { display: flex; align-items: center; gap: 12px; color: var(--text-primary); text-decoration: none; font-size: 14px; font-weight: 600; padding: 12px 14px; border-radius: 10px; background: rgba(255, 255, 255, 0.08); transition: background 0.2s; }
+        .side-nav a:active { background: rgba(255, 255, 255, 0.15); }
         .side-menu-header { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 30px; padding-top: 10px; }
         .icon-btn { background: transparent; border: none; color: #fff; font-size: 24px; cursor: pointer; outline: none; }
         .side-nav { display: flex; flex-direction: column; gap: 10px; }
@@ -200,6 +135,8 @@
                     <a href="#" onclick="if(typeof openCouponModal === 'function') openCouponModal(); return false;">
                         <i class="fa-solid fa-ticket-simple" style="color: #34c759;"></i> Активировать купон
                     </a>
+                    <a href="/agreement.html"><i class="fa-solid fa-file-contract" style="color: var(--text-muted);"></i> Оферта и Правила</a>
+                    
                     <a href="/admin" id="nav-admin" class="hidden" style="color: #ff3b30;"><i class="fa-solid fa-shield"></i> Админ-панель</a>
                 </nav>
             </div>
