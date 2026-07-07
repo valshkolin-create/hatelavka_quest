@@ -3992,18 +3992,19 @@ window.smoothScrollTo = function(element) {
 
     // --- ЛОГИКА ПОКУПКИ УРОВНЕЙ ---
     let levelsToBuy = 1;
+    let currentNeededExp = 0; // Сохраняем точное кол-во необходимого EXP для отправки на сервер
 
-    // Управляем галочкой на этапе соглашения EXP
-    window.toggleExpAgreementNext = function(isAgreed) {
-        const nextBtn = document.getElementById('buy-exp-next-stage-btn');
-        if (!nextBtn) return;
+    // Новая функция для галочки в окне прокачки
+    window.toggleExpAgreement = function(isAgreed) {
+        const btnRub = document.getElementById('btn-buy-exp-rub');
+        if (!btnRub) return;
         
         if (isAgreed) {
-            nextBtn.classList.remove('disabled-terms');
-            nextBtn.removeAttribute('disabled');
+            btnRub.classList.remove('disabled-terms');
+            btnRub.removeAttribute('disabled');
         } else {
-            nextBtn.classList.add('disabled-terms');
-            nextBtn.setAttribute('disabled', 'true');
+            btnRub.classList.add('disabled-terms');
+            btnRub.setAttribute('disabled', 'true');
         }
     };
 
@@ -4012,111 +4013,125 @@ window.smoothScrollTo = function(element) {
         levelsToBuy = 1;
         updateBuyExpUI();
         
-        // Возвращаем в начальное состояние (Скрываем соглашение, показываем выбор)
-        const stageSelection = document.getElementById('buy-exp-stage-selection');
-        const stageAgreement = document.getElementById('buy-exp-stage-agreement');
-        
-        if (stageSelection) stageSelection.style.display = 'block';
-        if (stageAgreement) stageAgreement.style.display = 'none';
-
-        // Сбрасываем чекбокс
+        const agreementBlock = document.getElementById('buy-exp-agreement-block');
         const chk = document.getElementById('buy-exp-terms-checkbox');
-        if(chk) chk.checked = false;
-        window.toggleExpAgreementNext(false);
+        
+        if (userData && userData.has_accepted_oferta) {
+            if (agreementBlock) agreementBlock.style.display = 'none'; 
+            window.toggleExpAgreement(true); 
+            if (chk) chk.checked = true;
+        } else {
+            if (agreementBlock) agreementBlock.style.display = 'block';
+            if (chk) chk.checked = false;
+            window.toggleExpAgreement(false); 
+        }
 
         document.getElementById('buy-exp-modal').classList.add('modal-active');
     };
 
     window.changeBuyLevel = function(delta) {
         haptic('light');
+
+        const tiers = bpData?.tiers || [];
+        if (!tiers.length) return;
+
+        // Вычисляем текущий индекс уровня юзера
+        const userStars = parseFloat(userData.checkpoint_stars) || 0;
+        let currentTierIndex = -1;
+        for (let i = 0; i < tiers.length; i++) {
+            if (userStars >= parseFloat(tiers[i].required_stars)) {
+                currentTierIndex = i;
+            }
+        }
+
+        // Максимально доступное кол-во уровней для покупки = сколько осталось до конца
+        const maxAvailableToBuy = tiers.length - 1 - currentTierIndex;
+
         levelsToBuy += delta;
         if (levelsToBuy < 1) levelsToBuy = 1;
-        if (levelsToBuy > 50) levelsToBuy = 50; // Защита от спама
+        
+        // Убрали хардкод 50. Теперь лимит динамический (до конца БП)
+        if (levelsToBuy > maxAvailableToBuy) {
+            levelsToBuy = maxAvailableToBuy > 0 ? maxAvailableToBuy : 1;
+        }
+
         updateBuyExpUI();
     };
 
     function updateBuyExpUI() {
+        const tiers = bpData?.tiers || [];
+        if (!tiers.length) return;
+
+        const userStars = parseFloat(userData.checkpoint_stars) || 0;
+        let currentTierIndex = -1;
+        for (let i = 0; i < tiers.length; i++) {
+            if (userStars >= parseFloat(tiers[i].required_stars)) {
+                currentTierIndex = i;
+            }
+        }
+
+        // Определяем целевой уровень
+        let targetIndex = currentTierIndex + levelsToBuy;
+        if (targetIndex >= tiers.length) targetIndex = tiers.length - 1;
+
+        // Вычисляем ТОЧНУЮ разницу между целью и текущим опытом
+        const targetStars = parseFloat(tiers[targetIndex]?.required_stars) || 0;
+        let neededExp = targetStars - userStars;
+        if (neededExp <= 0) neededExp = 0;
+        
+        // Округляем до 1 знака на случай дробного опыта в админке
+        neededExp = Math.ceil(neededExp * 10) / 10;
+        currentNeededExp = neededExp; // Запоминаем для бэка
+
         document.getElementById('buy-level-count').innerText = levelsToBuy;
         document.getElementById('buy-level-text').innerText = getPlural(levelsToBuy, 'УРОВЕНЬ', 'УРОВНЯ', 'УРОВНЕЙ');
-        document.getElementById('buy-exp-count').innerText = levelsToBuy * 10;
+        document.getElementById('buy-exp-count').innerText = neededExp; // Показываем точный EXP
 
         const premiumPriceRub = (bpData && bpData.premium_price_rub && bpData.premium_price_rub > 0) ? bpData.premium_price_rub : 199;
         const ratio = premiumPriceRub / 199.0;
         
-        const priceRub = Math.round(20 * ratio * levelsToBuy);
-        const priceCoins = Math.round(40 * ratio * levelsToBuy);
-        const priceTickets = Math.round(80 * ratio * levelsToBuy);
+        // Масштабируем цену от реального кол-ва EXP 
+        // (База: 1 EXP = 2 RUB / 4 COINS / 8 TICKETS)
+        const priceRub = Math.round(neededExp * 2 * ratio);
+        const priceCoins = Math.round(neededExp * 4 * ratio);
+        const priceTickets = Math.round(neededExp * 8 * ratio);
 
         document.getElementById('price-rub').innerText = priceRub;
         document.getElementById('price-coins').innerText = priceCoins;
         document.getElementById('price-tickets').innerText = priceTickets;
     }
 
-    // КЛИК: ОПЛАТА УРОВНЕЙ ЗА РУБЛИ
-    window.clickBuyExpRub = function() {
-        haptic('light');
-        
-        // 🔥 Если юзер УЖЕ принял оферту ранее (в БП или здесь)
-        if (userData && userData.has_accepted_oferta) {
-            window.confirmRubleExpPayment(); // Сразу переходим к оплате
-            return;
-        }
-
-        // Иначе показываем этап соглашения
-        const stageSelection = document.getElementById('buy-exp-stage-selection');
-        const stageAgreement = document.getElementById('buy-exp-stage-agreement');
-        
-        if (stageSelection) stageSelection.style.display = 'none';
-        if (stageAgreement) stageAgreement.style.display = 'block';
-    };
-
-    // ФИНАЛЬНАЯ ОПЛАТА РУБЛЯМИ ЗА EXP (после соглашения)
-    window.confirmRubleExpPayment = async function() {
+    window.confirmBuyExp = async function(currency) {
         haptic('medium');
         
-        const btn = document.getElementById('buy-exp-next-stage-btn') || document.getElementById('btn-buy-exp-rub');
-        const originalHtml = btn ? btn.innerHTML : '';
-
-        // 🔥 Если оферта ещё не сохранена в БД, сохраняем сейчас
-        if (userData && !userData.has_accepted_oferta) {
-            if (btn) {
-                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Сохранение...';
-                btn.style.pointerEvents = 'none';
-            }
+        const btn = event.currentTarget;
+        const originalHtml = btn.innerHTML;
+        
+        if (currency === 'rub' && userData && !userData.has_accepted_oferta) {
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Сохранение...';
+            btn.style.pointerEvents = 'none';
             
             try {
-                // Вызываем эндпоинт сохранения согласия
                 const agreeRes = await window.makeApiRequest('/api/v1/user/accept_oferta', {});
                 if (agreeRes.status === 'success' || agreeRes.has_accepted_oferta) {
-                    userData.has_accepted_oferta = true; // Запоминаем локально
+                    userData.has_accepted_oferta = true; 
                 }
             } catch (e) {
                 tg.HapticFeedback.notificationOccurred('error');
                 showCustomAlert('Ошибка', 'Не удалось сохранить согласие. Попробуйте еще раз.', 'error');
-                if (btn) {
-                    btn.innerHTML = originalHtml;
-                    btn.style.pointerEvents = 'auto';
-                }
-                return; // Прерываем процесс, если база отвалилась
+                btn.innerHTML = originalHtml;
+                btn.style.pointerEvents = 'auto';
+                return; 
             }
         }
 
-        // --- Здесь потом будет реальная оплата Робокассой ---
-        document.getElementById('buy-exp-modal').classList.remove('modal-active');
-        
-        showCustomAlert("В разработке", "Оплата рублями в данный момент подключается! Используйте монеты или билеты.", "error");
-        
-        if (btn) {
+        if (currency === 'rub') {
+            document.getElementById('buy-exp-modal').classList.remove('modal-active');
+            showCustomAlert("В разработке", "Оплата рублями в данный момент подключается! Используйте монеты или билеты.", "error");
             btn.innerHTML = originalHtml;
             btn.style.pointerEvents = 'auto';
+            return;
         }
-    };
-
-    // КЛИК: ОПЛАТА МОНЕТАМИ ИЛИ БИЛЕТАМИ (всё осталось как раньше, в 1 клик)
-    window.confirmBuyExp = async function(currency) {
-        haptic('medium');
-        const btn = event.currentTarget;
-        const originalHtml = btn.innerHTML;
 
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
         btn.style.pointerEvents = 'none';
@@ -4124,7 +4139,7 @@ window.smoothScrollTo = function(element) {
         try {
             const res = await window.makeApiRequest('/api/v1/checkpoint/buy_exp', {
                 levels: levelsToBuy,
-                currency: currency
+                currency: currency // <--- Оставили только уровни и валюту, остальное бэк посчитает сам
             });
 
             document.getElementById('buy-exp-modal').classList.remove('modal-active');
@@ -4133,7 +4148,7 @@ window.smoothScrollTo = function(element) {
             const centerY = window.innerHeight / 2;
             playStarAnimation(centerX, centerY);
 
-            showCustomAlert('Успех!', `Уровни успешно начислены (+${levelsToBuy * 10} EXP).`, 'success');
+            showCustomAlert('Успех!', `Уровни успешно начислены (+${currentNeededExp} EXP).`, 'success');
 
             const userRes = await window.makeApiRequest('/api/v1/user/me');
             userData = userRes;
