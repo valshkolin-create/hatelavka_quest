@@ -228,7 +228,7 @@ async def check_twinks_and_send_alert(
             f"🌐 <b>IP:</b> <code>{client_ip or 'Не определен'}</code>\n"
             f"📱 <b>Device ID:</b> <code>{device_id[:12] if device_id else 'Не передан'}...</code>\n\n"
             f"{''.join(alert_lines)}"
-            f"<i>*Система маппинга зафиксировала пересечение данных в гринделке.</i>"
+            f"<i>*Система маппинга зафиксировала пересечение данных в лавке.</i>"
         )
 
         # ТВОЙ ИДЕАЛЬНЫЙ БЛОК ОТПРАВКИ ЛОГА АДМИНУ
