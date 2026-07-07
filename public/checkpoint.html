@@ -1623,6 +1623,20 @@
         </div>
     </div>
 
+    Понял тебя на 100%! Делаем абсолютно такую же двухэтапную систему для прокачки уровней, как и в Premium.
+
+В окне Прокачки (EXP) теперь будет Два этапа:
+
+Выбор уровней и способа оплаты (показывается сразу).
+
+Оферта (перекинет сюда при нажатии "За Х ₽", если юзер ещё не принимал правила).
+
+После принятия правил база всё запомнит, и в следующий раз он будет покупать в 1 клик. Полный текст оферты сохранен без сокращений!
+
+Замени эти два куска у себя в коде.
+
+1. HTML: Полностью замени блок <div id="buy-exp-modal"...>
+HTML
     <div id="buy-exp-modal" class="modal-overlay" onclick="if(event.target===this) { haptic('light'); this.classList.remove('modal-active'); }">
         <div class="premium-panel" style="background: transparent !important; border: none !important; box-shadow: none !important; max-width: 320px; transform: translateY(-10px) !important;">
             
@@ -1636,22 +1650,43 @@
             
            <div class="premium-modal-body" style="padding: 15px; text-align: center; overflow: visible;">
                 
-                <div style="display: flex; justify-content: center; align-items: center; gap: 20px; margin-bottom: 5px;">
-                    <button class="editor-btn-small" onclick="changeBuyLevel(-1)" style="width: 45px; height: 45px; justify-content: center; font-size: 20px; border-radius: 12px;"><i class="fa-solid fa-minus"></i></button>
-                    
-                    <div style="display: flex; flex-direction: column; align-items: center; min-width: 70px;">
-                        <div style="font-size: 32px; font-weight: 900; color: var(--primary); text-shadow: 0 0 15px rgba(255, 215, 0, 0.4); line-height: 1;"><span id="buy-level-count">1</span></div>
-                        <div id="buy-level-text" style="font-size: 10px; color: var(--text-muted); font-weight: 800; letter-spacing: 1px; text-transform: uppercase;">УРОВЕНЬ</div>
+                <!-- ЭТАП 1: Выбор уровней и способа оплаты -->
+                <div id="buy-exp-stage-selection" style="animation: fadeIn 0.3s ease;">
+                    <div style="display: flex; justify-content: center; align-items: center; gap: 20px; margin-bottom: 5px;">
+                        <button class="editor-btn-small" onclick="changeBuyLevel(-1)" style="width: 45px; height: 45px; justify-content: center; font-size: 20px; border-radius: 12px;"><i class="fa-solid fa-minus"></i></button>
+                        
+                        <div style="display: flex; flex-direction: column; align-items: center; min-width: 70px;">
+                            <div style="font-size: 32px; font-weight: 900; color: var(--primary); text-shadow: 0 0 15px rgba(255, 215, 0, 0.4); line-height: 1;"><span id="buy-level-count">1</span></div>
+                            <div id="buy-level-text" style="font-size: 10px; color: var(--text-muted); font-weight: 800; letter-spacing: 1px; text-transform: uppercase;">УРОВЕНЬ</div>
+                        </div>
+                        
+                        <button class="editor-btn-small" onclick="changeBuyLevel(1)" style="width: 45px; height: 45px; justify-content: center; font-size: 20px; border-radius: 12px;"><i class="fa-solid fa-plus"></i></button>
                     </div>
                     
-                    <button class="editor-btn-small" onclick="changeBuyLevel(1)" style="width: 45px; height: 45px; justify-content: center; font-size: 20px; border-radius: 12px;"><i class="fa-solid fa-plus"></i></button>
-                </div>
-                
-                <p style="font-size: 12px; color: var(--success); margin: 0 0 20px 0; font-weight: 800;">Вы получите: +<span id="buy-exp-count">10</span> <i class="fa-solid fa-star" style="font-size: 10px;"></i></p>
+                    <p style="font-size: 12px; color: var(--success); margin: 0 0 20px 0; font-weight: 800;">Вы получите: +<span id="buy-exp-count">10</span> <i class="fa-solid fa-star" style="font-size: 10px;"></i></p>
 
-                <div id="buy-exp-agreement-block" style="display: none; text-align: left; margin-bottom: 15px;">
-                    <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 6px; text-align: center;">Перед покупкой за рубли ознакомьтесь с правилами:</p>
-                    <div class="modal-terms-box" style="max-height: 120px; margin-bottom: 8px;">
+                    <button id="btn-buy-exp-rub" class="btn-claim ready" onclick="clickBuyExpRub()" style="width: 100%; margin-bottom: 0; background: linear-gradient(135deg, #34c759 0%, #28a745 100%); color: #fff; padding: 14px; border-radius: 14px; font-size: 13px; box-shadow: 0 4px 15px rgba(52, 199, 89, 0.2);">
+                        За <span id="price-rub">20</span> ₽
+                    </button>
+                    
+                    <div style="text-align: center; color: var(--text-muted); font-size: 10px; margin: 10px 0; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">либо</div>
+
+                    <div style="display: flex; gap: 8px;">
+                        <button id="btn-buy-exp-coins" class="btn-claim ready" onclick="confirmBuyExp('coins')" style="flex: 1; margin: 0; background: rgba(255, 215, 0, 0.1); border: 1px solid rgba(255, 215, 0, 0.4); color: #ffd700; padding: 12px 6px; border-radius: 12px; font-size: 12px;">
+                            <i class="fa-solid fa-coins"></i> <span id="price-coins">40</span>
+                        </button>
+                        
+                        <button id="btn-buy-exp-tickets" class="btn-claim ready" onclick="confirmBuyExp('tickets')" style="flex: 1; margin: 0; background: rgba(0, 191, 255, 0.1); border: 1px solid rgba(0, 191, 255, 0.4); color: #00bfff; padding: 12px 6px; border-radius: 12px; font-size: 12px;">
+                            <i class="fa-solid fa-ticket"></i> <span id="price-tickets">80</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ЭТАП 2: Соглашение (Скрыто по умолчанию, только для рублей) -->
+                <div id="buy-exp-stage-agreement" style="display: none; animation: fadeIn 0.3s ease; text-align: left;">
+                    <p style="text-align: center; color: var(--primary); font-weight: 700; margin-bottom: 10px;">Подтверждение покупки</p>
+                    
+                    <div class="modal-terms-box" style="max-height: 250px;">
                         <p><strong>ПОЛЬЗОВАТЕЛЬСКОЕ СОГЛАШЕНИЕ И ПУБЛИЧНАЯ ОФЕРТА</strong></p>
                         <p>Регистрация (авторизация) в Веб-приложении будет означать ваше полное и безоговорочное согласие с условиями настоящего Соглашения (акцепт оферты). Если Вы не согласны с условиями, не приобретайте платные услуги, не проходите авторизацию и не используйте программные средства сервиса.</p>
                         <p>Редакция от 07.07.2026</p>
@@ -1736,24 +1771,12 @@
                     </div>
 
                     <label class="checkbox-label" style="margin-bottom: 0;">
-                        <input type="checkbox" id="buy-exp-terms-checkbox" onchange="window.toggleExpAgreement(this.checked)">
+                        <input type="checkbox" id="buy-exp-terms-checkbox" onchange="window.toggleExpAgreementNext(this.checked)">
                         <span>Я принимаю условия <a href="/agreement.html" target="_blank" onclick="event.stopPropagation();" style="color: var(--primary); text-decoration: none; border-bottom: 1px dashed var(--primary);">пользовательского соглашения</a> и оферты.</span>
                     </label>
-                </div>
 
-                <button id="btn-buy-exp-rub" class="btn-claim ready" onclick="confirmBuyExp('rub')" style="width: 100%; margin-bottom: 0; background: linear-gradient(135deg, #34c759 0%, #28a745 100%); color: #fff; padding: 14px; border-radius: 14px; font-size: 13px; box-shadow: 0 4px 15px rgba(52, 199, 89, 0.2);">
-                    За <span id="price-rub">20</span> ₽
-                </button>
-                
-                <div style="text-align: center; color: var(--text-muted); font-size: 10px; margin: 10px 0; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">либо</div>
-
-                <div style="display: flex; gap: 8px;">
-                    <button id="btn-buy-exp-coins" class="btn-claim ready" onclick="confirmBuyExp('coins')" style="flex: 1; margin: 0; background: rgba(255, 215, 0, 0.1); border: 1px solid rgba(255, 215, 0, 0.4); color: #ffd700; padding: 12px 6px; border-radius: 12px; font-size: 12px;">
-                        <i class="fa-solid fa-coins"></i> <span id="price-coins">40</span>
-                    </button>
-                    
-                    <button id="btn-buy-exp-tickets" class="btn-claim ready" onclick="confirmBuyExp('tickets')" style="flex: 1; margin: 0; background: rgba(0, 191, 255, 0.1); border: 1px solid rgba(0, 191, 255, 0.4); color: #00bfff; padding: 12px 6px; border-radius: 12px; font-size: 12px;">
-                        <i class="fa-solid fa-ticket"></i> <span id="price-tickets">80</span>
+                    <button id="buy-exp-next-stage-btn" class="btn-claim ready disabled-terms" style="margin-top: 5px;" disabled onclick="window.confirmRubleExpPayment()">
+                        Перейти к оплате <i class="fa-solid fa-arrow-right" style="margin-left: 5px; font-size: 11px;"></i>
                     </button>
                 </div>
 
@@ -3288,11 +3311,19 @@ window.claimQuestReward = async function(questId, week) {
     const rubBtn = document.getElementById('buy-premium-rub-btn');
     const coinsBtn = document.getElementById('buy-premium-coins-btn');
 
-    // КЛИК: ОПЛАТА РУБЛЯМИ -> ПЕРЕХОДИМ К ОФЕРТЕ
+    // КЛИК: ОПЛАТА РУБЛЯМИ -> ПЕРЕХОДИМ К ОФЕРТЕ (ИЛИ СРАЗУ К ОПЛАТЕ)
     if (rubBtn) {
         rubBtn.addEventListener('click', () => {
             haptic('light');
             
+            // 🔥 Если юзер УЖЕ принимал оферту ранее (в EXP или здесь)
+            if (userData && userData.has_accepted_oferta) {
+                // Сразу идем к оплате, пропуская этап текста
+                window.confirmRublePayment();
+                return;
+            }
+
+            // Иначе показываем соглашение
             const stagePayment = document.getElementById('premium-stage-payment');
             const stageAgreement = document.getElementById('premium-stage-agreement');
             const modalImg = document.getElementById('premium-modal-img');
@@ -3305,8 +3336,37 @@ window.claimQuestReward = async function(questId, week) {
     }
 
     // Финальное подтверждение оплаты рублями (после принятия оферты)
-    window.confirmRublePayment = function() {
+    window.confirmRublePayment = async function() {
         haptic('medium');
+        
+        const btn = document.getElementById('premium-next-stage-btn');
+        const originalHtml = btn ? btn.innerHTML : '';
+
+        // 🔥 Если оферта ещё не сохранена в БД, отправляем запрос на сохранение
+        if (userData && !userData.has_accepted_oferta) {
+            if (btn) {
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Сохранение...';
+                btn.style.pointerEvents = 'none';
+            }
+            
+            try {
+                // Вызываем эндпоинт сохранения согласия
+                const agreeRes = await window.makeApiRequest('/api/v1/user/accept_oferta', {});
+                if (agreeRes.status === 'success' || agreeRes.has_accepted_oferta) {
+                    userData.has_accepted_oferta = true; // Запоминаем локально для всей сессии
+                }
+            } catch (e) {
+                tg.HapticFeedback.notificationOccurred('error');
+                showCustomAlert('Ошибка', 'Не удалось сохранить согласие. Попробуйте еще раз.', 'error');
+                if (btn) {
+                    btn.innerHTML = originalHtml;
+                    btn.style.pointerEvents = 'auto';
+                }
+                return; // Прерываем процесс, если база отвалилась
+            }
+        }
+
+        // --- Здесь потом будет реальная оплата Робокассой ---
         dom.premiumBuyModal.classList.remove('modal-active');
         
         showCustomAlert(
@@ -3314,6 +3374,11 @@ window.claimQuestReward = async function(questId, week) {
             "Оплата рублями в данный момент подключается! Используйте монеты.", 
             "error" 
         );
+        
+        if (btn) {
+            btn.innerHTML = originalHtml;
+            btn.style.pointerEvents = 'auto';
+        }
     };
 
     // КЛИК: ОПЛАТА МОНЕТАМИ (остается как было, идет сразу в оплату)
@@ -3942,17 +4007,17 @@ window.smoothScrollTo = function(element) {
     // --- ЛОГИКА ПОКУПКИ УРОВНЕЙ ---
     let levelsToBuy = 1;
 
-    // Новая функция для галочки в окне прокачки
-    window.toggleExpAgreement = function(isAgreed) {
-        const btnRub = document.getElementById('btn-buy-exp-rub');
-        if (!btnRub) return;
+    // Управляем галочкой на этапе соглашения EXP
+    window.toggleExpAgreementNext = function(isAgreed) {
+        const nextBtn = document.getElementById('buy-exp-next-stage-btn');
+        if (!nextBtn) return;
         
         if (isAgreed) {
-            btnRub.classList.remove('disabled-terms');
-            btnRub.removeAttribute('disabled');
+            nextBtn.classList.remove('disabled-terms');
+            nextBtn.removeAttribute('disabled');
         } else {
-            btnRub.classList.add('disabled-terms');
-            btnRub.setAttribute('disabled', 'true');
+            nextBtn.classList.add('disabled-terms');
+            nextBtn.setAttribute('disabled', 'true');
         }
     };
 
@@ -3961,21 +4026,17 @@ window.smoothScrollTo = function(element) {
         levelsToBuy = 1;
         updateBuyExpUI();
         
-        const agreementBlock = document.getElementById('buy-exp-agreement-block');
-        const chk = document.getElementById('buy-exp-terms-checkbox');
-        const btnRub = document.getElementById('btn-buy-exp-rub');
+        // Возвращаем в начальное состояние (Скрываем соглашение, показываем выбор)
+        const stageSelection = document.getElementById('buy-exp-stage-selection');
+        const stageAgreement = document.getElementById('buy-exp-stage-agreement');
         
-        // Проверяем, принял ли юзер оферту ранее (данные приходят с бэка)
-        if (userData && userData.has_accepted_oferta) {
-            if (agreementBlock) agreementBlock.style.display = 'none'; // Прячем оферту навсегда
-            window.toggleExpAgreement(true); // Включаем кнопку
-            if (chk) chk.checked = true;
-        } else {
-            // Если не принимал — показываем блок и требуем галочку
-            if (agreementBlock) agreementBlock.style.display = 'block';
-            if (chk) chk.checked = false;
-            window.toggleExpAgreement(false); // Выключаем кнопку до принятия
-        }
+        if (stageSelection) stageSelection.style.display = 'block';
+        if (stageAgreement) stageAgreement.style.display = 'none';
+
+        // Сбрасываем чекбокс
+        const chk = document.getElementById('buy-exp-terms-checkbox');
+        if(chk) chk.checked = false;
+        window.toggleExpAgreementNext(false);
 
         document.getElementById('buy-exp-modal').classList.add('modal-active');
     };
@@ -3984,7 +4045,7 @@ window.smoothScrollTo = function(element) {
         haptic('light');
         levelsToBuy += delta;
         if (levelsToBuy < 1) levelsToBuy = 1;
-        if (levelsToBuy > 50) levelsToBuy = 50; // Защита от спама (макс 50 за раз)
+        if (levelsToBuy > 50) levelsToBuy = 50; // Защита от спама
         updateBuyExpUI();
     };
 
@@ -3993,13 +4054,9 @@ window.smoothScrollTo = function(element) {
         document.getElementById('buy-level-text').innerText = getPlural(levelsToBuy, 'УРОВЕНЬ', 'УРОВНЯ', 'УРОВНЕЙ');
         document.getElementById('buy-exp-count').innerText = levelsToBuy * 10;
 
-        // Тянем ИМЕННО рублевую цену из настроек БП (если пусто или 0, берем 199)
         const premiumPriceRub = (bpData && bpData.premium_price_rub && bpData.premium_price_rub > 0) ? bpData.premium_price_rub : 199;
-        
-        // Вычисляем множитель (при 199 руб он равен 1)
         const ratio = premiumPriceRub / 199.0;
         
-        // Точные расчеты с учетом динамического множителя
         const priceRub = Math.round(20 * ratio * levelsToBuy);
         const priceCoins = Math.round(40 * ratio * levelsToBuy);
         const priceTickets = Math.round(80 * ratio * levelsToBuy);
@@ -4009,40 +4066,71 @@ window.smoothScrollTo = function(element) {
         document.getElementById('price-tickets').innerText = priceTickets;
     }
 
-    window.confirmBuyExp = async function(currency) {
+    // КЛИК: ОПЛАТА УРОВНЕЙ ЗА РУБЛИ
+    window.clickBuyExpRub = function() {
+        haptic('light');
+        
+        // 🔥 Если юзер УЖЕ принял оферту ранее (в БП или здесь)
+        if (userData && userData.has_accepted_oferta) {
+            window.confirmRubleExpPayment(); // Сразу переходим к оплате
+            return;
+        }
+
+        // Иначе показываем этап соглашения
+        const stageSelection = document.getElementById('buy-exp-stage-selection');
+        const stageAgreement = document.getElementById('buy-exp-stage-agreement');
+        
+        if (stageSelection) stageSelection.style.display = 'none';
+        if (stageAgreement) stageAgreement.style.display = 'block';
+    };
+
+    // ФИНАЛЬНАЯ ОПЛАТА РУБЛЯМИ ЗА EXP (после соглашения)
+    window.confirmRubleExpPayment = async function() {
         haptic('medium');
         
-        const btn = event.currentTarget;
-        const originalHtml = btn.innerHTML;
-        
-        // Если рубли и оферта ещё не сохранена в БД, отправляем запрос на сохранение
-        if (currency === 'rub' && userData && !userData.has_accepted_oferta) {
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Сохранение...';
-            btn.style.pointerEvents = 'none';
+        const btn = document.getElementById('buy-exp-next-stage-btn') || document.getElementById('btn-buy-exp-rub');
+        const originalHtml = btn ? btn.innerHTML : '';
+
+        // 🔥 Если оферта ещё не сохранена в БД, сохраняем сейчас
+        if (userData && !userData.has_accepted_oferta) {
+            if (btn) {
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Сохранение...';
+                btn.style.pointerEvents = 'none';
+            }
             
             try {
-                // Вызываем новый эндпоинт сохранения согласия
+                // Вызываем эндпоинт сохранения согласия
                 const agreeRes = await window.makeApiRequest('/api/v1/user/accept_oferta', {});
                 if (agreeRes.status === 'success' || agreeRes.has_accepted_oferta) {
-                    userData.has_accepted_oferta = true; // Запоминаем локально, чтобы больше не спрашивать
+                    userData.has_accepted_oferta = true; // Запоминаем локально
                 }
             } catch (e) {
                 tg.HapticFeedback.notificationOccurred('error');
                 showCustomAlert('Ошибка', 'Не удалось сохранить согласие. Попробуйте еще раз.', 'error');
-                btn.innerHTML = originalHtml;
-                btn.style.pointerEvents = 'auto';
-                return; // Прерываем покупку, если не удалось сохранить
+                if (btn) {
+                    btn.innerHTML = originalHtml;
+                    btn.style.pointerEvents = 'auto';
+                }
+                return; // Прерываем процесс, если база отвалилась
             }
         }
 
-        // --- Заглушка для рублей пока нет реальной платежки ---
-        if (currency === 'rub') {
-            document.getElementById('buy-exp-modal').classList.remove('modal-active');
-            showCustomAlert("В разработке", "Оплата рублями в данный момент подключается! Используйте монеты или билеты.", "error");
+        // --- Здесь потом будет реальная оплата Робокассой ---
+        document.getElementById('buy-exp-modal').classList.remove('modal-active');
+        
+        showCustomAlert("В разработке", "Оплата рублями в данный момент подключается! Используйте монеты или билеты.", "error");
+        
+        if (btn) {
             btn.innerHTML = originalHtml;
             btn.style.pointerEvents = 'auto';
-            return;
         }
+    };
+
+    // КЛИК: ОПЛАТА МОНЕТАМИ ИЛИ БИЛЕТАМИ (всё осталось как раньше, в 1 клик)
+    window.confirmBuyExp = async function(currency) {
+        haptic('medium');
+        const btn = event.currentTarget;
+        const originalHtml = btn.innerHTML;
 
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
         btn.style.pointerEvents = 'none';
@@ -4055,14 +4143,12 @@ window.smoothScrollTo = function(element) {
 
             document.getElementById('buy-exp-modal').classList.remove('modal-active');
             
-            // Взрыв звездочек для красоты
             const centerX = window.innerWidth / 2;
             const centerY = window.innerHeight / 2;
             playStarAnimation(centerX, centerY);
 
             showCustomAlert('Успех!', `Уровни успешно начислены (+${levelsToBuy * 10} EXP).`, 'success');
 
-            // Обновляем данные юзера и UI
             const userRes = await window.makeApiRequest('/api/v1/user/me');
             userData = userRes;
             renderBP(true);
