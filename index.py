@@ -9649,8 +9649,8 @@ async def get_current_user_data(
     # Извлекаем метку устройства, которую фронтенд генерирует и шлет в заголовках
     device_id = request.headers.get("X-Device-Id") 
     
-    # 🔥 Читаем заголовок платформы с фронтенда, чтобы убрать NameError
-    platform_type = request.headers.get("X-Platform-Type") 
+    # 🔥 Читаем платформу из тела запроса (JSON), так как фронтенд шлет ее именно там
+    platform_type = getattr(request_data, 'platform_type', None)
     # ---------------------------------------------
 
     # 2. Проверка режима сна
@@ -9723,11 +9723,13 @@ async def get_current_user_data(
             logging.info(f"[USER/ME] Статус создания пользователя {telegram_id}: {reg_resp.status_code}")
             
             # Повторный запрос RPC
+            # Повторный запрос RPC
             logging.info(f"[USER/ME] Повторный вызов RPC для {telegram_id} после регистрации")
             retry_resp = await supabase.post("/rpc/get_user_dashboard_data", json={
                 "p_telegram_id": telegram_id,
-                "p_client_ip": client_ip,      # 🔥 Передаем IP при повторном вызове
-                "p_device_id": device_id       # 🔥 Передаем Device ID при повторном вызове
+                "p_client_ip": client_ip,      
+                "p_device_id": device_id,       
+                "p_platform_type": platform_type # 🔥 ДОБАВЛЕНО! Иначе у новичков платформа будет пустой
             })
             
             if retry_resp.status_code == 200:
