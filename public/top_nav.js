@@ -128,6 +128,7 @@
                         <i class="fa-solid fa-ticket-simple" style="color: #34c759;"></i> Активировать купон
                     </a>
                     <a href="/agreement.html"><i class="fa-solid fa-file-contract" style="color: var(--text-muted);"></i> Оферта и Правила</a>
+                    <a href="/privacy-policy.html"><i class="fa-solid fa-file-contract" style="color: var(--text-muted);"></i> Политика безопасности</a>
                     
                     <a href="/admin" id="nav-admin" class="hidden" style="color: #ff3b30;"><i class="fa-solid fa-shield"></i> Админ-панель</a>
                 </nav>
