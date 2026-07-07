@@ -122,7 +122,6 @@
                     <a href="/profile"><i class="fa-solid fa-user"></i> Мой Профиль</a>
                     <a href="/quests"><i class="fa-solid fa-check-double"></i> Задания</a>
                     <a href="/leaderboard"><i class="fa-solid fa-trophy"></i> Лидербоард</a>
-                    <a href="/menu"><i class="fa-solid fa-gear"></i> Настройки</a>
                     <a href="#" onclick="if(typeof showFaq === 'function') showFaq(); return false;"><i class="fa-solid fa-circle-question"></i> Как пользоваться приложением?</a>
                     <a href="#" onclick="if(typeof openCouponModal === 'function') openCouponModal(); return false;">
                         <i class="fa-solid fa-ticket-simple" style="color: #34c759;"></i> Активировать купон
