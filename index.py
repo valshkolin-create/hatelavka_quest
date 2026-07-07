@@ -15504,6 +15504,45 @@ async def get_checkpoint_content(supabase: httpx.AsyncClient = Depends(get_supab
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # БАТТЛ-ПАСС  # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # БАТТЛ-ПАСС  # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
+class AcceptOfertaRequest(BaseModel):
+    initData: str
+
+@app.post("/api/v1/user/accept_oferta")
+async def accept_user_oferta_endpoint(
+    req: AcceptOfertaRequest, 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """
+    Сохранение согласия пользователя с офертой (покупка за рубли).
+    """
+    # 1. Авторизация
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or "id" not in user_info:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+    
+    telegram_id = user_info["id"]
+    logging.info(f"[OFERTA] Пользователь {telegram_id} принимает оферту...")
+
+    # 2. Вызов RPC функции для обновления статуса
+    try:
+        res = await supabase.post(
+            "/rpc/accept_user_oferta",
+            json={"p_telegram_id": telegram_id}
+        )
+
+        if not res.is_success:
+            logging.error(f"[OFERTA] Ошибка БД для {telegram_id}: {res.text}")
+            raise HTTPException(status_code=500, detail="Не удалось сохранить статус")
+
+        logging.info(f"[OFERTA] Пользователь {telegram_id} успешно принял оферту.")
+        return {"status": "success", "message": "Оферта принята", "has_accepted_oferta": True}
+
+    except HTTPException as http_ex:
+        raise http_ex
+    except Exception as e:
+        logging.error(f"[OFERTA] Сбой эндпоинта для {telegram_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера")
+
 class BuyPremiumRequest(BaseModel):
     initData: str
 
@@ -15727,6 +15766,8 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
                     
     except Exception as e:
         logging.error(f"Ошибка авто-синхронизации БП для {user_id}: {e}", exc_info=True)
+
+
 
 
 async def process_bp_auto_quest(supabase: httpx.AsyncClient, keyword: str, tg_id: int = None, twitch_login: str = None):
