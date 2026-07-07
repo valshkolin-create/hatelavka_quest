@@ -75,22 +75,14 @@
 
         .side-menu-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(5px); z-index: 9999; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
         .side-menu-overlay.active { opacity: 1; pointer-events: auto; }
-        /* Уменьшили боковые паддинги с 25px до 20px */
-        .side-menu-content { position: absolute; top: 0; right: -100%; width: 100%; height: 100%; background: rgba(28, 28, 30, 0.75); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); transition: right 0.4s cubic-bezier(0.25, 1, 0.5, 1); padding: calc(var(--tg-content-safe-area-inset-top, env(safe-area-inset-top, 24px)) + 55px) 20px 20px 20px; box-sizing: border-box; display: flex; flex-direction: column; }
+        
+        /* Компактное меню, поднятое ближе к крестику */
+        .side-menu-content { position: absolute; top: 0; right: -100%; width: 100%; height: 100%; background: rgba(28, 28, 30, 0.75); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); transition: right 0.4s cubic-bezier(0.25, 1, 0.5, 1); padding: calc(var(--tg-content-safe-area-inset-top, env(safe-area-inset-top, 24px)) + 20px) 20px 20px 20px; box-sizing: border-box; display: flex; flex-direction: column; }
         .side-menu-overlay.active .side-menu-content { right: 0; }
-        /* Уменьшили нижний отступ шапки меню */
-        .side-menu-header { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 20px; padding-top: 10px; }
-        /* Уменьшили крестик закрытия */
+        .side-menu-header { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 10px; padding-top: 0px; }
         .icon-btn { background: transparent; border: none; color: #fff; font-size: 20px; cursor: pointer; outline: none; }
-        // Уменьшили расстояние между кнопками */
-        .side-nav { display: flex; flex-direction: column; gap: 8px; }
-        /* Сделали сами кнопки компактнее: шрифт 14px, паддинг 12px, скругление 10px */
-        .side-nav a { display: flex; align-items: center; gap: 12px; color: var(--text-primary); text-decoration: none; font-size: 14px; font-weight: 600; padding: 12px 14px; border-radius: 10px; background: rgba(255, 255, 255, 0.08); transition: background 0.2s; }
-        .side-nav a:active { background: rgba(255, 255, 255, 0.15); }
-        .side-menu-header { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 30px; padding-top: 10px; }
-        .icon-btn { background: transparent; border: none; color: #fff; font-size: 24px; cursor: pointer; outline: none; }
-        .side-nav { display: flex; flex-direction: column; gap: 10px; }
-        .side-nav a { display: flex; align-items: center; gap: 15px; color: var(--text-primary); text-decoration: none; font-size: 16px; font-weight: 600; padding: 15px; border-radius: 12px; background: rgba(255, 255, 255, 0.08); transition: background 0.2s; }
+        .side-nav { display: flex; flex-direction: column; gap: 4px; }
+        .side-nav a { display: flex; align-items: center; gap: 10px; color: var(--text-primary); text-decoration: none; font-size: 12px; font-weight: 600; padding: 8px 12px; border-radius: 8px; background: rgba(255, 255, 255, 0.08); transition: background 0.2s; }
         .side-nav a:active { background: rgba(255, 255, 255, 0.15); }
 
         .modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); z-index: 10002; opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s ease; display: flex; align-items: center; justify-content: center; }
