@@ -3674,8 +3674,9 @@ async def sync_steam_inventory(
 # Новый эндпоинт для быстрой загрузки всего сразу
 @app.post("/api/v1/bootstrap")
 async def get_bootstrap_data(
+    request: Request, # 🔥 Добавили объект запроса для чтения заголовков
     req: InitDataRequest,
-    user_info: dict = Depends(multi_acc_protection), # 🔥 Убрали BackgroundTasks из параметров
+    user_info: dict = Depends(multi_acc_protection), 
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     telegram_id = user_info.get("id")
@@ -3700,12 +3701,23 @@ async def get_bootstrap_data(
         full_name_tg = clean_user_name_text(raw_full_name) 
         username_tg = user_info.get("username")
 
+        # --- ВЫТАСКИВАЕМ IP, DEVICE ID И PLATFORM ИЗ ХЕДЕРОВ ---
+        client_ip = request.headers.get("X-Forwarded-For", request.client.host)
+        if client_ip:
+            client_ip = client_ip.split(",")[0].strip()
+        device_id = request.headers.get("X-Device-Id")
+        platform_type = request.headers.get("X-Platform-Type")
+        # -----------------------------------------------------
+
         # 🔥 ОПТИМИЗАЦИЯ: ЗАПУСКАЕМ ВСЕ ЗАПРОСЫ ПАРАЛЛЕЛЬНО! 🔥
         rpc_task = supabase.post("/rpc/get_bootstrap_all_data", json={
             "p_telegram_id": telegram_id,
             "p_username": username_tg,
             "p_full_name": full_name_tg,
-            "p_photo_url": photo_url 
+            "p_photo_url": photo_url,
+            "p_client_ip": client_ip,       # 🔥 Передаем IP
+            "p_device_id": device_id,       # 🔥 Передаем Device ID
+            "p_platform_type": platform_type # 🔥 Передаем тип устройства
         })
         
         # Параллельно запрашиваем то, что раньше фронт просил отдельными запросами
@@ -9611,6 +9623,9 @@ async def get_current_user_data(
         
     # Извлекаем метку устройства, которую фронтенд генерирует и шлет в заголовках
     device_id = request.headers.get("X-Device-Id") 
+    
+    # 🔥 Читаем заголовок платформы с фронтенда, чтобы убрать NameError
+    platform_type = request.headers.get("X-Platform-Type") 
     # ---------------------------------------------
 
     # 2. Проверка режима сна
