@@ -9633,6 +9633,7 @@ async def get_current_user_data(
     🔥 ТУРБО-ВЕРСИЯ: С детальным логированием и трассировкой ошибок.
     """
     # 1. Авторизация
+    logging.info(f"🚨 СЫРЫЕ ДАННЫЕ ОТ ФРОНТА: {request_data.dict()}") # <--- ВСТАВЬ ЭТО
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or "id" not in user_info:
         logging.warning("[USER/ME] Невалидные initData или отсутствует ID")
