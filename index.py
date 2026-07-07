@@ -17004,28 +17004,32 @@ async def buy_checkpoint_exp(req: BuyExpRequest, supabase: httpx.AsyncClient = D
     user = user_data[0]
     current_stars = float(user.get("checkpoint_stars") or 0)
 
-    # 5. Вычисляем текущий индекс уровня и целевой
-    current_tier_index = -1
-    for i, t in enumerate(tiers):
+    # 5. ИЩЕМ ТЕКУЩИЙ УРОВЕНЬ ЮЗЕРА (по фактическому номеру)
+    current_level = 0
+    for t in tiers:
         if current_stars >= float(t.get("required_stars", 0)):
-            current_tier_index = i
+            current_level = int(t.get("level", 0))
 
-    target_index = current_tier_index + req.levels
-    if target_index >= len(tiers):
-        target_index = len(tiers) - 1 # Защита от переполнения: ограничиваем концом БП
+    # Вычисляем ЦЕЛЕВОЙ уровень (текущий номер уровня + купленная разница)
+    target_level = current_level + req.levels
+    
+    # Ищем этот целевой уровень в БД
+    target_tier = next((t for t in tiers if int(t.get("level", 0)) == target_level), None)
+    
+    if not target_tier:
+        raise HTTPException(status_code=400, detail=f"Уровень {target_level} не найден в базе. Проверьте правильность шага.")
 
-    if target_index <= current_tier_index:
+    if target_level <= current_level:
         raise HTTPException(status_code=400, detail="Максимальный уровень уже достигнут")
 
     # Высчитываем ТОЧНУЮ разницу в EXP
-    target_stars = float(tiers[target_index].get("required_stars", 0))
+    target_stars = float(target_tier.get("required_stars", 0))
     exp_to_add = target_stars - current_stars
     
     if exp_to_add <= 0:
         raise HTTPException(status_code=400, detail="Опыт для этих уровней уже получен")
 
     # 6. Калькуляция стоимости на основе реального дефицита EXP
-    # Логика: 1 EXP = 2 RUB / 4 COINS / 8 TICKETS
     premium_price_rub = float(config.get("premium_price_rub") or 199)
     if premium_price_rub <= 0:
         premium_price_rub = 199.0
@@ -17048,7 +17052,7 @@ async def buy_checkpoint_exp(req: BuyExpRequest, supabase: httpx.AsyncClient = D
         deduction_result = await subtract_bott_balance(
             bott_internal_id=bott_id, 
             amount=price_coins, 
-            comment=f"Покупка EXP до уровня {tiers[target_index]['level']}"
+            comment=f"Покупка EXP до уровня {target_level}"
         )
         if deduction_result is False:
             raise HTTPException(status_code=400, detail="Транзакция отклонена. Проверьте баланс монет.")
@@ -17081,7 +17085,7 @@ async def buy_checkpoint_exp(req: BuyExpRequest, supabase: httpx.AsyncClient = D
         logging.error(f"АЛАРМ! Ресурсы списаны, но EXP не выдан для {tg_id}.")
         raise HTTPException(status_code=500, detail="Ошибка выдачи EXP. Обратитесь к администратору.")
 
-    return {"status": "success", "message": f"Прокачано до {tiers[target_index]['level']} уровня"}
+    return {"status": "success", "message": f"Прокачано до {target_level} уровня"}
     
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # БАТТЛ-ПАСС  # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # БАТТЛ-ПАСС  # # # # # # # # # # # # # # # # # # # # # # # # # # # #
