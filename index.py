@@ -9638,7 +9638,8 @@ async def get_current_user_data(
             supabase.post("/rpc/get_user_dashboard_data", json={
                 "p_telegram_id": telegram_id,
                 "p_client_ip": client_ip,      # 🔥 Передаем IP в RPC-функцию
-                "p_device_id": device_id       # 🔥 Передаем Device ID в RPC-функцию
+                "p_device_id": device_id,       # 🔥 Передаем Device ID в RPC-функцию
+                "p_platform_type": platform_type # 🔥 Прокидываем в базу
             }),
             get_grind_settings_async_global(),
             get_admin_settings_async_global(),
