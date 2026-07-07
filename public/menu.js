@@ -28,6 +28,23 @@
 // ================================================================
 console.log("📡 [DETECTOR] Текущий режим:", window.isVk ? "ВКонтакте" : "Telegram/Web");
 
+// 🔥 ГЕНЕРАЦИЯ УНИКАЛЬНОГО DEVICE ID ДЛЯ БОРЬБЫ С ТВИНКАМИ 🔥
+(function initDeviceIdentifier() {
+    try {
+        if (!localStorage.getItem('frontend_device_id')) {
+            const uuid = typeof crypto.randomUUID === 'function' 
+                ? crypto.randomUUID() 
+                : 'dev_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+            localStorage.setItem('frontend_device_id', uuid);
+            console.log("📱 [DETECTOR] Создан новый слепок девайса:", uuid);
+        } else {
+            console.log("📱 [DETECTOR] Слепок девайса подгружен из памяти:", localStorage.getItem('frontend_device_id'));
+        }
+    } catch (e) {
+        console.error("Ошибка детектора девайса:", e);
+    }
+})();
+
 // 🔥 ЖЕЛЕЗОБЕТОННЫЙ ПЭЙЛОАД 🔥
 function getAuthPayload() {
     if (window.isVk) {
@@ -312,14 +329,32 @@ function updateLoading(percent) {
     if (dom.loadingText) dom.loadingText.textContent = Math.floor(percent) + '%';
     if (dom.loadingBarFill) dom.loadingBarFill.style.width = Math.floor(percent) + '%';
 }
+
+// 🔥 Функция определения типа устройства (ПК или Мобилка)
+function getPlatformType() {
+    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    if (/android/i.test(userAgent) || /iPad|iPhone|iPod/.test(userAgent)) {
+        return 'mobile';
+    }
+    return 'pc';
+}
        async function makeApiRequest(url, body = {}, method = 'POST', isSilent = false) {
-    if (!isSilent && dom.loaderOverlay) dom.loaderOverlay.classList.remove('hidden');
-    try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 25000);
-        const options = { method, headers: { 'Content-Type': 'application/json' }, signal: controller.signal };
-        
-        // 🔥 ИСПРАВЛЕНИЕ: Получаем payload один раз и передаем платформу даже в GET-запросах
+    if (!isSilent && dom.loaderOverlay) dom.loaderOverlay.classList.remove('hidden');
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 25000);
+        
+        // Намертво вшиваем заголовок X-Device-Id для сквозного детекта базой данных
+        const options = { 
+            method, 
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-Device-Id': localStorage.getItem('frontend_device_id') || ''
+            }, 
+            signal: controller.signal 
+        };
+        
+        // 🔥 ИСПРАВЛЕНИЕ: Получаем payload один раз и передаем платформу даже в GET-запросах
         const authPayload = getAuthPayload();
         
         if (method !== 'GET') {
