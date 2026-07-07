@@ -1304,8 +1304,7 @@
                     <p style="text-align: center; color: var(--primary); font-weight: 700; margin-bottom: 10px;">Подтверждение покупки</p>
                     
                     <!-- Высота увеличена, так как картинка будет скрыта -->
-                    <div class="modal-terms-box" style="max-height: 250px;">
-                        <div class="modal-terms-box" style="max-height: 250px;">
+                        <div class="modal-terms-box" style="max-height: 110px;">
                         <p><strong>ПОЛЬЗОВАТЕЛЬСКОЕ СОГЛАШЕНИЕ И ПУБЛИЧНАЯ ОФЕРТА</strong></p>
                         <p>Регистрация (авторизация) в Веб-приложении будет означать ваше полное и безоговорочное согласие с условиями настоящего Соглашения (акцепт оферты). Если Вы не согласны с условиями, не приобретайте платные услуги, не проходите авторизацию и не используйте программные средства сервиса.</p>
                         <p>Плательщик Налога на профессиональный доход (Самозанятый) ШКОЛИН ВАЛЕНТИН АЛЕКСАНДРОВИЧ (ИНН 600902063478), именуемый в дальнейшем «Исполнитель» или «Администрация», с одной стороны, и любое физическое лицо, достигшее возраста 18 лет и/или являющееся полностью дееспособным, принявшее условия настоящего Соглашения, именуемое в дальнейшем «Пользователь», с другой стороны, заключили настоящее Соглашение о нижеследующем:</p>
@@ -1672,7 +1671,7 @@
                 <div id="buy-exp-stage-agreement" style="display: none; animation: fadeIn 0.3s ease; text-align: left;">
                     <p style="text-align: center; color: var(--primary); font-weight: 700; margin-bottom: 10px;">Подтверждение покупки</p>
                     
-<div class="modal-terms-box" style="max-height: 250px;">
+                        <div class="modal-terms-box" style="max-height: 110px;">
                         <p><strong>ПОЛЬЗОВАТЕЛЬСКОЕ СОГЛАШЕНИЕ И ПУБЛИЧНАЯ ОФЕРТА</strong></p>
                         <p>Регистрация (авторизация) в Веб-приложении будет означать ваше полное и безоговорочное согласие с условиями настоящего Соглашения (акцепт оферты). Если Вы не согласны с условиями, не приобретайте платные услуги, не проходите авторизацию и не используйте программные средства сервиса.</p>
                         <p>Плательщик Налога на профессиональный доход (Самозанятый) ШКОЛИН ВАЛЕНТИН АЛЕКСАНДРОВИЧ (ИНН 600902063478), именуемый в дальнейшем «Исполнитель» или «Администрация», с одной стороны, и любое физическое лицо, достигшее возраста 18 лет и/или являющееся полностью дееспособным, принявшее условия настоящего Соглашения, именуемое в дальнейшем «Пользователь», с другой стороны, заключили настоящее Соглашение о нижеследующем:</p>
@@ -3298,16 +3297,17 @@ window.claimQuestReward = async function(questId, week) {
 
     // КЛИК: ОПЛАТА РУБЛЯМИ -> ПЕРЕХОДИМ К ОФЕРТЕ (ИЛИ СРАЗУ К ОПЛАТЕ)
     if (rubBtn) {
-    rubBtn.addEventListener('click', () => {
-        haptic('light');
-        
-        // Делаем пуленепробиваемую проверку
-        const isAccepted = userData && [true, 'true', 1, '1'].includes(userData.has_accepted_oferta);
-
-        if (isAccepted) {
-            window.confirmRublePayment();
-            return;
-        }
+        rubBtn.addEventListener('click', () => {
+            haptic('light');
+            
+            // 🔥 Бронебойная проверка: понимает true, "true" и 1
+            const isAccepted = userData && (userData.has_accepted_oferta === true || userData.has_accepted_oferta === 'true' || userData.has_accepted_oferta === 1);
+            
+            if (isAccepted) {
+                // Сразу идем к оплате, пропуская этап текста
+                window.confirmRublePayment();
+                return;
+            }
 
             // Иначе показываем соглашение
             const stagePayment = document.getElementById('premium-stage-payment');
@@ -4045,20 +4045,23 @@ window.smoothScrollTo = function(element) {
     };
 
     // 3. Универсальная перехватывающая функция для ЛЮБОЙ валюты
+    // 3. Универсальная перехватывающая функция для ЛЮБОЙ валюты
     window.initiateBuyExp = function(currency) {
-    haptic('light');
-    pendingExpCurrency = currency; 
-    
-    // Такая же пуленепробиваемая проверка
-    const isAccepted = userData && [true, 'true', 1, '1'].includes(userData.has_accepted_oferta);
-
-    if (isAccepted) {
-        window.executeExpPayment();
-    } else {
-        document.getElementById('buy-exp-stage-selection').style.display = 'none';
-        document.getElementById('buy-exp-stage-agreement').style.display = 'block';
-    }
-};
+        haptic('light');
+        pendingExpCurrency = currency; // Запоминаем выбор
+        
+        // 🔥 Бронебойная проверка оферты
+        const isAccepted = userData && (userData.has_accepted_oferta === true || userData.has_accepted_oferta === 'true' || userData.has_accepted_oferta === 1);
+        
+        if (isAccepted) {
+            // Если уже принимал — никаких лишних окон, СРАЗУ платим
+            window.executeExpPayment();
+        } else {
+            // Если НЕ принимал — прячем выбор валюты, показываем оферту
+            document.getElementById('buy-exp-stage-selection').style.display = 'none';
+            document.getElementById('buy-exp-stage-agreement').style.display = 'block';
+        }
+    };
 
     // Поддержка кнопок из HTML (чтобы тебе не пришлось их переписывать)
     window.clickBuyExpRub = function() {
