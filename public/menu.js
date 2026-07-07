@@ -47,10 +47,19 @@ console.log("📡 [DETECTOR] Текущий режим:", window.isVk ? "ВКо�
 
 // 🔥 ЖЕЛЕЗОБЕТОННЫЙ ПЭЙЛОАД 🔥
 function getAuthPayload() {
-    if (window.isVk) {
-        return { initData: window.vkParams || '', platform: 'vk' };
+    // 1. Пытаемся получить платформу нативно от TG, если не вышло — юзаем твою функцию
+    let pType = 'pc';
+    if (window.Telegram?.WebApp?.platform) {
+        const tgPlat = window.Telegram.WebApp.platform;
+        pType = (tgPlat === 'android' || tgPlat === 'ios') ? 'mobile' : 'pc';
+    } else {
+        pType = typeof getPlatformType === 'function' ? getPlatformType() : 'pc';
     }
-    return { initData: window.Telegram?.WebApp?.initData || '', platform: 'tg' };
+
+    if (window.isVk) {
+        return { initData: window.vkParams || '', platform: 'vk', platform_type: pType };
+    }
+    return { initData: window.Telegram?.WebApp?.initData || '', platform: 'tg', platform_type: pType };
 }
 
 async function fetchVkParamsFromBridge() {
@@ -354,15 +363,15 @@ function getPlatformType() {
             signal: controller.signal 
         };
         
-        // 🔥 ИСПРАВЛЕНИЕ: Получаем payload один раз и передаем платформу даже в GET-запросах
-        const authPayload = getAuthPayload();
-        
-        if (method !== 'GET') {
-            options.body = JSON.stringify({ ...body, ...authPayload });
-        } else {
-            const separator = url.includes('?') ? '&' : '?';
-            url += `${separator}initData=${encodeURIComponent(authPayload.initData)}&platform=${encodeURIComponent(authPayload.platform)}`;
-        }
+       // 🔥 ИСПРАВЛЕНИЕ: Получаем payload один раз и передаем платформу даже в GET-запросах
+        const authPayload = getAuthPayload();
+        
+        if (method !== 'GET') {
+            options.body = JSON.stringify({ ...body, ...authPayload });
+        } else {
+            const separator = url.includes('?') ? '&' : '?';
+            url += `${separator}initData=${encodeURIComponent(authPayload.initData)}&platform=${encodeURIComponent(authPayload.platform)}&platform_type=${encodeURIComponent(authPayload.platform_type)}`;
+        }
 
         const response = await fetch(url, options);
         clearTimeout(timeoutId); 
