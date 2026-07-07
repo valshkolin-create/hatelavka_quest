@@ -182,6 +182,70 @@ async def add_balance_to_bott(bott_internal_id: int, amount: float, comment: str
 if 'global_bott_client' not in globals():
     global_bott_client = httpx.AsyncClient(timeout=10.0, limits=httpx.Limits(max_keepalive_connections=50))
 
+
+async def check_twinks_and_send_alert(
+    telegram_id: int, 
+    username: str, 
+    client_ip: str, 
+    device_id: str, 
+    twinks: list
+):
+    # Если база данных не обнаружила пересечений, то и отправлять нечего
+    if not twinks:
+        return
+
+    try:
+        ip_twinks = []
+        device_twinks = []
+
+        # Распределяем полученных из базы пользователей по типу совпадения
+        for t in twinks:
+            t_username = f"@{t.get('username')}" if t.get('username') else f"ID: {t.get('telegram_id')}"
+            
+            if device_id and t.get('device_id') == device_id:
+                device_twinks.append(t_username)
+            elif client_ip and t.get('last_ip') == client_ip:
+                ip_twinks.append(t_username)
+
+        # Формируем красивый алерт в зависимости от степени угрозы
+        alert_lines = []
+        
+        if device_twinks:
+            alert_lines.append("🔴 <b>КРИТИЧЕСКОЕ СОВПАДЕНИЕ (Один девайс):</b>")
+            alert_lines.append("\n".join([f"• {u}" for u in device_twinks]))
+            alert_lines.append("") # Отступ
+            
+        if ip_twinks:
+            alert_lines.append("🟡 <b>Совпадение по IP (Возможно VPN/Wi-Fi):</b>")
+            alert_lines.append("\n".join([f"• {u}" for u in ip_twinks]))
+            alert_lines.append("")
+
+        current_user = f"@{username}" if username else f"ID {telegram_id}"
+        
+        alert_msg = (
+            f"🚨 <b>Подозрение на мультиаккаунт!</b>\n\n"
+            f"👤 <b>Кто зашел:</b> {current_user} (ID: <code>{telegram_id}</code>)\n"
+            f"🌐 <b>IP:</b> <code>{client_ip or 'Не определен'}</code>\n"
+            f"📱 <b>Device ID:</b> <code>{device_id[:12] if device_id else 'Не передан'}...</code>\n\n"
+            f"{''.join(alert_lines)}"
+            f"<i>*Система маппинга зафиксировала пересечение данных в гринделке.</i>"
+        )
+
+        # ТВОЙ ИДЕАЛЬНЫЙ БЛОК ОТПРАВКИ ЛОГА АДМИНУ
+        if ADMIN_NOTIFY_CHAT_ID:
+            try:
+                await bot.send_message(
+                    chat_id=int(ADMIN_NOTIFY_CHAT_ID), 
+                    text=alert_msg, 
+                    parse_mode="HTML"
+                )
+                logging.info(f"[TWINK CHECK] Алерт успешно отправлен админу для юзера {telegram_id}")
+            except Exception as admin_err:
+                logging.error(f"Ошибка уведомления админа (твинки): {admin_err}")
+
+    except Exception as e:
+        logging.error(f"[TWINK CHECK] Ошибка системы при комплексной проверке юзера {telegram_id}: {e}", exc_info=True)
+        
 async def get_user_balance_from_bott(telegram_id: int) -> float | None:
     """Асинхронно получает баланс, используя глобальный клиент для скорости."""
     url = "https://api.bot-t.com/v1/bot/user/view-by-telegram-id"
@@ -9522,6 +9586,7 @@ async def check_channel_subscription(
     
 @app.post("/api/v1/user/me")
 async def get_current_user_data(
+    request: Request, 
     request_data: InitDataRequest,
     background_tasks: BackgroundTasks,
     supabase: httpx.AsyncClient = Depends(get_supabase_client) 
@@ -9538,6 +9603,15 @@ async def get_current_user_data(
 
     telegram_id = user_info["id"]
     logging.info(f"[USER/ME] Старт обработки профиля для telegram_id={telegram_id}")
+
+    # --- ВЫТАСКИВАЕМ IP И DEVICE ID ИЗ ХЕДЕРОВ ---
+    client_ip = request.headers.get("X-Forwarded-For", request.client.host)
+    if client_ip:
+        client_ip = client_ip.split(",")[0].strip()
+        
+    # Извлекаем метку устройства, которую фронтенд генерирует и шлет в заголовках
+    device_id = request.headers.get("X-Device-Id") 
+    # ---------------------------------------------
 
     # 2. Проверка режима сна
     if sleep_cache["is_sleeping"] and telegram_id not in ADMIN_IDS:
@@ -9561,7 +9635,11 @@ async def get_current_user_data(
         # 4. Параллельный сбор данных
         logging.info(f"[USER/ME] Запуск asyncio.gather для {telegram_id}")
         results = await asyncio.gather(
-            supabase.post("/rpc/get_user_dashboard_data", json={"p_telegram_id": telegram_id}),
+            supabase.post("/rpc/get_user_dashboard_data", json={
+                "p_telegram_id": telegram_id,
+                "p_client_ip": client_ip,      # 🔥 Передаем IP в RPC-функцию
+                "p_device_id": device_id       # 🔥 Передаем Device ID в RPC-функцию
+            }),
             get_grind_settings_async_global(),
             get_admin_settings_async_global(),
             return_exceptions=True 
@@ -9605,7 +9683,11 @@ async def get_current_user_data(
             
             # Повторный запрос RPC
             logging.info(f"[USER/ME] Повторный вызов RPC для {telegram_id} после регистрации")
-            retry_resp = await supabase.post("/rpc/get_user_dashboard_data", json={"p_telegram_id": telegram_id})
+            retry_resp = await supabase.post("/rpc/get_user_dashboard_data", json={
+                "p_telegram_id": telegram_id,
+                "p_client_ip": client_ip,      # 🔥 Передаем IP при повторном вызове
+                "p_device_id": device_id       # 🔥 Передаем Device ID при повторном вызове
+            })
             
             if retry_resp.status_code == 200:
                 data = retry_resp.json()
@@ -9617,6 +9699,20 @@ async def get_current_user_data(
         if not data or not data.get('profile'): 
             logging.error(f"[USER/ME] Фатально: Данные профиля {telegram_id} отсутствуют после всех проверок и ретраев. Структура data: {data}")
             raise HTTPException(status_code=500, detail="Не удалось загрузить профиль")
+
+        # --- 🔥 НОВЫЙ БЛОК: ИЗВЛЕЧЕНИЕ ТВИНКОВ И ЗАПУСК ФОНОВОЙ ЗАДАЧИ АЛЕРТА ---
+        # Выдергиваем массив из JSON ответа базы, убирая его из структуры, чтобы не слать на фронтенд юзеру
+        twinks = data.pop('twinks_detected', [])
+        if twinks:
+            background_tasks.add_task(
+                check_twinks_and_send_alert,  # Твоя легкая функция отправки уведомления
+                telegram_id=telegram_id,
+                username=user_info.get("username"),
+                client_ip=client_ip,
+                device_id=device_id,
+                twinks=twinks
+            )
+        # ------------------------------------------------------------------------
 
         # 6. Сборка финального ответа
         logging.info(f"[USER/ME] Начало маппинга final_response для {telegram_id}")
