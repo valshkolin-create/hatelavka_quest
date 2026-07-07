@@ -16977,11 +16977,10 @@ async def buy_checkpoint_exp(req: BuyExpRequest, supabase: httpx.AsyncClient = D
         raise HTTPException(status_code=401, detail="Не авторизован")
     tg_id = user_info["id"]
 
-    # Защита от дурака
-    if req.levels < 1 or req.levels > 50:
-        raise HTTPException(status_code=400, detail="Недопустимое количество уровней")
+    if req.levels < 1:
+        raise HTTPException(status_code=400, detail="Минимум 1 уровень для покупки")
 
-    # 2. Достаем конфиг БП для расчета цены
+    # 2. Достаем конфиг БП для проверки активности и множителя цены
     cp_res = await supabase.get("/pages_content", params={"page_name": "eq.checkpoint", "select": "content"})
     if not cp_res.is_success or not cp_res.json():
         raise HTTPException(status_code=400, detail="Настройки БП не найдены")
@@ -16990,28 +16989,54 @@ async def buy_checkpoint_exp(req: BuyExpRequest, supabase: httpx.AsyncClient = D
     if not config.get("is_active"):
         raise HTTPException(status_code=400, detail="Сезон БП сейчас не активен")
 
-    # 3. Калькуляция
-    # Обращаемся строго к рублевой цене, как на фронтенде
-    premium_price_rub = float(config.get("premium_price_rub") or 199)
-    if premium_price_rub <= 0:
-        premium_price_rub = 199.0
-        
-    ratio = premium_price_rub / 199.0
-    
-    # Считаем динамическую стоимость
-    price_rub = round(20 * ratio * req.levels)
-    price_coins = round(40 * ratio * req.levels)
-    price_tickets = round(80 * ratio * req.levels)
+    # 3. Достаем таблицу уровней, чтобы посчитать точную разницу в EXP
+    tiers_res = await supabase.get("/checkpoint_tiers", params={"select": "level,required_stars", "order": "level.asc"})
+    if not tiers_res.is_success or not tiers_res.json():
+        raise HTTPException(status_code=400, detail="Таблица уровней пуста")
+    tiers = tiers_res.json()
 
-    # 4. Проверяем балансы пользователя
+    # 4. Проверяем балансы пользователя и текущий EXP
     u_res = await supabase.get("/users", params={"telegram_id": f"eq.{tg_id}", "select": "checkpoint_stars, tickets, bott_internal_id"})
     user_data = u_res.json()
     if not user_data:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
     
     user = user_data[0]
+    current_stars = float(user.get("checkpoint_stars") or 0)
+
+    # 5. Вычисляем текущий индекс уровня и целевой
+    current_tier_index = -1
+    for i, t in enumerate(tiers):
+        if current_stars >= float(t.get("required_stars", 0)):
+            current_tier_index = i
+
+    target_index = current_tier_index + req.levels
+    if target_index >= len(tiers):
+        target_index = len(tiers) - 1 # Защита от переполнения: ограничиваем концом БП
+
+    if target_index <= current_tier_index:
+        raise HTTPException(status_code=400, detail="Максимальный уровень уже достигнут")
+
+    # Высчитываем ТОЧНУЮ разницу в EXP
+    target_stars = float(tiers[target_index].get("required_stars", 0))
+    exp_to_add = target_stars - current_stars
     
-    # 5. Списание
+    if exp_to_add <= 0:
+        raise HTTPException(status_code=400, detail="Опыт для этих уровней уже получен")
+
+    # 6. Калькуляция стоимости на основе реального дефицита EXP
+    # Логика: 1 EXP = 2 RUB / 4 COINS / 8 TICKETS
+    premium_price_rub = float(config.get("premium_price_rub") or 199)
+    if premium_price_rub <= 0:
+        premium_price_rub = 199.0
+        
+    ratio = premium_price_rub / 199.0
+    
+    price_rub = round(exp_to_add * 2 * ratio)
+    price_coins = round(exp_to_add * 4 * ratio)
+    price_tickets = round(exp_to_add * 8 * ratio)
+
+    # 7. Списание
     if req.currency == "rub":
         raise HTTPException(status_code=400, detail="Оплата рублями временно отключена")
         
@@ -17023,7 +17048,7 @@ async def buy_checkpoint_exp(req: BuyExpRequest, supabase: httpx.AsyncClient = D
         deduction_result = await subtract_bott_balance(
             bott_internal_id=bott_id, 
             amount=price_coins, 
-            comment=f"Покупка {req.levels} уровней БП"
+            comment=f"Покупка EXP до уровня {tiers[target_index]['level']}"
         )
         if deduction_result is False:
             raise HTTPException(status_code=400, detail="Транзакция отклонена. Проверьте баланс монет.")
@@ -17044,10 +17069,7 @@ async def buy_checkpoint_exp(req: BuyExpRequest, supabase: httpx.AsyncClient = D
     else:
         raise HTTPException(status_code=400, detail="Неизвестный метод оплаты")
 
-    # 6. Начисление EXP
-    current_stars = float(user.get("checkpoint_stars") or 0)
-    exp_to_add = req.levels * 10
-    
+    # 8. Начисление точного количества EXP
     patch_res = await supabase.patch(
         "/users", 
         params={"telegram_id": f"eq.{tg_id}"}, 
@@ -17055,11 +17077,12 @@ async def buy_checkpoint_exp(req: BuyExpRequest, supabase: httpx.AsyncClient = D
     )
     
     if not patch_res.is_success:
+        import logging
         logging.error(f"АЛАРМ! Ресурсы списаны, но EXP не выдан для {tg_id}.")
         raise HTTPException(status_code=500, detail="Ошибка выдачи EXP. Обратитесь к администратору.")
 
-    return {"status": "success", "message": f"Куплено {req.levels} уровней"}
-
+    return {"status": "success", "message": f"Прокачано до {tiers[target_index]['level']} уровня"}
+    
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # БАТТЛ-ПАСС  # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # БАТТЛ-ПАСС  # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # БАТТЛ-ПАСС  # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
