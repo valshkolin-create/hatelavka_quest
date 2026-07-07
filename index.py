@@ -183,16 +183,29 @@ if 'global_bott_client' not in globals():
     global_bott_client = httpx.AsyncClient(timeout=10.0, limits=httpx.Limits(max_keepalive_connections=50))
 
 
+# 🔥 Глобальный словарь для хранения времени последнего алерта: {telegram_id: timestamp}
+ALERT_COOLDOWN_CACHE = {}
+COOLDOWN_SECONDS = 3600  # Время «молчания» в секундах (3600 = 1 час)
+
 async def check_twinks_and_send_alert(
     telegram_id: int, 
     username: str, 
     client_ip: str, 
     device_id: str, 
-    platform_type: str, # 🔥 ДОБАВЛЕН АРГУМЕНТ ПЛАТФОРМЫ
+    platform_type: str,
     twinks: list
 ):
     # Если база данных не обнаружила пересечений, то и отправлять нечего
     if not twinks:
+        return
+
+    # 🔥 ПРОВЕРКА АНТИФЛУДА: Если мы уже отправляли алерт недавно, просто выходим
+    current_time = time.time()
+    last_alert_time = ALERT_COOLDOWN_CACHE.get(telegram_id, 0)
+    
+    if current_time - last_alert_time < COOLDOWN_SECONDS:
+        # Можно раскомментировать лог ниже для дебага, но обычно он только мусорит в консоли
+        # logging.debug(f"[TWINK CHECK] Алерт для {telegram_id} пропущен (кулдаун).")
         return
 
     try:
@@ -232,7 +245,7 @@ async def check_twinks_and_send_alert(
             f"🚨 <b>Подозрение на мультиаккаунт!</b>\n\n"
             f"👤 <b>Кто зашел:</b> {current_user} (ID: <code>{telegram_id}</code>)\n"
             f"🌐 <b>IP:</b> <code>{client_ip or 'Не определен'}</code>\n"
-            f"💻 <b>Платформа:</b> <code>{display_platform}</code>\n" # 🔥 Добавили строчку
+            f"💻 <b>Платформа:</b> <code>{display_platform}</code>\n"
             f"📱 <b>Device ID:</b> <code>{device_id[:12] if device_id else 'Не передан'}...</code>\n\n"
             f"{''.join(alert_lines)}"
             f"<i>*Система маппинга зафиксировала пересечение данных в лавке.</i>"
@@ -247,6 +260,10 @@ async def check_twinks_and_send_alert(
                     parse_mode="HTML"
                 )
                 logging.info(f"[TWINK CHECK] Алерт успешно отправлен админу для юзера {telegram_id}")
+                
+                # 🔥 ОБНОВЛЯЕМ КЭШ ТОЛЬКО ПОСЛЕ УСПЕШНОЙ ОТПРАВКИ
+                ALERT_COOLDOWN_CACHE[telegram_id] = current_time
+                
             except Exception as admin_err:
                 logging.error(f"Ошибка уведомления админа (твинки): {admin_err}")
 
