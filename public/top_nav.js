@@ -76,8 +76,8 @@
         .side-menu-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(5px); z-index: 9999; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
         .side-menu-overlay.active { opacity: 1; pointer-events: auto; }
         
-        /* Компактное меню, поднятое ближе к крестику */
-        .side-menu-content { position: absolute; top: 0; right: -100%; width: 100%; height: 100%; background: rgba(28, 28, 30, 0.75); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); transition: right 0.4s cubic-bezier(0.25, 1, 0.5, 1); padding: calc(var(--tg-content-safe-area-inset-top, env(safe-area-inset-top, 24px)) + 20px) 20px 20px 20px; box-sizing: border-box; display: flex; flex-direction: column; }
+        /* 🔥 ЗДЕСЬ УВЕЛИЧЕН ОТСТУП СВЕРХУ ДО 85px ДЛЯ ОБХОДА СИСТЕМНОЙ СТРЕЛОЧКИ */
+        .side-menu-content { position: absolute; top: 0; right: -100%; width: 100%; height: 100%; background: rgba(28, 28, 30, 0.75); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); transition: right 0.4s cubic-bezier(0.25, 1, 0.5, 1); padding: calc(var(--tg-content-safe-area-inset-top, env(safe-area-inset-top, 24px)) + 85px) 20px 20px 20px; box-sizing: border-box; display: flex; flex-direction: column; }
         .side-menu-overlay.active .side-menu-content { right: 0; }
         .side-menu-header { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 10px; padding-top: 0px; }
         .icon-btn { background: transparent; border: none; color: #fff; font-size: 20px; cursor: pointer; outline: none; }
@@ -199,7 +199,6 @@
     // ==========================================
     let isInitialized = false;
 
-    // Эта функция намертво прибивает твои методы к window, запрещая их менять другим скриптам
     function lockGlobalFunction(name, fn) {
         if (window[name]) return;
         Object.defineProperty(window, name, {
@@ -213,7 +212,6 @@
         if (window.location.pathname.includes('/admin')) return;
         if (document.getElementById('universal-top-header')) return; 
 
-        // Внедряем CSS
         if (!document.getElementById('hatelavka-global-styles')) {
             const styleEl = document.createElement('style');
             styleEl.id = 'hatelavka-global-styles';
@@ -221,7 +219,6 @@
             document.head.appendChild(styleEl);
         }
 
-        // Внедряем HTML
         const container = document.createElement('div');
         container.innerHTML = navHtml;
         while (container.firstChild) {
@@ -237,16 +234,67 @@
         const closeMenuBtn = document.getElementById('close-menu-btn');
         const sideMenu = document.getElementById('side-menu-overlay');
 
-        const toggleMenu = (show) => {
+        // 🔥 ЛОГИКА СВАЙПА ВПРАВО
+        let touchStartX = 0;
+        let touchEndX = 0;
+
+        if (sideMenu) {
+            sideMenu.addEventListener('touchstart', (e) => {
+                touchStartX = e.changedTouches[0].screenX;
+            }, { passive: true });
+
+            sideMenu.addEventListener('touchend', (e) => {
+                touchEndX = e.changedTouches[0].screenX;
+                if (touchEndX - touchStartX > 70) { 
+                    toggleMenu(false); // Свайп вправо закрывает меню
+                }
+            }, { passive: true });
+        }
+
+        // 🔥 ОБРАБОТЧИК КНОПКИ НАЗАД В TELEGRAM
+        const tgBackBtnHandler = () => {
+            toggleMenu(false);
+        };
+
+        const toggleMenu = (show, fromPopState = false) => {
             if (!sideMenu) return;
             if (show) { 
                 sideMenu.classList.add('active'); 
                 document.body.style.overflow = 'hidden'; 
+                
+                // Добавляем состояние для Android-системной кнопки "Назад"
+                if (!fromPopState) {
+                    history.pushState({ sideMenuOpen: true }, '');
+                }
+
+                // Показываем нативную кнопку Назад в шапке Telegram
+                if (window.Telegram?.WebApp?.BackButton) {
+                    window.Telegram.WebApp.BackButton.show();
+                    window.Telegram.WebApp.BackButton.onClick(tgBackBtnHandler);
+                }
             } else { 
                 sideMenu.classList.remove('active'); 
                 document.body.style.overflow = ''; 
+                
+                // Убираем состояние из истории, если закрыли вручную
+                if (history.state?.sideMenuOpen && !fromPopState) {
+                    history.back(); 
+                }
+
+                // Скрываем нативную кнопку Назад
+                if (window.Telegram?.WebApp?.BackButton) {
+                    window.Telegram.WebApp.BackButton.offClick(tgBackBtnHandler);
+                    window.Telegram.WebApp.BackButton.hide();
+                }
             }
         };
+
+        // Слушаем физическую системную кнопку "Назад" (Android / браузер)
+        window.addEventListener('popstate', (e) => {
+            if (sideMenu && sideMenu.classList.contains('active') && !e.state?.sideMenuOpen) {
+                toggleMenu(false, true); 
+            }
+        });
 
         if (menuBtn) menuBtn.onclick = () => toggleMenu(true);
         if (closeMenuBtn) closeMenuBtn.onclick = () => toggleMenu(false);
@@ -326,7 +374,6 @@
         }
     }
 
-    // Умное ожидание без глупых таймаутов
     function waitForDependencies(callback) {
         let attempts = 0;
         const maxAttempts = 50; 
@@ -441,7 +488,6 @@
             }
         } catch (err) {
             console.error("Ошибка баланса:", err);
-            // Если ошибка загрузки, UI оставит спиннеры или кэш
         } finally {
             isBalanceLoading = false; 
             setTimeout(() => { 
@@ -551,7 +597,6 @@
             checkAdminAccess();
         });
 
-        // Наблюдатель (Observer): Если другой скрипт на странице удалит шапку - возвращаем её
         const observer = new MutationObserver(() => {
             if (window.location.pathname.includes('/admin')) return;
             if (!document.getElementById('universal-top-header')) {
