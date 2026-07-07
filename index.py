@@ -188,6 +188,7 @@ async def check_twinks_and_send_alert(
     username: str, 
     client_ip: str, 
     device_id: str, 
+    platform_type: str, # 🔥 ДОБАВЛЕН АРГУМЕНТ ПЛАТФОРМЫ
     twinks: list
 ):
     # Если база данных не обнаружила пересечений, то и отправлять нечего
@@ -222,10 +223,16 @@ async def check_twinks_and_send_alert(
 
         current_user = f"@{username}" if username else f"ID {telegram_id}"
         
+        # Красиво переводим тип платформы для админки
+        display_platform = "📱 Смартфон" if platform_type == "mobile" else "💻 Компьютер (ПК)"
+        if not platform_type:
+            display_platform = "❓ Не определено"
+
         alert_msg = (
             f"🚨 <b>Подозрение на мультиаккаунт!</b>\n\n"
             f"👤 <b>Кто зашел:</b> {current_user} (ID: <code>{telegram_id}</code>)\n"
             f"🌐 <b>IP:</b> <code>{client_ip or 'Не определен'}</code>\n"
+            f"💻 <b>Платформа:</b> <code>{display_platform}</code>\n" # 🔥 Добавили строчку
             f"📱 <b>Device ID:</b> <code>{device_id[:12] if device_id else 'Не передан'}...</code>\n\n"
             f"{''.join(alert_lines)}"
             f"<i>*Система маппинга зафиксировала пересечение данных в лавке.</i>"
@@ -9721,11 +9728,12 @@ async def get_current_user_data(
         twinks = data.pop('twinks_detected', [])
         if twinks:
             background_tasks.add_task(
-                check_twinks_and_send_alert,  # Твоя легкая функция отправки уведомления
+                check_twinks_and_send_alert,
                 telegram_id=telegram_id,
                 username=user_info.get("username"),
                 client_ip=client_ip,
                 device_id=device_id,
+                platform_type=platform_type, # 🔥 Прокидываем сюда значение
                 twinks=twinks
             )
         # ------------------------------------------------------------------------
