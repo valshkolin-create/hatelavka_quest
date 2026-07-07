@@ -29,7 +29,6 @@
             overflow-x: hidden;
             overscroll-behavior-x: none !important;
             
-            /* 👇 ДОБАВЛЯЕМ ЭТИ ДВЕ СТРОКИ 👇 */
             display: flex;
             flex-direction: column;
         }
@@ -76,14 +75,21 @@
         .side-menu-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(5px); z-index: 9999; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; }
         .side-menu-overlay.active { opacity: 1; pointer-events: auto; }
         
-        /* 🔥 ЗДЕСЬ УВЕЛИЧЕН ОТСТУП СВЕРХУ ДО 85px ДЛЯ ОБХОДА СИСТЕМНОЙ СТРЕЛОЧКИ */
         .side-menu-content { position: absolute; top: 0; right: -100%; width: 100%; height: 100%; background: rgba(28, 28, 30, 0.75); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); transition: right 0.4s cubic-bezier(0.25, 1, 0.5, 1); padding: calc(var(--tg-content-safe-area-inset-top, env(safe-area-inset-top, 24px)) + 85px) 20px 20px 20px; box-sizing: border-box; display: flex; flex-direction: column; }
         .side-menu-overlay.active .side-menu-content { right: 0; }
         .side-menu-header { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 10px; padding-top: 0px; }
         .icon-btn { background: transparent; border: none; color: #fff; font-size: 20px; cursor: pointer; outline: none; }
+        
         .side-nav { display: flex; flex-direction: column; gap: 4px; }
         .side-nav a { display: flex; align-items: center; gap: 10px; color: var(--text-primary); text-decoration: none; font-size: 12px; font-weight: 600; padding: 8px 12px; border-radius: 8px; background: rgba(255, 255, 255, 0.08); transition: background 0.2s; }
         .side-nav a:active { background: rgba(255, 255, 255, 0.15); }
+
+        /* 🔥 СТИЛИ ДЛЯ НИЖНЕГО БЛОКА ССЫЛОК */
+        .side-nav-bottom { margin-top: auto; display: flex; flex-direction: column; gap: 4px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.05); }
+        .side-nav-bottom a { display: flex; align-items: center; gap: 10px; color: var(--text-muted); text-decoration: none; font-size: 11px; font-weight: 600; padding: 8px 12px; border-radius: 8px; transition: background 0.2s, color 0.2s; }
+        .side-nav-bottom a:active { background: rgba(255, 255, 255, 0.05); color: #fff; }
+        .side-nav-bottom a#nav-admin { background: rgba(255, 59, 48, 0.1); color: #ff3b30; font-size: 12px; margin-top: 5px; }
+        .side-nav-bottom a#nav-admin:active { background: rgba(255, 59, 48, 0.2); }
 
         .modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); z-index: 10002; opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s ease; display: flex; align-items: center; justify-content: center; }
         .modal:not(.hidden) { opacity: 1; visibility: visible; }
@@ -110,7 +116,7 @@
     `;
 
     // ==========================================
-    // 2. HTML ШАПКИ И БОКОВОГО МЕНЮ (СПИННЕРЫ ПО УМОЛЧАНИЮ)
+    // 2. HTML ШАПКИ И БОКОВОГО МЕНЮ
     // ==========================================
     const navHtml = `
         <div id="side-menu-overlay" class="side-menu-overlay">
@@ -118,18 +124,23 @@
                 <div class="side-menu-header">
                     <button id="close-menu-btn" class="icon-btn"><i class="fa-solid fa-xmark"></i></button>
                 </div>
+                
                 <nav class="side-nav">
                     <a href="/profile"><i class="fa-solid fa-user"></i> Мой Профиль</a>
                     <a href="/quests"><i class="fa-solid fa-check-double"></i> Задания</a>
                     <a href="/leaderboard"><i class="fa-solid fa-trophy"></i> Лидербоард</a>
+                    <a href="/menu"><i class="fa-solid fa-gear"></i> Настройки</a>
                     <a href="#" onclick="if(typeof showFaq === 'function') showFaq(); return false;"><i class="fa-solid fa-circle-question"></i> Как пользоваться приложением?</a>
                     <a href="#" onclick="if(typeof openCouponModal === 'function') openCouponModal(); return false;">
                         <i class="fa-solid fa-ticket-simple" style="color: #34c759;"></i> Активировать купон
                     </a>
-                    <a href="/agreement.html"><i class="fa-solid fa-file-contract" style="color: var(--text-muted);"></i> Оферта и Правила</a>
-                    <a href="/privacy-policy.html"><i class="fa-solid fa-file-contract" style="color: var(--text-muted);"></i> Политика безопасности</a>
+                </nav>
+
+                <nav class="side-nav-bottom">
+                    <a href="/agreement.html"><i class="fa-solid fa-file-contract"></i> Оферта и Правила</a>
+                    <a href="/privacy-policy.html"><i class="fa-solid fa-shield-halved"></i> Политика безопасности</a>
                     
-                    <a href="/admin" id="nav-admin" class="hidden" style="color: #ff3b30;"><i class="fa-solid fa-shield"></i> Админ-панель</a>
+                    <a href="/admin" id="nav-admin" class="hidden"><i class="fa-solid fa-shield"></i> Админ-панель</a>
                 </nav>
             </div>
         </div>
