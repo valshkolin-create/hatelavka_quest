@@ -15835,6 +15835,11 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
             sim_chain = []
             for wq in chain:
                 q_id_str = str(wq["quest_id"])
+                
+                # 🔥 ЖЕЛЕЗОБЕТОННЫЙ ХАРДКОД: Исключаем ручные квесты из симулятора 🔥
+                if q_id_str in ["73", "101", "102", "103"]:
+                    continue
+
                 q_week_int = int(wq.get("week", 1))
                 target = wq.get("target_amount", 1)
                 
