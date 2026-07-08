@@ -16432,16 +16432,32 @@ async def get_checkpoint_status(
 ):
     """Возвращает настройки Чекпоинта и склеивает их с уровнями из БД, подтягивая картинки наград."""
     try:
-        # Узнаем, кто запрашивает (Перенесено в самое начало, чтобы работала синхронизация)
+        logging.info("[CHECKPOINT STATUS] ---> Получен запрос на статус Чекпоинта")
+        
+        # Узнаем, кто запрашивает
         init_data = request_data.get("initData", "")
         user_info = is_valid_init_data(init_data, ALL_VALID_TOKENS)
         tg_id = user_info["id"] if user_info else None
 
+        # 🔥 Логируем, кого распознал Vercel
+        if tg_id:
+            logging.info(f"[CHECKPOINT STATUS] Успешная авторизация. Пользователь: {tg_id}")
+        else:
+            logging.warning("[CHECKPOINT STATUS] ВНИМАНИЕ: Авторизация не пройдена (initData невалиден или пуст). tg_id = None")
+
         # 🔥 ТОТ САМЫЙ ВЫЗОВ СИНХРОНИЗАЦИИ ВОДОПАДА 🔥
         if tg_id:
-            await sync_current_week_bp_progress(tg_id, supabase)
+            logging.info(f"[WATERFALL] Начинаю синхронизацию прогресса БП для юзера {tg_id}...")
+            try:
+                await sync_current_week_bp_progress(tg_id, supabase)
+                logging.info(f"[WATERFALL] Синхронизация БП для {tg_id} успешно отработала!")
+            except Exception as sync_e:
+                logging.error(f"[WATERFALL] КРИТИЧЕСКАЯ ОШИБКА внутри синхронизации у {tg_id}: {sync_e}", exc_info=True)
+        else:
+            logging.warning("[WATERFALL] Пропуск синхронизации — нет tg_id!")
 
         # 1. Получаем базовый конфиг
+        logging.info("[CHECKPOINT STATUS] Запрашиваю базовый конфиг из БД...")
         content_resp = await supabase.get("/pages_content", params={"page_name": "eq.checkpoint", "select": "content", "limit": "1"})
         content_resp.raise_for_status()
         base_config = content_resp.json()[0].get("content", {}) if content_resp.json() else {}
@@ -16464,7 +16480,7 @@ async def get_checkpoint_status(
                 bp_start_date = datetime.fromisoformat(bp_start_date_str.replace('Z', '+00:00'))
                 start_str = bp_start_date.strftime('%Y-%m-%d')
                 
-                # 1. 🔥 ИДЕМ В ТАБЛИЦУ ПОСТОВ, А НЕ ДНЕЙ 🔥
+                # 1. ИДЕМ В ТАБЛИЦУ ПОСТОВ
                 reactions_resp = await supabase.get(
                     "/tg_message_reactions", 
                     params={
@@ -16473,10 +16489,9 @@ async def get_checkpoint_status(
                     }
                 )
                 if reactions_resp.is_success and reactions_resp.json():
-                    # Суммируем реакции только с нужных постов
                     total_reactions = sum(r.get("reaction_count", 0) for r in reactions_resp.json())
                     
-                # 2. 🔥 Считаем глобальные сообщения Twitch через нашу новую SQL-функцию 🔥
+                # 2. Считаем глобальные сообщения Twitch
                 twitch_rpc_res = await supabase.post("/rpc/get_global_twitch_messages", json={"start_date": start_str})
                 if twitch_rpc_res.is_success:
                     total_twitch_msgs = int(twitch_rpc_res.json() or 0)
@@ -16485,37 +16500,32 @@ async def get_checkpoint_status(
             gq_ids_str = ",".join([str(q["quest_id"]) for q in global_quests])
             
             if tg_id and gq_ids_str:
-                # 🔥 ИДЕМ В ПРАВИЛЬНУЮ ТАБЛИЦУ ЗА СТАТУСОМ 🔥
                 prog_resp = await supabase.get(
                     "/user_bp_quests", 
                     params={
                         "user_id": f"eq.{tg_id}", 
                         "quest_id": f"in.({gq_ids_str})", 
-                        "week": "eq.0", # <-- Ищем строго маркер 0
+                        "week": "eq.0", 
                         "is_claimed": "is.true"
                     }
                 )
                 if prog_resp.is_success and prog_resp.json():
                     claimed_gq_ids = {q["quest_id"] for q in prog_resp.json()}
 
-            # 🔥 ИДЕМ В БАЗУ, ЧТОБЫ УЗНАТЬ РЕАЛЬНЫЙ ТИП КВЕСТОВ 🔥
             gq_meta = {}
             if gq_ids_str:
                 gq_meta_resp = await supabase.get("/quests", params={"id": f"in.({gq_ids_str})", "select": "id,quest_type"})
                 if gq_meta_resp.is_success:
                     gq_meta = {str(q["id"]): q.get("quest_type", "") for q in gq_meta_resp.json()}
 
-            # Подставляем нужную сумму в зависимости от типа
             for gq in global_quests:
                 q_id_str = str(gq["quest_id"])
-                
-                # Достаем тип из БД (если нет в БД, берем из JSON на всякий случай)
                 q_type = gq_meta.get(q_id_str, gq.get("quest_type", "")) 
                 
                 if "twitch_messages" in q_type:
                     gq["current_amount"] = total_twitch_msgs
                 else:
-                    gq["current_amount"] = total_reactions # По умолчанию ТГ реакции
+                    gq["current_amount"] = total_reactions 
                     
                 gq["is_completed"] = gq["current_amount"] >= gq.get("target_amount", 1)
                 gq["is_claimed"] = gq["quest_id"] in claimed_gq_ids
@@ -16523,7 +16533,7 @@ async def get_checkpoint_status(
         base_config["global_quests"] = global_quests
         # --- КОНЕЦ БЛОКА ОБЩИХ ЗАДАНИЙ ---
 
-        # 2. Получаем уровни (сортируем по level)
+        # 2. Получаем уровни
         tiers_resp = await supabase.get("/checkpoint_tiers", params={"select": "*", "order": "level.asc"})
         tiers_resp.raise_for_status()
         tiers_data = tiers_resp.json()
@@ -16544,7 +16554,6 @@ async def get_checkpoint_status(
         skin_images = {}
         case_images = {}
 
-        # Запрашиваем картинки скинов из кэша маркета
         if skin_names:
             try:
                 formatted_skin_names = ",".join([f'"{name}"' for name in skin_names])
@@ -16553,9 +16562,8 @@ async def get_checkpoint_status(
                     for s in skins_resp.json():
                         skin_images[s["market_hash_name"]] = s.get("image_url")
             except Exception as e:
-                logging.warning(f"Сбой при загрузке картинок скинов: {e}")
+                logging.warning(f"[CHECKPOINT STATUS] Сбой при загрузке картинок скинов: {e}")
 
-        # Запрашиваем картинки кейсов из shop_cache
         if case_names:
             try:
                 cases_category_id = 2716312
@@ -16576,13 +16584,11 @@ async def get_checkpoint_status(
                         if name in case_names:
                             case_images[name] = c.get("image_url")
             except Exception as e:
-                logging.warning(f"Сбой при загрузке картинок кейсов: {e}")
-        # --- КОНЕЦ ЛОГИКИ ПОДТЯГИВАНИЯ КАРТИНОК ---
+                logging.warning(f"[CHECKPOINT STATUS] Сбой при загрузке картинок кейсов: {e}")
 
-        # 3. Собираем массив уровней в том виде, который ждет фронтенд
+        # 3. Собираем массив уровней
         formatted_tiers = []
         for t in tiers_data:
-            
             def get_image_for_reward(r_type, r_value):
                 if r_type == "cs2_skin":
                     return skin_images.get(r_value, "")
@@ -16608,10 +16614,12 @@ async def get_checkpoint_status(
             })
         
         base_config["tiers"] = formatted_tiers
+        
+        logging.info("[CHECKPOINT STATUS] <--- Данные успешно собраны и отправлены клиенту!")
         return base_config
 
     except Exception as e:
-        logging.error(f"Ошибка получения статуса Чекпоинта: {e}", exc_info=True)
+        logging.error(f"[CHECKPOINT STATUS] Ошибка получения статуса Чекпоинта: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Ошибка загрузки данных.")
 
 @app.get("/api/v1/admin/twitch_campaigns/cases")
