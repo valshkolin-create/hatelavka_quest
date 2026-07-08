@@ -15990,7 +15990,6 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
     except Exception as e:
         logging.error(f"Ошибка авто-синхронизации БП для {user_id}: {e}", exc_info=True)
 
-
 async def process_bp_auto_quest(supabase: httpx.AsyncClient, keyword: str, tg_id: int = None, twitch_login: str = None):
     """
     Обработчик ручных/разовых триггеров. 
