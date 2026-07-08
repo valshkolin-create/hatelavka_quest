@@ -8509,9 +8509,12 @@ async def get_manual_quests(
         raise HTTPException(status_code=401, detail="Неверные данные аутентификации.")
 
     telegram_id = user_info["id"]
+    
+    # Наши хардкодные ID лесенки
+    LADDER_IDS = {73, 101, 102, 103}
 
     try:
-        # 1. Получаем ID всех одобренных заявок для этого пользователя
+        # 1. Получаем ID всех одобренных заявок (для обычных квестов)
         completed_resp = await supabase.get(
             "/quest_submissions",
             params={"user_id": f"eq.{telegram_id}", "status": "eq.approved", "select": "quest_id"}
@@ -8519,41 +8522,75 @@ async def get_manual_quests(
         completed_resp.raise_for_status()
         completed_quest_ids = {sub['quest_id'] for sub in completed_resp.json()}
 
-# 2. Получаем все активные квесты с ручной проверкой, включая данные категории и sort_order
-        # --- ИЗМЕНЕНИЕ ЗДЕСЬ: Упрощаем сортировку в запросе ---
+        # 1.1 Получаем ID заявок, которые сейчас НА ПРОВЕРКЕ (чтобы не давать спамить)
+        pending_resp = await supabase.get(
+            "/quest_submissions",
+            params={"user_id": f"eq.{telegram_id}", "status": "eq.pending", "select": "quest_id"}
+        )
+        pending_quest_ids = {sub['quest_id'] for sub in pending_resp.json()} if pending_resp.is_success else set()
+
+        # 2. Получаем все активные ручные квесты
         all_manual_quests_resp = await supabase.get(
             "/quests",
             params={
                 "is_active": "eq.true",
                 "quest_type": "eq.manual_check",
-                "select": "*, quest_categories(name, sort_order), sort_order", # Запрашиваем все нужные поля
-                # Сортируем ТОЛЬКО по ID для начала, остальное сделаем в Python
+                "select": "*, quest_categories(name, sort_order), sort_order",
                 "order": "id.asc"
             }
         )
         all_manual_quests_resp.raise_for_status()
         all_manual_quests = all_manual_quests_resp.json()
-        # --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
-        # 3. Фильтруем квесты...
-        available_quests_filtered = [
-            quest for quest in all_manual_quests
-            if quest.get('is_repeatable') or quest.get('id') not in completed_quest_ids
-        ]
+        # 3. Запрашиваем прогресс лесенки для хардкодных ID
+        bp_progress_map = {}
+        bp_resp = await supabase.get(
+            "/user_bp_quests",
+            params={"user_id": f"eq.{telegram_id}", "quest_id": f"in.({','.join(map(str, LADDER_IDS))})"}
+        )
+        if bp_resp.is_success and bp_resp.json():
+            for row in bp_resp.json():
+                qid = row['quest_id']
+                if qid not in bp_progress_map:
+                    bp_progress_map[qid] = []
+                bp_progress_map[qid].append(row)
 
-        # --- НОВЫЙ БЛОК: Сортируем отфильтрованный список в Python ---
-        def get_sort_key(quest):
-            category_sort = 9999 # По умолчанию для квестов без категории
-            quest_sort = quest.get('sort_order') if quest.get('sort_order') is not None else 9999
-            if quest.get('quest_categories'):
-                category_sort = quest['quest_categories'].get('sort_order') if quest['quest_categories'].get('sort_order') is not None else 9999
-            return (category_sort, quest_sort, quest.get('id', 0))
+        # 4. Фильтруем квесты
+        available_quests_filtered = []
+        for quest in all_manual_quests:
+            q_id = quest.get('id')
+            
+            # Если квест висит на проверке — скрываем его (чтобы не спамили заявками)
+            if q_id in pending_quest_ids:
+                continue
+
+            # --- ЛОГИКА ДЛЯ ЛЕСЕНКИ (Наши хардкод ID) ---
+            if q_id in LADDER_IDS:
+                user_history = bp_progress_map.get(q_id, [])
+                
+                # Если в лесенке есть хоть одна запись, где is_completed = False,
+                # значит текущая цель еще не достигнута, и мы показываем квест
+                has_unfinished_step = any(not r.get('is_completed', False) for r in user_history)
+                
+                # Либо, если истории вообще нет (человек только начинает)
+                if has_unfinished_step or not user_history:
+                    available_quests_filtered.append(quest)
+                
+            # --- ЛОГИКА ДЛЯ ОБЫЧНЫХ ЗАДАНИЙ ---
+            else:
+                if quest.get('is_repeatable') or q_id not in completed_quest_ids:
+                    available_quests_filtered.append(quest)
+
+        # 5. Сортируем
+        def get_sort_key(q):
+            category_sort = 9999 
+            quest_sort = q.get('sort_order') if q.get('sort_order') is not None else 9999
+            if q.get('quest_categories'):
+                category_sort = q['quest_categories'].get('sort_order') if q['quest_categories'].get('sort_order') is not None else 9999
+            return (category_sort, quest_sort, q.get('id', 0))
 
         available_quests_filtered.sort(key=get_sort_key)
-        # --- КОНЕЦ НОВОГО БЛОКА ---
-
-        # 4. Возвращаем отсортированный и отфильтрованный список
-        return available_quests_filtered # Возвращаем новый отсортированный список
+        return available_quests_filtered
 
     except Exception as e:
         logging.error(f"Ошибка при получении ручных квестов для {telegram_id}: {e}", exc_info=True)
