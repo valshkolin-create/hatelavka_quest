@@ -15882,7 +15882,7 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
 
                     # Заливаем дневной объем в трубу
                     for q in sim_chain:
-                        if row_date < q["unlock_date"]:
+                        if row_date.date() < q["unlock_date"].date():
                             break # Календарь закрыт. Остаток бьется о стену и сгорает.
 
                         if q["sim_amount"] >= q["target"]:
@@ -15903,10 +15903,10 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
                             daily_val = 0
                             break
 
-                # 2. Выгружаем результаты симуляции в базу данных
                 previous_cleared = True
                 for q in sim_chain:
-                    if row_date < q["unlock_date"]:
+                    # СТАВЬ СЮДА .date()
+                    if row_date.date() < q["unlock_date"].date():
                         break # Сюда даже не смотрим
 
                     current_amount = min(q["sim_amount"], q["target"])
