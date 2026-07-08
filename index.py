@@ -16022,35 +16022,47 @@ async def process_bp_auto_quest(supabase: httpx.AsyncClient, keyword: str, tg_id
         
         if now < start_date: return
         
-        current_week = ((now - start_date).days // 7) + 1
+        # 🔥 1. ИСПРАВЛЕННОЕ ВРЕМЯ (Считаем только календарные дни) 🔥
+        days_passed = (now.date() - start_date.date()).days
+        current_week = (days_passed // 7) + 1
         
         active_quests = [q for q in config.get("quests_config", []) if q.get("week", 1) <= current_week]
         if not active_quests: return
         
         quest_ids = [str(q["quest_id"]) for q in active_quests]
         
-        quests_res = await supabase.get("/quests", params={"id": f"in.({','.join(quest_ids)})", "select": "id,title"})
+        # 🔥 2. ДОБАВИЛИ quest_type В ВЫБОРКУ 🔥
+        quests_res = await supabase.get("/quests", params={"id": f"in.({','.join(quest_ids)})", "select": "id,title,quest_type"})
         if quests_res.status_code != 200: return
         
-        target_quest_id = None
-        for q_db in quests_res.json():
+        quests_db_data = quests_res.json()
+        target_quest_type = None
+        
+        # Ищем квест по ключевому слову и запоминаем его ТИП
+        for q_db in quests_db_data:
             if keyword.lower() in q_db["title"].lower():
-                target_quest_id = q_db["id"]
+                target_quest_type = q_db.get("quest_type")
                 break
                 
-        if not target_quest_id: return
+        if not target_quest_type: return
         
-        target_configs = sorted([q for q in active_quests if q["quest_id"] == target_quest_id], key=lambda x: x.get("week", 1))
+        # 🔥 3. СОБИРАЕМ ВСЮ ЦЕПОЧКУ ПО ТИПУ (Чтобы 2 неделя не потерялась, если у нее другой ID) 🔥
+        chain_quest_ids = [q["id"] for q in quests_db_data if q.get("quest_type") == target_quest_type]
+        chain_ids_str = ",".join(map(str, chain_quest_ids))
         
+        target_configs = sorted([q for q in active_quests if q["quest_id"] in chain_quest_ids], key=lambda x: x.get("week", 1))
+        
+        # Запрашиваем прогресс для ВСЕХ квестов в цепочке
         prog_res = await supabase.get("/user_bp_quests", params={
             "user_id": f"eq.{tg_id}",
-            "quest_id": f"eq.{target_quest_id}"
+            "quest_id": f"in.({chain_ids_str})"
         })
         user_progress = {int(q["week"]): q for q in prog_res.json()} if prog_res.status_code == 200 else {}
         
         week_to_update = None
         target_amount = 1
         current_db_record = None
+        target_quest_id_for_week = None # 🔥 СОХРАНЯЕМ ID ИМЕННО ЭТОЙ НЕДЕЛИ 🔥
         
         # 🔥 УМНЫЙ ЗАМОК ЦЕПОЧКИ 🔥
         previous_cleared = True
@@ -16070,6 +16082,7 @@ async def process_bp_auto_quest(supabase: httpx.AsyncClient, keyword: str, tg_id
                     week_to_update = w
                     target_amount = cfg.get("target_amount", 1)
                     current_db_record = prog
+                    target_quest_id_for_week = cfg.get("quest_id")
                     break # Нашли недобитую неделю. Берем ее и стоп.
                 else:
                     # Текущая выполнена И забрана. Открываем путь к следующей!
@@ -16079,9 +16092,10 @@ async def process_bp_auto_quest(supabase: httpx.AsyncClient, keyword: str, tg_id
                 week_to_update = w
                 target_amount = cfg.get("target_amount", 1)
                 current_db_record = None
+                target_quest_id_for_week = cfg.get("quest_id")
                 break
                 
-        if not week_to_update: return 
+        if not week_to_update or not target_quest_id_for_week: return 
         
         if current_db_record:
             new_amount = current_db_record["current_amount"] + 1
@@ -16094,7 +16108,7 @@ async def process_bp_auto_quest(supabase: httpx.AsyncClient, keyword: str, tg_id
             is_completed = 1 >= target_amount
             await supabase.post("/user_bp_quests", json={
                 "user_id": tg_id,
-                "quest_id": target_quest_id,
+                "quest_id": target_quest_id_for_week, # 🔥 Используем правильный ID для этой недели 🔥
                 "week": week_to_update,
                 "current_amount": 1,
                 "target_amount": target_amount,
