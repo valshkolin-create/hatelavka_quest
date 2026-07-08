@@ -15827,6 +15827,10 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
         # 🔥 ГЛАВНЫЙ ЦИКЛ СИМУЛЯЦИИ 🔥
         for q_type, chain in quests_by_type.items():
             
+            # Исключаем ручные задания из автоматического сброса
+            if "battle_pass_only" in q_type:
+                continue
+            
             # 1. Подготавливаем виртуальную трубу для водопада
             sim_chain = []
             for wq in chain:
@@ -15854,7 +15858,7 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
                 })
 
             # --- ЛОГИКА ДЛЯ НЕДЕЛЬНЫХ ЗАДАНИЙ (ПРОИГРЫШ ИСТОРИИ) ---
-            if "week" in q_type or "telegram_messages" in q_type or "twitch_messages" in q_type or "battle_pass_only" in q_type:
+            if "week" in q_type or "telegram_messages" in q_type or "twitch_messages" in q_type:
                 # Сортируем дни от старых к новым, чтобы лить воду по порядку
                 sorted_activity = sorted(activity_data, key=lambda x: x.get("date", "2000-01-01"))
 
