@@ -16024,7 +16024,7 @@ async def process_bp_auto_quest(supabase: httpx.AsyncClient, keyword: str, tg_id
         
         # 🔥 1. ИСПРАВЛЕННОЕ ВРЕМЯ (Считаем только календарные дни) 🔥
         days_passed = (now.date() - start_date.date()).days
-        current_week = (days_passed // 7) + 1
+        current_week = ((days_passed + 1) // 7) + 1
         
         active_quests = [q for q in config.get("quests_config", []) if q.get("week", 1) <= current_week]
         if not active_quests: return
