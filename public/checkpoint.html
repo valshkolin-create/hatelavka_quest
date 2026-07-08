@@ -2794,7 +2794,7 @@ const processedQuests = weekQuests.map(cfg => {
 
             // 🔥 1. Определяем, является ли задание поэтапным (водопадным) по его типу
             const qType = questDetails ? (questDetails.quest_type || '') : '';
-            const isWaterfall = qType.includes('twitch_messages') || qType.includes('twitch_uptime') || qType.includes('telegram_messages');
+            const isWaterfall = qType.includes('twitch_messages') || qType.includes('twitch_uptime') || qType.includes('telegram_messages') || qType.includes('battle_pass_only');
 
             const allUserProgress = userData.bp_quests ? userData.bp_quests.filter(q => String(q.quest_id) === String(cfg.quest_id)) : [];
 
