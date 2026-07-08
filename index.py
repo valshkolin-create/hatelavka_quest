@@ -15854,7 +15854,7 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
                 })
 
             # --- ЛОГИКА ДЛЯ НЕДЕЛЬНЫХ ЗАДАНИЙ (ПРОИГРЫШ ИСТОРИИ) ---
-            if "week" in q_type or "telegram_messages" in q_type:
+            if "week" in q_type or "telegram_messages" in q_type or "twitch_messages" in q_type:
                 # Сортируем дни от старых к новым, чтобы лить воду по порядку
                 sorted_activity = sorted(activity_data, key=lambda x: x.get("date", "2000-01-01"))
 
