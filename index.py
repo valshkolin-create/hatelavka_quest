@@ -15761,7 +15761,7 @@ async def buy_checkpoint_premium(req: BuyPremiumRequest, supabase: httpx.AsyncCl
 async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClient):
     """
     Синхронизирует прогресс автоматических заданий БП.
-    НОВАЯ ЛОГИКА: "Окна времени" + Цепной замок (Linked List)
+    НОВАЯ ЛОГИКА: "Окна времени" + Цепной замок по ТИПУ квеста (quest_type)
     """
     try:
         cp_res = await supabase.get("/pages_content", params={"page_name": "eq.checkpoint", "select": "content"})
@@ -15770,13 +15770,9 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
         config = cp_res.json()[0].get("content", {})
         if not config.get("is_active") or not config.get("start_date"): return
         
-        # 🔥 Задаем зону МСК (UTC+3) 🔥
         msk_tz = timezone(timedelta(hours=3))
         
-        # Переводим дату старта из базы в МСК
         bp_start_date = datetime.fromisoformat(config.get("start_date").replace('Z', '+00:00')).astimezone(msk_tz)
-        
-        # Текущее время берем по МСК
         now = datetime.now(msk_tz)
         
         if now < bp_start_date: return
@@ -15794,7 +15790,6 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
         quests_meta = {str(q["id"]): q for q in quests_res.json()}
         start_str = bp_start_date.strftime('%Y-%m-%d')
 
-        # 🔥 БЕРЕМ ВСЮ АКТИВНОСТЬ (ТЕПЕРЬ С tg_messages) 🔥
         activity_res = await supabase.get(
             "/user_daily_activity", 
             params={
@@ -15805,11 +15800,9 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
         )
         activity_data = activity_res.json() if activity_res.is_success else []
         
-        # Получаем профиль для дейликов (session quests)
         u_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}", "select": "telegram_daily_message_count"})
         tg_daily = int(u_res.json()[0].get("telegram_daily_message_count") or 0) if u_res.is_success and u_res.json() else 0
 
-        # Считаем сегодняшние метрики с учетом МСК
         today_str = now.strftime('%Y-%m-%d')
         today_tw_msgs = sum(r.get("twitch_messages", 0) for r in activity_data if r.get("date") == today_str)
         today_tw_uptime = sum(r.get("twitch_uptime", 0) for r in activity_data if r.get("date") == today_str)
@@ -15820,69 +15813,64 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
         )
         existing_progress = {(str(q["quest_id"]), int(q.get("week") or 1)): q for q in bp_quests_res.json()} if bp_quests_res.is_success else {}
 
-        # 🔥 Группируем квесты по ID, чтобы выстроить логическую цепь (Неделя 1 -> Неделя 2)
-        quests_by_id = {}
+        # 🔥 ИЗМЕНЕНИЕ: Группируем квесты по ТИПУ (quest_type), а не по ID!
+        quests_by_type = {}
         for wq in active_quests:
-            qid = str(wq["quest_id"])
-            quests_by_id.setdefault(qid, []).append(wq)
+            qid_str = str(wq["quest_id"])
+            meta = quests_meta.get(qid_str)
+            if not meta: continue
+            
+            # Если типа нет, бросаем в общую кучу unknown, чтобы хоть как-то отработать
+            q_type = meta.get("quest_type") or "unknown" 
+            quests_by_type.setdefault(q_type, []).append(wq)
 
         # Сортируем каждую цепочку строго по порядку недель
-        for qid in quests_by_id:
-            quests_by_id[qid].sort(key=lambda x: x.get("week", 1))
+        for q_type in quests_by_type:
+            quests_by_type[q_type].sort(key=lambda x: int(x.get("week", 1)))
 
         # 🔥 ГЛАВНЫЙ ЦИКЛ С ЖЕСТКИМ ВОДОПАДНЫМ ЗАМКОМ 🔥
-        for q_id_str, chain in quests_by_id.items():
-            meta = quests_meta.get(q_id_str)
-            if not meta: continue 
+        for q_type, chain in quests_by_type.items():
             
-            q_type = meta.get("quest_type", "")
-            
-            # ЗАМОК. По умолчанию открыт для первой недели.
             previous_cleared = True 
-            prev_completed_date = None # Таймстемп, когда закрыли предыдущий этап
+            prev_completed_date = None 
 
             for wq in chain:
                 if not previous_cleared:
-                    break # ЖЕСТКИЙ СТОП. Предыдущая награда не забрана. Вторая неделя остается пустой.
+                    break # ЖЕСТКИЙ СТОП. Дверь закрыта, вторая неделя останется пустой.
 
+                q_id_str = str(wq["quest_id"])
                 q_week_int = int(wq.get("week", 1))
                 target = wq.get("target_amount", 1)
+                
+                meta = quests_meta.get(q_id_str)
+                if not meta: continue
                 
                 if any(k in q_type for k in ["twitch_messages", "twitch_uptime", "tg_messages", "telegram_messages"]):
                     db_target = meta.get("target_value")
                     if db_target: target = db_target
                 
-                # Достаем прогресс из базы
                 existing = existing_progress.get((q_id_str, q_week_int))
                 is_claimed = existing.get("is_claimed", False) if existing else False
                 is_completed_db = existing.get("is_completed", False) if existing else False
 
-                # Если награда забрана — пропускаем расчет, открываем путь к следующей неделе
                 if is_claimed:
                     if existing and existing.get("completed_at"):
                         try:
-                            # Запоминаем, когда юзер реально закрыл эту неделю
                             prev_completed_date = datetime.fromisoformat(existing["completed_at"].replace('Z', '+00:00')).astimezone(msk_tz)
                         except:
                             pass
                     previous_cleared = True
                     continue 
 
-                # ВЫЧИСЛЯЕМ ДАТУ ОТКРЫТИЯ ЭТОЙ НЕДЕЛИ (Календарь)
                 week_unlock_date = bp_start_date + timedelta(days=(q_week_int - 1) * 7)
                 
-                # 🔥 ЗАЩИТА ОТ АВАНСА 🔥
-                # Если 1-я неделя закрыта в среду, а 2-я по календарю открылась в понедельник, 
-                # мы начинаем считать стату строго со среды.
                 actual_start_date = week_unlock_date
                 if prev_completed_date and prev_completed_date > week_unlock_date:
-                    # Срезаем часы/минуты, так как логи активности у тебя хранятся по дням ('Y-m-d')
                     actual_start_date = prev_completed_date.replace(hour=0, minute=0, second=0, microsecond=0)
 
                 is_auto = False
                 current_amount = 0
                 
-                # --- ЛОГИКА ДЛЯ НЕДЕЛЬНЫХ ЗАДАНИЙ ---
                 if "week" in q_type or "telegram_messages" in q_type:
                     for row in activity_data:
                         row_date_str = row.get("date")
@@ -15890,7 +15878,6 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
                         
                         row_date = datetime.strptime(row_date_str, '%Y-%m-%d').replace(tzinfo=msk_tz)
                         
-                        # 🔥 ПЛЮСУЕМ СТАТУ ТОЛЬКО С РЕАЛЬНОГО СТАРТА 🔥
                         if row_date >= actual_start_date:
                             if any(k in q_type for k in ["week", "telegram_messages", "tg_messages"]) and "session" not in q_type:
                                 if "twitch_messages" in q_type:
@@ -15901,7 +15888,6 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
                                     current_amount += row.get("twitch_uptime", 0)
                     is_auto = True
                     
-                # --- ЛОГИКА ДЛЯ СЕССИОННЫХ ---
                 elif "session" in q_type:
                     if is_completed_db:
                         current_amount = existing.get("current_amount", target)
@@ -15925,12 +15911,10 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
                         "week": q_week_int 
                     }
 
-                    # Фиксируем время, если квест только что был закрыт
                     if is_completed and not is_completed_db:
                         payload["completed_at"] = now.isoformat()
                     
                     if existing:
-                        # Стучимся в базу, только если цифра изменилась (хватит спамить апдейтами вхолостую)
                         if existing.get("current_amount") != current_amount or existing.get("is_completed") != is_completed:
                             await supabase.patch(
                                 "/user_bp_quests", 
@@ -15943,8 +15927,6 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
                         payload["is_claimed"] = False
                         await supabase.post("/user_bp_quests", json=payload)
                         
-                # 🔥 МЫ ДОШЛИ СЮДА. Значит текущая неделя либо еще в процессе, либо завершена, но НЕ ЗАБРАНА.
-                # Хлопаем дверью. Следующие недели в цепочке обрабатываться не будут.
                 previous_cleared = False
 
     except Exception as e:
