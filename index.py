@@ -15761,7 +15761,7 @@ async def buy_checkpoint_premium(req: BuyPremiumRequest, supabase: httpx.AsyncCl
 async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClient):
     """
     Синхронизирует прогресс автоматических заданий БП.
-    НОВАЯ ЛОГИКА: "Окна времени" + Цепной замок по ТИПУ квеста (quest_type)
+    НОВАЯ ЛОГИКА: "СИМУЛЯТОР ВОДОПАДА" (Опция Б - Честный перенос остатков)
     """
     try:
         cp_res = await supabase.get("/pages_content", params={"page_name": "eq.checkpoint", "select": "content"})
@@ -15771,7 +15771,6 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
         if not config.get("is_active") or not config.get("start_date"): return
         
         msk_tz = timezone(timedelta(hours=3))
-        
         bp_start_date = datetime.fromisoformat(config.get("start_date").replace('Z', '+00:00')).astimezone(msk_tz)
         now = datetime.now(msk_tz)
         
@@ -15813,121 +15812,176 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
         )
         existing_progress = {(str(q["quest_id"]), int(q.get("week") or 1)): q for q in bp_quests_res.json()} if bp_quests_res.is_success else {}
 
-        # 🔥 ИЗМЕНЕНИЕ: Группируем квесты по ТИПУ (quest_type), а не по ID!
         quests_by_type = {}
         for wq in active_quests:
             qid_str = str(wq["quest_id"])
             meta = quests_meta.get(qid_str)
             if not meta: continue
             
-            # Если типа нет, бросаем в общую кучу unknown, чтобы хоть как-то отработать
             q_type = meta.get("quest_type") or "unknown" 
             quests_by_type.setdefault(q_type, []).append(wq)
 
-        # Сортируем каждую цепочку строго по порядку недель
         for q_type in quests_by_type:
             quests_by_type[q_type].sort(key=lambda x: int(x.get("week", 1)))
 
-        # 🔥 ГЛАВНЫЙ ЦИКЛ С ЖЕСТКИМ ВОДОПАДНЫМ ЗАМКОМ 🔥
+        # 🔥 ГЛАВНЫЙ ЦИКЛ СИМУЛЯЦИИ 🔥
         for q_type, chain in quests_by_type.items():
             
-            previous_cleared = True 
-            prev_completed_date = None 
-
+            # 1. Подготавливаем виртуальную трубу для водопада
+            sim_chain = []
             for wq in chain:
-                if not previous_cleared:
-                    break # ЖЕСТКИЙ СТОП. Дверь закрыта, вторая неделя останется пустой.
-
                 q_id_str = str(wq["quest_id"])
                 q_week_int = int(wq.get("week", 1))
                 target = wq.get("target_amount", 1)
                 
                 meta = quests_meta.get(q_id_str)
-                if not meta: continue
-                
-                if any(k in q_type for k in ["twitch_messages", "twitch_uptime", "tg_messages", "telegram_messages"]):
+                if meta:
                     db_target = meta.get("target_value")
                     if db_target: target = db_target
                 
-                existing = existing_progress.get((q_id_str, q_week_int))
-                is_claimed = existing.get("is_claimed", False) if existing else False
-                is_completed_db = existing.get("is_completed", False) if existing else False
+                unlock_date = bp_start_date + timedelta(days=(q_week_int - 1) * 7)
+                db_state = existing_progress.get((q_id_str, q_week_int))
 
-                if is_claimed:
-                    if existing and existing.get("completed_at"):
-                        try:
-                            prev_completed_date = datetime.fromisoformat(existing["completed_at"].replace('Z', '+00:00')).astimezone(msk_tz)
-                        except:
-                            pass
-                    previous_cleared = True
-                    continue 
+                sim_chain.append({
+                    "quest_id": q_id_str,
+                    "week": q_week_int,
+                    "target": target,
+                    "unlock_date": unlock_date,
+                    "db_state": db_state,
+                    "sim_amount": 0,
+                    "is_claimed": db_state.get("is_claimed", False) if db_state else False,
+                    "is_completed_db": db_state.get("is_completed", False) if db_state else False
+                })
 
-                week_unlock_date = bp_start_date + timedelta(days=(q_week_int - 1) * 7)
-                
-                actual_start_date = week_unlock_date
-                if prev_completed_date and prev_completed_date > week_unlock_date:
-                    actual_start_date = prev_completed_date.replace(hour=0, minute=0, second=0, microsecond=0)
+            # --- ЛОГИКА ДЛЯ НЕДЕЛЬНЫХ ЗАДАНИЙ (ПРОИГРЫШ ИСТОРИИ) ---
+            if "week" in q_type or "telegram_messages" in q_type:
+                # Сортируем дни от старых к новым, чтобы лить воду по порядку
+                sorted_activity = sorted(activity_data, key=lambda x: x.get("date", "2000-01-01"))
 
-                is_auto = False
-                current_amount = 0
-                
-                if "week" in q_type or "telegram_messages" in q_type:
-                    for row in activity_data:
-                        row_date_str = row.get("date")
-                        if not row_date_str: continue
+                for row in sorted_activity:
+                    row_date = datetime.strptime(row["date"], '%Y-%m-%d').replace(tzinfo=msk_tz)
+                    daily_val = 0
+                    
+                    if "session" in q_type:
+                        continue # Сессионные считаются ниже, это другая песочница
                         
-                        row_date = datetime.strptime(row_date_str, '%Y-%m-%d').replace(tzinfo=msk_tz)
-                        
-                        if row_date >= actual_start_date:
-                            if any(k in q_type for k in ["week", "telegram_messages", "tg_messages"]) and "session" not in q_type:
-                                if "twitch_messages" in q_type:
-                                    current_amount += row.get("twitch_messages", 0)
-                                elif "tg_messages" in q_type or "telegram_messages" in q_type:
-                                    current_amount += row.get("tg_messages", 0)
-                                elif "twitch_uptime" in q_type:
-                                    current_amount += row.get("twitch_uptime", 0)
-                    is_auto = True
-                    
-                elif "session" in q_type:
-                    if is_completed_db:
-                        current_amount = existing.get("current_amount", target)
-                    else:
-                        if "twitch_messages" in q_type:
-                            current_amount = today_tw_msgs
-                        elif "tg_messages" in q_type:
-                            current_amount = tg_daily
-                        elif "twitch_uptime" in q_type:
-                            current_amount = today_tw_uptime
-                    is_auto = True
-                    
-                if is_auto:
-                    current_amount = min(current_amount, target)
-                    is_completed = current_amount >= target
-                    
+                    if "twitch_messages" in q_type:
+                        daily_val = row.get("twitch_messages", 0)
+                    elif "tg_messages" in q_type or "telegram_messages" in q_type:
+                        daily_val = row.get("tg_messages", 0)
+                    elif "twitch_uptime" in q_type:
+                        daily_val = row.get("twitch_uptime", 0)
+
+                    if daily_val <= 0: continue
+
+                    # Заливаем дневной объем в трубу
+                    for q in sim_chain:
+                        if row_date < q["unlock_date"]:
+                            break # Календарь закрыт. Остаток бьется о стену и сгорает.
+
+                        if q["sim_amount"] >= q["target"]:
+                            continue # Квест уже полный, вода течет в следующий уровень
+
+                        needed = q["target"] - q["sim_amount"]
+                        if daily_val >= needed:
+                            q["sim_amount"] = q["target"] # Заполнили до краев
+                            daily_val -= needed           # Вычисляем честный остаток!
+                            
+                            if not q["is_claimed"]:
+                                # ЗАМОК: Квест выполнен, но награда не забрана. 
+                                # Заглушка стоит. Остаток за этот день сгорает.
+                                break 
+                        else:
+                            # Воды не хватило, чтобы заполнить квест целиком
+                            q["sim_amount"] += daily_val
+                            daily_val = 0
+                            break
+
+                # 2. Выгружаем результаты симуляции в базу данных
+                previous_cleared = True
+                for q in sim_chain:
+                    if not previous_cleared:
+                        break # Сюда даже не смотрим
+
+                    current_amount = min(q["sim_amount"], q["target"])
+                    is_completed = current_amount >= q["target"]
+
+                    if q["is_claimed"]:
+                        previous_cleared = True
+                        continue # Не трогаем то, что уже забрано
+
                     payload = {
                         "current_amount": current_amount,
-                        "target_amount": target,
+                        "target_amount": q["target"],
                         "is_completed": is_completed,
-                        "week": q_week_int 
+                        "week": q["week"]
                     }
 
-                    if is_completed and not is_completed_db:
+                    if is_completed and not q["is_completed_db"]:
                         payload["completed_at"] = now.isoformat()
                     
-                    if existing:
-                        if existing.get("current_amount") != current_amount or existing.get("is_completed") != is_completed:
+                    if q["db_state"]:
+                        # Обновляем, только если цифры реально поменялись
+                        if q["db_state"].get("current_amount") != current_amount or q["db_state"].get("is_completed") != is_completed:
                             await supabase.patch(
                                 "/user_bp_quests", 
-                                params={"id": f"eq.{existing['id']}"}, 
+                                params={"id": f"eq.{q['db_state']['id']}"}, 
                                 json=payload
                             )
                     else:
                         payload["user_id"] = user_id
-                        payload["quest_id"] = int(q_id_str)
+                        payload["quest_id"] = int(q["quest_id"])
                         payload["is_claimed"] = False
                         await supabase.post("/user_bp_quests", json=payload)
                         
-                previous_cleared = False
+                    previous_cleared = False # Раз не забрал — хлопаем дверью для следующего в цепи
+
+            # --- ЛОГИКА ДЛЯ СЕССИОННЫХ ЗАДАНИЙ (Без симулятора, просто срез дня) ---
+            elif "session" in q_type:
+                previous_cleared = True
+                for q in sim_chain:
+                    if not previous_cleared:
+                        break
+                        
+                    if q["is_claimed"]:
+                        previous_cleared = True
+                        continue
+
+                    current_amount = 0
+                    if q["is_completed_db"]:
+                        current_amount = q["db_state"].get("current_amount", q["target"])
+                    else:
+                        if "twitch_messages" in q_type: current_amount = today_tw_msgs
+                        elif "tg_messages" in q_type: current_amount = tg_daily
+                        elif "twitch_uptime" in q_type: current_amount = today_tw_uptime
+
+                    current_amount = min(current_amount, q["target"])
+                    is_completed = current_amount >= q["target"]
+                    
+                    payload = {
+                        "current_amount": current_amount,
+                        "target_amount": q["target"],
+                        "is_completed": is_completed,
+                        "week": q["week"]
+                    }
+
+                    if is_completed and not q["is_completed_db"]:
+                        payload["completed_at"] = now.isoformat()
+                    
+                    if q["db_state"]:
+                        if q["db_state"].get("current_amount") != current_amount or q["db_state"].get("is_completed") != is_completed:
+                            await supabase.patch(
+                                "/user_bp_quests", 
+                                params={"id": f"eq.{q['db_state']['id']}"}, 
+                                json=payload
+                            )
+                    else:
+                        payload["user_id"] = user_id
+                        payload["quest_id"] = int(q["quest_id"])
+                        payload["is_claimed"] = False
+                        await supabase.post("/user_bp_quests", json=payload)
+                        
+                    previous_cleared = False
 
     except Exception as e:
         logging.error(f"Ошибка авто-синхронизации БП для {user_id}: {e}", exc_info=True)
