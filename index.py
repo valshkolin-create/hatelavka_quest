@@ -12278,7 +12278,7 @@ async def update_submission_status(
             await supabase.patch("/quest_submissions", params={"id": f"eq.{submission_id}"}, json={"status": "approved"})
 
             # ==========================================
-            # 🔥 МОСТ В BATTLE PASS: Синхронизируем ручной квест с user_bp_quests 🔥
+            # 🔥 # 🔥 МОСТ В BATTLE PASS: Синхронизируем ручной квест с user_bp_quests 🔥
             # ==========================================
             try:
                 logging.info(f"Синхронизация ручного квеста {manual_quest_id} с Баттл-Пассом...")
@@ -12370,8 +12370,10 @@ async def update_submission_status(
                                     res = await supabase.post("/user_bp_quests", json=payload)
                                     res.raise_for_status()
 
-                                if not is_rep:
-                                    break
+                                # ЖЕСТКИЙ ЗАМОК: Принудительно выходим из цикла после первой успешной записи, 
+                                # чтобы одна ручная заявка не закрыла сразу несколько недель!
+                                logging.info(f"🔒 Отработана логика без Умного Замка. Записано в неделю {week_val}. Цикл остановлен.")
+                                break
                     else:
                         logging.warning(f"⚠️ Квест {manual_quest_id} не найден в quests_config текущего Баттл-Пасса!")
             except Exception as bp_err:
