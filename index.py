@@ -15776,7 +15776,9 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
         
         if now < bp_start_date: return
         
-        current_week = ((now - bp_start_date).days // 7) + 1
+        # Вычисляем разницу в КАЛЕНДАРНЫХ днях, игнорируя часы и минуты!
+        days_passed = (now.date() - bp_start_date.date()).days
+        current_week = (days_passed // 7) + 1
         
         active_quests = [q for q in config.get("quests_config", []) if q.get("week", 1) <= current_week]
         if not active_quests: return
