@@ -16038,16 +16038,14 @@ async def process_bp_auto_quest(supabase: httpx.AsyncClient, keyword: str, tg_id
         quests_db_data = quests_res.json()
         target_quest_type = None
         
-        # Ищем квест по ключевому слову и запоминаем его ТИП
+        # 🔥 ИЗОЛИРУЕМ ЦЕПОЧКУ СТРОГО ПО КЛЮЧЕВОМУ СЛОВУ В НАЗВАНИИ 🔥
+        chain_quest_ids = []
         for q_db in quests_db_data:
             if keyword.lower() in q_db["title"].lower():
-                target_quest_type = q_db.get("quest_type")
-                break
+                chain_quest_ids.append(q_db["id"])
                 
-        if not target_quest_type: return
+        if not chain_quest_ids: return
         
-        # 🔥 3. СОБИРАЕМ ВСЮ ЦЕПОЧКУ ПО ТИПУ (Чтобы 2 неделя не потерялась, если у нее другой ID) 🔥
-        chain_quest_ids = [q["id"] for q in quests_db_data if q.get("quest_type") == target_quest_type]
         chain_ids_str = ",".join(map(str, chain_quest_ids))
         
         target_configs = sorted([q for q in active_quests if q["quest_id"] in chain_quest_ids], key=lambda x: x.get("week", 1))
