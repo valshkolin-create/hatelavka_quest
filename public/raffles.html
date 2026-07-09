@@ -308,6 +308,7 @@
             <div class="m-head" id="m-head"></div>
             <div class="m-desc" id="m-desc"></div>
             <button id="btn-profile" class="m-btn m-btn-primary" style="display:none;" onclick="location.href='/profile'">⚙️ Настроить профиль</button>
+            <button id="btn-bp" class="m-btn m-btn-primary" style="display:none; background: #ffd700; color: #000; box-shadow: 0 4px 15px rgba(255,215,0,0.3);" onclick="location.href='/checkpoint'">🌟 Перейти в Battle Pass</button>
             <button class="m-btn" onclick="document.getElementById('modal').style.display='none'">Понятно</button>
         </div>
     </div>
@@ -543,6 +544,7 @@ function render(data) {
                     // -----------------------------
                     
                     if (s.min_participants > 0) conditions += `<div class="cond-row"><i class="fa-solid fa-users"></i> Мин. участников: ${s.min_participants}</div>`;
+                    if (s.min_bp_level > 0) conditions += `<div class="cond-row"><i class="fa-solid fa-star" style="color: #ffd700;"></i> БП Уровень: ${s.min_bp_level}</div>`;
                 }
 
                 let btnLabel = "УЧАСТВОВАТЬ";
@@ -655,18 +657,24 @@ function render(data) {
                     
                     // 🔥 Если в ответе есть предупреждение про 20%, показываем синюю инфо-модалку
                     if (ans.message.includes("снижены на 20%")) {
-                        // Меняем \n на <br> для красивого переноса строк в HTML
                         const formattedMsg = ans.message.replace(/\n/g, '<br>');
                         showModal('info', '⚠️ Внимание! ⚠️', formattedMsg);
                     } else {
-                        // Если все чисто, показываем обычную зеленую галочку
                         showModal('success', 'Успех!', ans.message);
                     }
                     
                     load(); 
                 } else {
                     tg.HapticFeedback.notificationOccurred('error');
-                    showModal('error', 'Упс...', ans.detail);
+                    
+                    // 🔥 Ловим ошибку Баттл-пасса и показываем наш красивый дизайн
+                    if (ans.detail && ans.detail.includes('Battle Pass')) {
+                        const bpMsg = `${ans.detail}<br><br><span style="font-size: 12px; color: var(--text-muted);">Перейдите в Баттл-пасс и наберите необходимый уровень, чтобы участвовать в таких розыгрышах!</span>`;
+                        showModal('bp_error', 'Доступ закрыт 🛑', bpMsg);
+                    } else {
+                        showModal('error', 'Упс...', ans.detail);
+                    }
+
                     if(btn) {
                         btn.innerHTML = oldHtml;
                         btn.style.opacity = '1';
@@ -682,19 +690,26 @@ function render(data) {
             }
         }
 
-        // ФУНКЦИЯ ПОКАЗА МОДАЛКИ
+       // ФУНКЦИЯ ПОКАЗА МОДАЛКИ
         function showModal(type, title, msg) {
             const m = document.getElementById('modal');
             const iconBox = document.getElementById('modal-icon');
             const btnProfile = document.getElementById('btn-profile');
+            const btnBp = document.getElementById('btn-bp'); // 🔥 Наша новая кнопка
             
+            // Сбрасываем видимость кнопок
+            btnProfile.style.display = 'none';
+            btnBp.style.display = 'none';
+
             if(type === 'success') {
                 iconBox.innerHTML = `<svg class="checkmark" viewBox="0 0 52 52"><circle class="checkmark-circle" cx="26" cy="26" r="25" fill="none"/><path class="checkmark-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/></svg>`;
-                btnProfile.style.display = 'none';
             } else if (type === 'info') {
                 // Иконка для информации
                 iconBox.innerHTML = '<i class="fa-solid fa-circle-info" style="font-size: 60px; color: var(--primary-blue); margin-top: 10px;"></i>';
-                btnProfile.style.display = 'none';
+            } else if (type === 'bp_error') {
+                // 🔥 Крутая золотая звезда с тенью для БП
+                iconBox.innerHTML = '<i class="fa-solid fa-star" style="font-size: 60px; color: #ffd700; margin-top: 10px; filter: drop-shadow(0 0 15px rgba(255,215,0,0.6));"></i>';
+                btnBp.style.display = 'block'; // Показываем кнопку перехода в БП
             } else {
                 iconBox.innerHTML = `<svg class="cross" viewBox="0 0 52 52"><circle class="cross-circle" cx="26" cy="26" r="25" fill="none"/><path class="cross-path" fill="none" d="M16 16 36 36 M36 16 16 36"/></svg>`;
                 const mLow = msg ? msg.toLowerCase() : '';
