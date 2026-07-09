@@ -12338,45 +12338,70 @@ async def update_submission_status(
                         
                         # Если bp_week нет (старые заявки или не БП), работаем по старой логике
                         else:
-                            for cfg in q_configs:
-                                week_val = cfg.get("week", 1)
-                                search_params = {
-                                    "user_id": f"eq.{user_to_notify}",
-                                    "quest_id": f"eq.{manual_quest_id}"
-                                }
-                                if is_rep:
-                                    search_params["week"] = f"eq.{week_val}"
+                            # 1. Вычисляем текущую неделю БП по календарю
+                            msk_tz = timezone(timedelta(hours=3))
+                            start_date_str = bp_config.get("start_date")
+                            current_week = 99 # Если даты нет, считаем все недели доступными
+                            
+                            if start_date_str:
+                                start_date = datetime.fromisoformat(start_date_str.replace('Z', '+00:00')).astimezone(msk_tz)
+                                now = datetime.now(msk_tz)
+                                days_passed = (now.date() - start_date.date()).days
+                                current_week = (days_passed // 7) + 1
 
-                                existing = await supabase.get("/user_bp_quests", params=search_params)
+                            # 2. Оставляем только те недели, которые УЖЕ НАСТУПИЛИ по календарю
+                            active_configs = [q for q in q_configs if int(q.get("week", 1)) <= current_week]
+                            sorted_configs = sorted(active_configs, key=lambda x: int(x.get("week", 1)))
 
-                                payload = {
-                                    "current_amount": target_val,
-                                    "target_amount": target_val,
-                                    "is_completed": True
-                                }
-
-                                if existing.status_code == 200 and existing.json():
-                                    row_id = existing.json()[0]['id']
-                                    res = await supabase.patch("/user_bp_quests", params={"id": f"eq.{row_id}"}, json=payload)
-                                    res.raise_for_status()
+                            # 3. Достаем историю юзера по этому квесту
+                            search_params = {
+                                "user_id": f"eq.{user_to_notify}", 
+                                "quest_id": f"eq.{manual_quest_id}"
+                            }
+                            prog_res = await supabase.get("/user_bp_quests", params=search_params)
+                            user_progress = {int(p.get("week", 1)): p for p in prog_res.json()} if prog_res.status_code == 200 and prog_res.json() else {}
+                            
+                            previous_cleared = True
+                            
+                            for cfg in sorted_configs:
+                                w = int(cfg.get("week", 1))
+                                prog = user_progress.get(w)
+                                
+                                if not previous_cleared:
+                                    break # Замок: прошлая неделя не закрыта
+                                    
+                                if prog:
+                                    if prog.get("is_completed") and not prog.get("is_claimed"):
+                                        break # Замок: юзер еще не забрал награду
+                                    elif not prog.get("is_completed"):
+                                        # НАШЛИ! Админ добивает эту АКТИВНУЮ неделю
+                                        row_id = prog['id']
+                                        payload = {
+                                            "current_amount": target_val,
+                                            "target_amount": target_val,
+                                            "is_completed": True
+                                        }
+                                        res = await supabase.patch("/user_bp_quests", params={"id": f"eq.{row_id}"}, json=payload)
+                                        res.raise_for_status()
+                                        logging.info(f"✅ УСПЕХ: Админ засчитал ручной квест (Неделя {w})")
+                                        break # Стоп, одна заявка = одна неделя
+                                    else:
+                                        previous_cleared = True # Зеленый свет на следующую неделю
                                 else:
-                                    payload.update({
+                                    # Создаем новую запись, так как по календарю она уже доступна
+                                    payload = {
                                         "user_id": user_to_notify,
                                         "quest_id": manual_quest_id,
-                                        "week": week_val if is_rep else None,
+                                        "week": w if is_rep else None,
+                                        "current_amount": target_val,
+                                        "target_amount": target_val,
+                                        "is_completed": True,
                                         "is_claimed": False
-                                    })
+                                    }
                                     res = await supabase.post("/user_bp_quests", json=payload)
                                     res.raise_for_status()
-
-                                # ЖЕСТКИЙ ЗАМОК: Принудительно выходим из цикла после первой успешной записи, 
-                                # чтобы одна ручная заявка не закрыла сразу несколько недель!
-                                logging.info(f"🔒 Отработана логика без Умного Замка. Записано в неделю {week_val}. Цикл остановлен.")
-                                break
-                    else:
-                        logging.warning(f"⚠️ Квест {manual_quest_id} не найден в quests_config текущего Баттл-Пасса!")
-            except Exception as bp_err:
-                logging.error(f"❌ Ошибка моста БП для ручного квеста {manual_quest_id}: {bp_err}", exc_info=True)
+                                    logging.info(f"✅ УСПЕХ: Админ открыл и засчитал новую неделю {w}")
+                                    break # Стоп, одна заявка = одна неделя
             # ==========================================
 
             # 👇 ЭТА СТРОКА ДОЛЖНА БЫТЬ ОБЯЗАТЕЛЬНО ЗДЕСЬ 👇
@@ -16108,23 +16133,24 @@ async def process_bp_auto_quest(supabase: httpx.AsyncClient, keyword: str, tg_id
         
         if now < start_date: return
         
-        # 🔥 1. ИСПРАВЛЕННОЕ ВРЕМЯ (Считаем только календарные дни) 🔥
+        # 🔥 ХИРУРГИЧЕСКАЯ ПРАВКА 1: Убрали +1, чтобы время совпадало с водопадом
         days_passed = (now.date() - start_date.date()).days
-        current_week = ((days_passed + 1) // 7) + 1
+        current_week = (days_passed // 7) + 1
         
-        active_quests = [q for q in config.get("quests_config", []) if q.get("week", 1) <= current_week]
+        # 🔥 ХИРУРГИЧЕСКАЯ ПРАВКА 2: Добавили int(), чтобы защита календаря не сломалась о строки
+        active_quests = [q for q in config.get("quests_config", []) if int(q.get("week", 1)) <= current_week]
         if not active_quests: return
         
         quest_ids = [str(q["quest_id"]) for q in active_quests]
         
-        # 🔥 2. ДОБАВИЛИ quest_type В ВЫБОРКУ 🔥
+        # ДОБАВИЛИ quest_type В ВЫБОРКУ
         quests_res = await supabase.get("/quests", params={"id": f"in.({','.join(quest_ids)})", "select": "id,title,quest_type"})
         if quests_res.status_code != 200: return
         
         quests_db_data = quests_res.json()
         target_quest_type = None
         
-        # 🔥 ИЗОЛИРУЕМ ЦЕПОЧКУ СТРОГО ПО КЛЮЧЕВОМУ СЛОВУ В НАЗВАНИИ 🔥
+        # ИЗОЛИРУЕМ ЦЕПОЧКУ СТРОГО ПО КЛЮЧЕВОМУ СЛОВУ В НАЗВАНИИ
         chain_quest_ids = []
         for q_db in quests_db_data:
             if keyword.lower() in q_db["title"].lower():
@@ -16134,7 +16160,8 @@ async def process_bp_auto_quest(supabase: httpx.AsyncClient, keyword: str, tg_id
         
         chain_ids_str = ",".join(map(str, chain_quest_ids))
         
-        target_configs = sorted([q for q in active_quests if q["quest_id"] in chain_quest_ids], key=lambda x: x.get("week", 1))
+        # 🔥 ХИРУРГИЧЕСКАЯ ПРАВКА 3: Добавили int() в сортировку
+        target_configs = sorted([q for q in active_quests if q["quest_id"] in chain_quest_ids], key=lambda x: int(x.get("week", 1)))
         
         # Запрашиваем прогресс для ВСЕХ квестов в цепочке
         prog_res = await supabase.get("/user_bp_quests", params={
@@ -16146,7 +16173,7 @@ async def process_bp_auto_quest(supabase: httpx.AsyncClient, keyword: str, tg_id
         week_to_update = None
         target_amount = 1
         current_db_record = None
-        target_quest_id_for_week = None # 🔥 СОХРАНЯЕМ ID ИМЕННО ЭТОЙ НЕДЕЛИ 🔥
+        target_quest_id_for_week = None # СОХРАНЯЕМ ID ИМЕННО ЭТОЙ НЕДЕЛИ
         
         # 🔥 УМНЫЙ ЗАМОК ЦЕПОЧКИ 🔥
         previous_cleared = True
@@ -16192,7 +16219,7 @@ async def process_bp_auto_quest(supabase: httpx.AsyncClient, keyword: str, tg_id
             is_completed = 1 >= target_amount
             await supabase.post("/user_bp_quests", json={
                 "user_id": tg_id,
-                "quest_id": target_quest_id_for_week, # 🔥 Используем правильный ID для этой недели 🔥
+                "quest_id": target_quest_id_for_week, # Используем правильный ID для этой недели
                 "week": week_to_update,
                 "current_amount": 1,
                 "target_amount": target_amount,
