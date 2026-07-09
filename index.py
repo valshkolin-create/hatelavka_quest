@@ -15893,10 +15893,20 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
         active_quests = [q for q in config.get("quests_config", []) if q.get("week", 1) <= current_week]
         if not active_quests: return
         
-        quest_ids = [str(q["quest_id"]) for q in active_quests]
+        # 🔥 ПРАВКА 1: Убиваем дубликаты, чтобы Supabase не сходил с ума
+        quest_ids = list(set([str(q["quest_id"]) for q in active_quests]))
         
-        quests_res = await supabase.get("/quests", params={"id": f"in.({','.join(quest_ids)})", "select": "id,quest_type,target_value"})
-        if not quests_res.is_success or not quests_res.json(): return
+        bp_quests_res = await supabase.get(
+            "/user_bp_quests", 
+            params={"user_id": f"eq.{user_id}", "quest_id": f"in.({','.join(quest_ids)})"}
+        )
+        
+        # 🔥 ПРАВКА 2: Если база упала, не идем дальше вслепую!
+        if not bp_quests_res.is_success:
+            logging.error(f"[WATERFALL] Критический сбой при получении прогресса (отмена Водопада): {bp_quests_res.text}")
+            return 
+            
+        existing_progress = {(str(q["quest_id"]), int(q.get("week") or 1)): q for q in bp_quests_res.json()}
         
         quests_meta = {str(q["id"]): q for q in quests_res.json()}
         start_str = bp_start_date.strftime('%Y-%m-%d')
