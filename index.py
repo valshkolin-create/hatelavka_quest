@@ -15902,13 +15902,28 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
         )
         
         # 🔥 ПРАВКА 2: Если база упала, не идем дальше вслепую!
+        # 🔥 ПРАВКА 2: Если база упала, не идем дальше вслепую!
         if not bp_quests_res.is_success:
             logging.error(f"[WATERFALL] Критический сбой при получении прогресса (отмена Водопада): {bp_quests_res.text}")
             return 
             
         existing_progress = {(str(q["quest_id"]), int(q.get("week") or 1)): q for q in bp_quests_res.json()}
         
+        # 🔥 ПРАВКА 3: Добавляем забытый запрос к БД за метаданными квестов
+        quests_res = await supabase.get(
+            "/quests", 
+            params={
+                "id": f"in.({','.join(quest_ids)})", 
+                "select": "id,quest_type,target_value"
+            }
+        )
+        
+        if not quests_res.is_success:
+            logging.error(f"[WATERFALL] Критический сбой при получении меты квестов: {quests_res.text}")
+            return
+            
         quests_meta = {str(q["id"]): q for q in quests_res.json()}
+        
         start_str = bp_start_date.strftime('%Y-%m-%d')
 
         activity_res = await supabase.get(
