@@ -23687,7 +23687,6 @@ async def join_raffle(
         raise HTTPException(status_code=400, detail="⚠️ Укажите Trade Link в профиле!")
 
     # --- ПРОВЕРКА УРОВНЯ БАТТЛ-ПАССА ---
-    # --- ПРОВЕРКА УРОВНЯ БАТТЛ-ПАССА ---
     min_bp_level = int(settings.get('min_bp_level') or 0)
     user_bp_level = int(user_row.get('checkpoint_level') or 0)
 
@@ -23695,7 +23694,7 @@ async def join_raffle(
         print(f"❌ Join Error: Мало уровней БП ({user_bp_level} < {min_bp_level})")
         raise HTTPException(
             status_code=400, 
-            detail=f"⚠️ Для участия нужен <b>Battle Pass</b>!<br><br>Требуемый уровень: <br><span style='color: #ffd700; font-size: 22px; font-weight: 800; text-shadow: 0 0 12px rgba(255, 215, 0, 0.4); display: inline-block; margin-top: 5px; margin-bottom: 5px;'>{min_bp_level} ⭐️</span><br><span style='font-size: 13px; color: var(--text-muted);'>(Твой текущий: {user_bp_level} ур.)</span>"
+            detail=f"⚠️ Не хватает уровня <b>Battle Pass</b>!<br><br>Требуется: <br><span style='color: #ffd700; font-size: 22px; font-weight: 800; text-shadow: 0 0 12px rgba(255, 215, 0, 0.4); display: inline-block; margin-top: 5px; margin-bottom: 5px;'>{min_bp_level} ⭐️</span><br><span style='font-size: 13px; color: var(--text-muted);'>(Твой текущий: {user_bp_level} ур.)</span>"
         )
 
     # --- ПРОВЕРКА СООБЩЕНИЙ (TWITCH) ---
