@@ -12277,7 +12277,7 @@ async def update_submission_status(
             await supabase.patch("/quest_submissions", params={"id": f"eq.{submission_id}"}, json={"status": "approved"})
 
             # ==========================================
-            # 🔥 # 🔥 МОСТ В BATTLE PASS: Синхронизируем ручной квест с user_bp_quests 🔥
+            # 🔥 МОСТ В BATTLE PASS: Синхронизируем ручной квест с user_bp_quests 🔥
             # ==========================================
             try:
                 logging.info(f"Синхронизация ручного квеста {manual_quest_id} с Баттл-Пассом...")
@@ -12402,6 +12402,10 @@ async def update_submission_status(
                                     res.raise_for_status()
                                     logging.info(f"✅ УСПЕХ: Админ открыл и засчитал новую неделю {w}")
                                     break # Стоп, одна заявка = одна неделя
+                    else:
+                        logging.warning(f"⚠️ Квест {manual_quest_id} не найден в quests_config текущего Баттл-Пасса!")
+            except Exception as bp_err:
+                logging.error(f"❌ Ошибка моста БП для ручного квеста {manual_quest_id}: {bp_err}", exc_info=True)
             # ==========================================
 
             # 👇 ЭТА СТРОКА ДОЛЖНА БЫТЬ ОБЯЗАТЕЛЬНО ЗДЕСЬ 👇
@@ -12513,7 +12517,6 @@ async def update_submission_status(
             except Exception as cauldron_e:
                 logging.error(f"[КОТЕЛ] 🚨 Критическая ошибка: {cauldron_e}", exc_info=True)
             # ==========================================
-
 
             # 4. Отправляем Telegram-уведомление напрямую (БЕЗ ПРОМОКОДА)
             await send_approval_notification(
