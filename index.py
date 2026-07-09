@@ -16776,16 +16776,17 @@ async def get_checkpoint_status(
             except Exception as e:
                 logging.warning(f"[CHECKPOINT STATUS] Сбой при загрузке картинок кейсов: {e}")
 
+        # Выносим функцию-помощник из цикла, чтобы не нагружать память и не злить линтеры
+        def get_image_for_reward(r_type, r_value):
+            if r_type == "cs2_skin":
+                return skin_images.get(r_value, "")
+            elif r_type in ["case", "case_coupon"]:
+                return case_images.get(r_value, "")
+            return ""
+
         # 3. Собираем массив уровней
         formatted_tiers = []
         for t in tiers_data:
-            def get_image_for_reward(r_type, r_value):
-                if r_type == "cs2_skin":
-                    return skin_images.get(r_value, "")
-                elif r_type in ["case", "case_coupon"]:
-                    return case_images.get(r_value, "")
-                return ""
-
             formatted_tiers.append({
                 "level": t["level"],
                 "required_stars": t["required_stars"],
@@ -16811,7 +16812,7 @@ async def get_checkpoint_status(
     except Exception as e:
         logging.error(f"[CHECKPOINT STATUS] Ошибка получения статуса Чекпоинта: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Ошибка загрузки данных.")
-
+        
 @app.get("/api/v1/admin/twitch_campaigns/cases")
 async def get_cases_list(
     initData: str,
