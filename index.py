@@ -13,7 +13,7 @@ from urllib.parse import parse_qsl, unquote, urlencode
 from typing import Optional, List, Dict, Any
 from zoneinfo import ZoneInfo
 from supabase import create_client
-from supabase.client import AsyncClient # <-- ИЗМЕНЕНИЕ ЗДЕСЬ
+from supabase.client import AsyncClient # <-- ИЗМЕНЕНИрЕ ЗДЕСЬ
 
 
 import requests
