@@ -15937,38 +15937,62 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
         for q_type, chain in quests_by_type.items():
             
             if "battle_pass_only" in q_type:
-                # 🔥 ИСПРАВЛЕНИЕ 4: Изолируем задания друг от друга по quest_id!
+                # 🔥 ИЗОЛЯЦИЯ + ЖЕСТКОЕ ЛОГИРОВАНИЕ ДЛЯ 119 и 120
                 quests_by_id = {}
                 for wq in chain:
                     quests_by_id.setdefault(str(wq["quest_id"]), []).append(wq)
                 
                 for q_id_str, isolated_chain in quests_by_id.items():
+                    if q_id_str in ["119", "120"]:
+                        logging.info(f"[WATERFALL DEBUG] Начинаем проверку ручного квеста {q_id_str}")
+                        
                     previous_cleared = True
                     for wq in isolated_chain:
                         q_week_int = int(wq.get("week", 1))
                         unlock_date = bp_start_date + timedelta(days=(q_week_int - 1) * 7)
                         
-                        # Если время не пришло ИЛИ прошлая неделя ИМЕННО ЭТОГО задания не закрыта - стоп
+                        if q_id_str in ["119", "120"]:
+                            logging.info(f"  -> Неделя {q_week_int}: unlock_date={unlock_date.date()}, now={now.date()}, prev_cleared={previous_cleared}")
+                        
+                        # Если время не пришло ИЛИ прошлая неделя не закрыта - стоп
                         if now.date() < unlock_date.date() or not previous_cleared:
+                            if q_id_str in ["119", "120"]:
+                                logging.info(f"  -> СТОП! Замок закрыт. Время: {now.date() < unlock_date.date()}, Предыдущая очищена: {previous_cleared}")
                             break
                             
                         db_state = existing_progress.get((q_id_str, q_week_int))
                         
                         if db_state:
-                            if not db_state.get("is_claimed"):
+                            is_cl = db_state.get('is_claimed')
+                            if q_id_str in ["119", "120"]:
+                                logging.info(f"  -> Найдено в БД: is_claimed={is_cl}")
+                                
+                            if not is_cl:
                                 previous_cleared = False
                         else:
-                            # Строки нет, а путь для этого задания открыт! Создаем пустую (0/X)
+                            target_val = int(wq.get("target_amount", wq.get("target", 1)))
+                            if q_id_str in ["119", "120"]:
+                                logging.info(f"  -> В БД пусто! Пытаемся создать колбу 0/{target_val}...")
+                                
                             payload = {
                                 "user_id": user_id,
                                 "quest_id": int(q_id_str),
                                 "week": q_week_int,
                                 "current_amount": 0,
-                                "target_amount": wq.get("target_amount", 1),
+                                "target_amount": target_val,
                                 "is_completed": False,
                                 "is_claimed": False
                             }
-                            await supabase.post("/user_bp_quests", json=payload)
+                            
+                            # Отправляем запрос и ПРОВЕРЯЕМ РЕЗУЛЬТАТ
+                            res = await supabase.post("/user_bp_quests", json=payload)
+                            
+                            if res.is_success:
+                                if q_id_str in ["119", "120"]:
+                                    logging.info(f"  -> УСПЕХ! Колба для недели {q_week_int} создана.")
+                            else:
+                                logging.error(f"[WATERFALL DB ERROR] Сбой Supabase при создании квеста {q_id_str} (Неделя {q_week_int}): {res.text}")
+                                
                             previous_cleared = False
                 continue
             
