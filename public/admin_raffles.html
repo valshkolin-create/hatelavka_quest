@@ -243,8 +243,8 @@
                         <input type="number" name="min_participants" placeholder="0" oninput="updatePreview()">
                     </div>
                     <div>
-                        <label>👥 Друзей (Реф)</label>
-                        <input type="number" name="min_referrals" placeholder="0" oninput="updatePreview()">
+                        <label>⭐️ Уровень БП</label>
+                        <input type="number" name="min_bp_level" placeholder="0" oninput="updatePreview()">
                     </div>
                     <div>
             <label>💬 Twitch (Сообщ.)</label>
@@ -824,7 +824,7 @@
             const getCheck = (name) => { const el = document.querySelector(`input[name="${name}"]`); return el ? el.checked : false; };
 
             const tickets = getInpVal('ticket_cost');
-            const refs = getInpVal('min_referrals');
+            const bpLevel = getInpVal('min_bp_level');
             const minParts = getInpVal('min_participants');
             const tag = getInpVal('name_tag');
             const msgs = getInpVal('min_msgs');
@@ -842,7 +842,7 @@
             if(sub) html += `└ Подписка на этот канал\n`;
             if(tickets > 0) html += `└ Вход: ${tickets} билетов 🎫\n`;
             if(minParts > 0) html += `└ Минимум участников: ${minParts} 👥\n`;
-            if(refs > 0) html += `└ Пригласить друзей: ${refs} 👥\n`;
+            if(bpLevel > 0) html += `└ Уровень Battle Pass: ${bpLevel} ⭐️\n`;
             if(tag) html += `└ Никнейм содержит: «${tag}» 🏷\n`;
             if(msgs > 0) html += `└ Активность на стриме (${msgs} сообщ. ${periodText})\n`;
 
@@ -935,7 +935,7 @@
                     
                     requires_telegram_sub: fd.get('sub_req') === 'on',
                     ticket_cost: parseInt(fd.get('ticket_cost') || 0),
-                    min_referrals: parseInt(fd.get('min_referrals') || 0),
+                    min_bp_level: parseInt(fd.get('min_bp_level') || 0),
                     min_participants: parseInt(fd.get('min_participants') || 0),
                     required_name_tag: fd.get('name_tag'),
                     
@@ -1153,8 +1153,8 @@ renderList(rafflesArray);
             document.getElementById('inp-desc').value = s.description || '';
             
             document.querySelector('input[name="ticket_cost"]').value = s.ticket_cost || '';
-            document.querySelector('input[name="min_referrals"]').value = s.min_referrals || '';
-            document.querySelector('input[name="min_participants"]').value = s.min_participants || ''; 
+            document.querySelector('input[name="min_bp_level"]').value = s.min_bp_level || '';
+            document.querySelector('input[name="min_participants"]').value = s.min_participants || '';
             document.querySelector('input[name="name_tag"]').value = s.required_name_tag || '';
             
             document.querySelector('input[name="min_msgs"]').value = s.min_messages || s.min_daily_messages || '';
