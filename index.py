@@ -1632,7 +1632,7 @@ class RaffleSettings(BaseModel):
     
     # 🔥 ПРОВЕРКИ ЮЗЕРА (Под твою БД)
     ticket_cost: int = 0                 # Цена в билетах (списываем с tickets)
-    min_referrals: int = 0               # Проверка по referrals_count
+    min_bp_level: int = 0                # Уровень баттл-пасса
     min_coins: float = 0.0               # Проверка баланса coins
     required_name_tag: Optional[str] = None # Поиск текста в имени
     
@@ -1679,7 +1679,6 @@ class RaffleDeleteRequest(BaseModel):
 class FinalizeRequest(BaseModel):
     raffle_id: int
     secret: str
-
 # ==========================================
 # 🔫 CS:GO STYLE ROULETTE SYSTEM (NEW)
 # ==========================================
@@ -22882,7 +22881,7 @@ async def update_old_prices(
         # --- СОБИРАЕМ НОВЫЙ ТЕКСТ ПОСТА ---
         min_msgs = int(s.get('min_daily_messages', 0))
         ticket_cost = int(s.get('ticket_cost', 0))
-        min_refs = int(s.get('min_referrals', 0))
+        min_bp_level = int(s.get('min_bp_level', 0)) # 🔥 ЗАМЕНИЛИ РЕФОВ НА УРОВЕНЬ БП
         min_participants = int(s.get('min_participants', 0)) 
         min_coins = float(s.get('min_coins', 0.0))
         name_tag = s.get('required_name_tag')
@@ -22900,7 +22899,7 @@ async def update_old_prices(
         if sub_req: txt += '└ Подписка на ТГ канал <a href="https://t.me/hatelove_ttv">HATElove_ttv</a>\n'
         if ticket_cost > 0: txt += f"└ Вход: {ticket_cost} билетов 🎫\n"
         if min_participants > 0: txt += f"└ Минимум участников: {min_participants} 👥\n"
-        if min_refs > 0: txt += f"└ Пригласить друзей: {min_refs} чел. 👥\n"
+        if min_bp_level > 0: txt += f"└ Уровень Battle Pass: {min_bp_level} ⭐️\n" # 🔥 НОВОЕ УСЛОВИЕ
         if min_coins > 0: txt += f"└ Баланс в боте: {int(min_coins)} монет 💰\n"
         if name_tag: txt += f"└ Никнейм содержит: «{name_tag}» 🏷\n"
         if min_msgs > 0: txt += f"└ Активность на стриме ({min_msgs} сообщ.)\n"
@@ -23308,7 +23307,7 @@ async def create_raffle(
                 period_str = period_map.get(msg_period, 'за стрим')
 
                 ticket_cost = int(s.get('ticket_cost', 0))
-                min_refs = int(s.get('min_referrals', 0))
+                min_bp_level = int(s.get('min_bp_level', 0)) # 🔥 ЗАМЕНИЛИ РЕФОВ НА УРОВЕНЬ БП
                 min_participants = int(s.get('min_participants', 0)) 
                 min_coins = float(s.get('min_coins', 0.0))
                 name_tag = s.get('required_name_tag')
@@ -23331,8 +23330,8 @@ async def create_raffle(
                     txt += f"└ Вход: {ticket_cost} билетов 🎫\n"
                 if min_participants > 0:
                     txt += f"└ Минимум участников: {min_participants} 👥\n"
-                if min_refs > 0:
-                    txt += f"└ Пригласить друзей: {min_refs} чел. 👥\n"
+                if min_bp_level > 0:
+                    txt += f"└ Уровень Battle Pass: {min_bp_level} ⭐️\n" # 🔥 НОВОЕ УСЛОВИЕ
                 if min_coins > 0:
                     txt += f"└ Баланс в боте: {int(min_coins)} монет 💰\n"
                 if name_tag:
@@ -23548,7 +23547,7 @@ async def publish_raffle_webhook(
 
         min_participants = int(s.get('min_participants', 0))
         ticket_cost = int(s.get('ticket_cost', 0))
-        min_refs = int(s.get('min_referrals', 0))
+        min_bp_level = int(s.get('min_bp_level', 0)) # 🔥 ЗАМЕНИЛИ РЕФОВ НА УРОВЕНЬ БП
         min_coins = float(s.get('min_coins', 0.0))
         name_tag = s.get('required_name_tag')
         sub_req = s.get('requires_telegram_sub', False)
@@ -23576,8 +23575,8 @@ async def publish_raffle_webhook(
             txt += f"└ Вход: {ticket_cost} билетов 🎫\n"
         if min_participants > 0:
             txt += f"└ Минимум участников: {min_participants} 👥\n"
-        if min_refs > 0:
-            txt += f"└ Пригласить друзей: {min_refs} чел. 👥\n"
+        if min_bp_level > 0:
+            txt += f"└ Уровень Battle Pass: {min_bp_level} ⭐️\n" # 🔥 НОВОЕ УСЛОВИЕ
         if min_coins > 0:
             txt += f"└ Баланс в боте: {int(min_coins)} монет 💰\n"
         if name_tag:
@@ -23687,6 +23686,17 @@ async def join_raffle(
         print(f"❌ Join Error: Нет Trade Link")
         raise HTTPException(status_code=400, detail="⚠️ Укажите Trade Link в профиле!")
 
+    # --- ПРОВЕРКА УРОВНЯ БАТТЛ-ПАССА ---
+    min_bp_level = int(settings.get('min_bp_level') or 0)
+    user_bp_level = int(user_row.get('checkpoint_level') or 0)
+
+    if min_bp_level > 0 and user_bp_level < min_bp_level:
+        print(f"❌ Join Error: Мало уровней БП ({user_bp_level} < {min_bp_level})")
+        raise HTTPException(
+            status_code=400, 
+            detail=f"⚠️ Доступно с {min_bp_level} уровня Battle Pass! (У тебя: {user_bp_level} ур.)"
+        )
+
     # --- ПРОВЕРКА СООБЩЕНИЙ (TWITCH) ---
     min_msgs = int(settings.get('min_messages') or settings.get('min_daily_messages') or 0)
     msg_period = settings.get('message_period', 'daily')
@@ -23698,7 +23708,7 @@ async def join_raffle(
     }
     
     db_field, period_text = period_db_map.get(msg_period, period_db_map['daily'])
-    user_msgs = int(user_row.get(db_field, 0))
+    user_msgs = int(user_row.get(db_field) or 0)
 
     if min_msgs > 0 and user_msgs < min_msgs:
         print(f"❌ Join Error: Мало сообщений {msg_period} ({user_msgs} < {min_msgs})")
@@ -23707,7 +23717,7 @@ async def join_raffle(
             detail=f"⚠️ Мало актива на стриме! Нужно: {min_msgs} сообщ. {period_text} (у тебя: {user_msgs})"
         )
 
-    ticket_cost = int(settings.get('ticket_cost', 0))
+    ticket_cost = int(settings.get('ticket_cost') or 0)
     user_tickets = int(user_row.get('tickets') or 0)
     
     if ticket_cost > 0 and user_tickets < ticket_cost:
