@@ -16629,6 +16629,29 @@ async def get_checkpoint_status(
         content_resp.raise_for_status()
         base_config = content_resp.json()[0].get("content", {}) if content_resp.json() else {}
 
+        # =====================================================================
+        # 🔥 СУПЕР-ДЕБАГ: Проверяем, что реально отдается фронтенду (119 и 120)
+        # =====================================================================
+        q_config = base_config.get("quests_config", [])
+        logging.info(f"[DEBUG] Всего квестов в конфиге БП: {len(q_config)}")
+        
+        # Ищем и числа, и строки, чтобы точно поймать всё
+        target_debug_ids = [119, 120, "119", "120"]
+        suspicious_quests = [q for q in q_config if q.get("quest_id") in target_debug_ids]
+        
+        logging.info(f"[DEBUG] Найдено записей для заданий 119 и 120: {len(suspicious_quests)}")
+        for i, sq in enumerate(suspicious_quests):
+            q_id = sq.get("quest_id")
+            q_week = sq.get("week")
+            q_target = sq.get("target_amount", sq.get("target", "MISSING"))
+            
+            id_type = type(q_id).__name__
+            week_type = type(q_week).__name__
+            target_type = type(q_target).__name__
+            
+            logging.info(f"   [{i+1}] ID: {q_id} (тип: {id_type}) | Неделя: {q_week} (тип: {week_type}) | Цель: {q_target} (тип: {target_type})")
+        # =====================================================================
+
         # --- НОВОЕ: ВЫЧИСЛЯЕМ ПРОГРЕСС ОБЩИХ ЗАДАНИЙ (GLOBAL QUESTS) ---
         global_quests = base_config.get("global_quests", [])
         if global_quests:
