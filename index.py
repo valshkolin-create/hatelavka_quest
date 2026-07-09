@@ -15939,8 +15939,9 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
                     "is_completed_db": db_state.get("is_completed", False) if db_state else False
                 })
 
-            # --- ЛОГИКА ДЛЯ НЕДЕЛЬНЫХ ЗАДАНИЙ (ПРОИГРЫШ ИСТОРИИ) ---
-            if "week" in q_type or "telegram_messages" in q_type or "twitch_messages" in q_type:
+           # --- ЛОГИКА ДЛЯ НЕДЕЛЬНЫХ ЗАДАНИЙ (ПРОИГРЫШ ИСТОРИИ) ---
+            if "week" in q_type or "telegram_messages" in q_type or "twitch_messages" in q_type or "tg_messages" in q_type or "twitch_uptime" in q_type:
+                
                 # Сортируем дни от старых к новым, чтобы лить воду по порядку
                 sorted_activity = sorted(activity_data, key=lambda x: x.get("date", "2000-01-01"))
 
@@ -15949,7 +15950,7 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
                     daily_val = 0
                     
                     if "session" in q_type:
-                        continue # Сессионные считаются ниже, это другая песочница
+                        continue 
                         
                     if "twitch_messages" in q_type:
                         daily_val = row.get("twitch_messages", 0)
@@ -15960,43 +15961,46 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
 
                     if daily_val <= 0: continue
 
-                   # 2. Выгружаем результаты симуляции в базу данных
-                previous_cleared = True
-                for q in sim_chain:
-                    # 🔥 МЕНЯЕМ row_date НА now 🔥
-                    if now.date() < q["unlock_date"].date():
-                        break # Неделя еще не открылась по календарю, не сохраняем
+                    # 2. Выгружаем результаты симуляции в виртуальные колбы
+                    for q in sim_chain:
+                        # 🔥 ИСПРАВЛЕНИЕ 1: Вернули row_date. Вода льется только в те недели, 
+                        # которые БЫЛИ открыты в момент написания сообщений.
+                        if row_date.date() < q["unlock_date"].date():
+                            break 
 
+                        # 🔥 ИСПРАВЛЕНИЕ 2: Залатали Умный Замок.
                         if q["sim_amount"] >= q["target"]:
-                            continue # Квест уже полный, вода течет в следующий уровень
+                            if not q["is_claimed"]:
+                                break # Квест полный, но награда висит. Заглушка! Вода сгорает.
+                            continue  # Если забрали - пускаем воду в следующую неделю.
 
                         needed = q["target"] - q["sim_amount"]
                         if daily_val >= needed:
-                            q["sim_amount"] = q["target"] # Заполнили до краев
-                            daily_val -= needed           # Вычисляем честный остаток!
+                            q["sim_amount"] = q["target"] 
+                            daily_val -= needed           
                             
                             if not q["is_claimed"]:
-                                # ЗАМОК: Квест выполнен, но награда не забрана. 
-                                # Заглушка стоит. Остаток за этот день сгорает.
                                 break 
                         else:
-                            # Воды не хватило, чтобы заполнить квест целиком
                             q["sim_amount"] += daily_val
                             daily_val = 0
                             break
 
+                # 3. БЛОК СОХРАНЕНИЯ В БАЗУ ДАННЫХ
                 previous_cleared = True
                 for q in sim_chain:
-                    # СТАВЬ СЮДА .date()
-                    if row_date.date() < q["unlock_date"].date():
-                        break # Сюда даже не смотрим
+                    # 🔥 ИСПРАВЛЕНИЕ 3: Здесь оставляем now.date(). 
+                    # Это защищает от UnboundLocalError (если активности не было и row_date не создался)
+                    # и не дает записывать в базу пустые будущие недели.
+                    if now.date() < q["unlock_date"].date():
+                        break 
 
                     current_amount = min(q["sim_amount"], q["target"])
                     is_completed = current_amount >= q["target"]
 
                     if q["is_claimed"]:
                         previous_cleared = True
-                        continue # Не трогаем то, что уже забрано
+                        continue 
 
                     payload = {
                         "current_amount": current_amount,
@@ -16007,9 +16011,10 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
 
                     if is_completed and not q["is_completed_db"]:
                         payload["completed_at"] = now.isoformat()
+                    elif not is_completed:
+                        payload["completed_at"] = None
                     
                     if q["db_state"]:
-                        # Обновляем, только если цифры реально поменялись
                         if q["db_state"].get("current_amount") != current_amount or q["db_state"].get("is_completed") != is_completed:
                             await supabase.patch(
                                 "/user_bp_quests", 
@@ -16022,7 +16027,7 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
                         payload["is_claimed"] = False
                         await supabase.post("/user_bp_quests", json=payload)
                         
-                    previous_cleared = False # Раз не забрал — хлопаем дверью для следующего в цепи
+                    previous_cleared = False
 
             # --- ЛОГИКА ДЛЯ СЕССИОННЫХ ЗАДАНИЙ (Без симулятора, просто срез дня) ---
             elif "session" in q_type:
