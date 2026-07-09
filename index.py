@@ -15937,35 +15937,39 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
         for q_type, chain in quests_by_type.items():
             
             if "battle_pass_only" in q_type:
-                # ОПЦИЯ В: Безопасно создаем "пустые колбы" для фронтенда с соблюдением Умного Замка
-                previous_cleared = True
+                # 🔥 ИСПРАВЛЕНИЕ 4: Изолируем задания друг от друга по quest_id!
+                quests_by_id = {}
                 for wq in chain:
-                    q_id_str = str(wq["quest_id"])
-                    q_week_int = int(wq.get("week", 1))
-                    
-                    unlock_date = bp_start_date + timedelta(days=(q_week_int - 1) * 7)
-                    # Если время не пришло ИЛИ прошлая неделя не закрыта - стоп
-                    if now.date() < unlock_date.date() or not previous_cleared:
-                        break
+                    quests_by_id.setdefault(str(wq["quest_id"]), []).append(wq)
+                
+                for q_id_str, isolated_chain in quests_by_id.items():
+                    previous_cleared = True
+                    for wq in isolated_chain:
+                        q_week_int = int(wq.get("week", 1))
+                        unlock_date = bp_start_date + timedelta(days=(q_week_int - 1) * 7)
                         
-                    db_state = existing_progress.get((q_id_str, q_week_int))
-                    
-                    if db_state:
-                        if not db_state.get("is_claimed"):
+                        # Если время не пришло ИЛИ прошлая неделя ИМЕННО ЭТОГО задания не закрыта - стоп
+                        if now.date() < unlock_date.date() or not previous_cleared:
+                            break
+                            
+                        db_state = existing_progress.get((q_id_str, q_week_int))
+                        
+                        if db_state:
+                            if not db_state.get("is_claimed"):
+                                previous_cleared = False
+                        else:
+                            # Строки нет, а путь для этого задания открыт! Создаем пустую (0/X)
+                            payload = {
+                                "user_id": user_id,
+                                "quest_id": int(q_id_str),
+                                "week": q_week_int,
+                                "current_amount": 0,
+                                "target_amount": wq.get("target_amount", 1),
+                                "is_completed": False,
+                                "is_claimed": False
+                            }
+                            await supabase.post("/user_bp_quests", json=payload)
                             previous_cleared = False
-                    else:
-                        # Строки нет, а путь открыт! Создаем пустую (0/X)
-                        payload = {
-                            "user_id": user_id,
-                            "quest_id": int(q_id_str),
-                            "week": q_week_int,
-                            "current_amount": 0,
-                            "target_amount": wq.get("target_amount", 1),
-                            "is_completed": False,
-                            "is_claimed": False
-                        }
-                        await supabase.post("/user_bp_quests", json=payload)
-                        previous_cleared = False
                 continue
             
             # 1. Подготавливаем виртуальную трубу для водопада
