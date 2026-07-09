@@ -9713,6 +9713,14 @@ async def get_current_user_data(
     background_tasks.add_task(silent_update_twitch_user, telegram_id)
 
     try:
+        # 🔥 ОПТИМИЗАЦИЯ ТАЙМИНГОВ: Запускаем долгие независимые таски СРАЗУ
+        # Они будут скачиваться в фоне, пока мы обновляем Водопад и дергаем RPC
+        settings_task = asyncio.gather(
+            get_grind_settings_async_global(),
+            get_admin_settings_async_global(),
+            return_exceptions=True 
+        )
+
         # 3. Синхронизация БП (Водопад)
         try:
             await sync_current_week_bp_progress(telegram_id, supabase)
@@ -9720,23 +9728,16 @@ async def get_current_user_data(
             # Логируем, но не роняем весь профиль, если упала только синхронизация квестов
             logging.error(f"[USER/ME] Ошибка в sync_current_week_bp_progress для {telegram_id}: {bp_err}", exc_info=True)
         
-        # 4. Параллельный сбор данных
-        logging.info(f"[USER/ME] Запуск asyncio.gather для {telegram_id}")
-        results = await asyncio.gather(
-            supabase.post("/rpc/get_user_dashboard_data", json={
-                "p_telegram_id": telegram_id,
-                "p_client_ip": client_ip,      # 🔥 Передаем IP в RPC-функцию
-                "p_device_id": device_id,       # 🔥 Передаем Device ID в RPC-функцию
-                "p_platform_type": platform_type # 🔥 Прокидываем в базу
-            }),
-            get_grind_settings_async_global(),
-            get_admin_settings_async_global(),
-            return_exceptions=True 
-        )
+        # 4. Запрос профиля (RPC) - запускаем сразу после Водопада
+        logging.info(f"[USER/ME] Запуск вызова RPC для {telegram_id}")
+        rpc_resp = await supabase.post("/rpc/get_user_dashboard_data", json={
+            "p_telegram_id": telegram_id,
+            "p_client_ip": client_ip,      # 🔥 Передаем IP в RPC-функцию
+            "p_device_id": device_id,       # 🔥 Передаем Device ID в RPC-функцию
+            "p_platform_type": platform_type # 🔥 Прокидываем в базу
+        })
         
-        rpc_resp, grind_settings, admin_settings = results
-
-        # --- Разбор логов asyncio.gather ---
+        # Разбираем RPC (сохранил твою логику обработки Exception от httpx)
         data = None
         if isinstance(rpc_resp, Exception):
             logging.error(f"[USER/ME] Критическая ошибка вызова RPC для {telegram_id}: {rpc_resp}", exc_info=rpc_resp)
@@ -9746,6 +9747,10 @@ async def get_current_user_data(
             data = rpc_resp.json()
             logging.info(f"[USER/ME] RPC успешно вернул данные для {telegram_id}")
 
+        # Дожидаемся настроек (они 100% уже скачались, пока работал Водопад и RPC)
+        grind_settings, admin_settings = await settings_task
+
+        # --- Разбор логов настроек ---
         if isinstance(grind_settings, Exception):
             logging.error(f"[USER/ME] Ошибка таска get_grind_settings_async_global: {grind_settings}", exc_info=grind_settings)
         else:
@@ -9755,7 +9760,6 @@ async def get_current_user_data(
             logging.error(f"[USER/ME] Ошибка таска get_admin_settings_async_global: {admin_settings}", exc_info=admin_settings)
         else:
             logging.info(f"[USER/ME] admin_settings успешно получены")
-
 
         # 5. Обработка профиля и Ретрай создания
         if not data or not data.get('profile'):
@@ -9770,7 +9774,6 @@ async def get_current_user_data(
             
             logging.info(f"[USER/ME] Статус создания пользователя {telegram_id}: {reg_resp.status_code}")
             
-            # Повторный запрос RPC
             # Повторный запрос RPC
             logging.info(f"[USER/ME] Повторный вызов RPC для {telegram_id} после регистрации")
             retry_resp = await supabase.post("/rpc/get_user_dashboard_data", json={
@@ -16219,8 +16222,8 @@ async def process_bp_auto_quest(supabase: httpx.AsyncClient, keyword: str, tg_id
         
         chain_ids_str = ",".join(map(str, chain_quest_ids))
         
-        # 🔥 ХИРУРГИЧЕСКАЯ ПРАВКА 3: Добавили int() в сортировку
-        target_configs = sorted([q for q in active_quests if q["quest_id"] in chain_quest_ids], key=lambda x: int(x.get("week", 1)))
+       # 🔥 ХИРУРГИЧЕСКАЯ ПРАВКА 3: Добавили int() в сортировку и ПОИСК
+        target_configs = sorted([q for q in active_quests if int(q["quest_id"]) in chain_quest_ids], key=lambda x: int(x.get("week", 1)))
         
         # Запрашиваем прогресс для ВСЕХ квестов в цепочке
         prog_res = await supabase.get("/user_bp_quests", params={
@@ -16255,7 +16258,8 @@ async def process_bp_auto_quest(supabase: httpx.AsyncClient, keyword: str, tg_id
                     break # Текущая выполнена, но висит награда. Стоп. Не даем идти дальше.
                 elif not prog.get("is_completed"):
                     week_to_update = w
-                    target_amount = cfg.get("target_amount", 1)
+                    # 🔥 ПРАВКА ТУТ: Безопасно тянем цель
+                    target_amount = int(cfg.get("target_amount", cfg.get("target", 1)))
                     current_db_record = prog
                     target_quest_id_for_week = cfg.get("quest_id")
                     break # Нашли недобитую неделю. Берем ее и стоп.
@@ -16265,7 +16269,8 @@ async def process_bp_auto_quest(supabase: httpx.AsyncClient, keyword: str, tg_id
             else:
                 # Записи нет, а предыдущая чиста. Берем эту неделю!
                 week_to_update = w
-                target_amount = cfg.get("target_amount", 1)
+                # 🔥 И ПРАВКА ТУТ: Безопасно тянем цель
+                target_amount = int(cfg.get("target_amount", cfg.get("target", 1)))
                 current_db_record = None
                 target_quest_id_for_week = cfg.get("quest_id")
                 break
@@ -16283,7 +16288,7 @@ async def process_bp_auto_quest(supabase: httpx.AsyncClient, keyword: str, tg_id
             is_completed = 1 >= target_amount
             await supabase.post("/user_bp_quests", json={
                 "user_id": tg_id,
-                "quest_id": target_quest_id_for_week, # Используем правильный ID для этой недели
+                "quest_id": int(target_quest_id_for_week), # 🔥 На всякий случай обернули в int()
                 "week": week_to_update,
                 "current_amount": 1,
                 "target_amount": target_amount,
@@ -16618,72 +16623,46 @@ async def claim_bp_quest(
 @app.post("/api/v1/admin/checkpoint/status")
 @app.post("/api/v1/checkpoint/status")
 async def get_checkpoint_status(
-    request_data: dict,  # Принимает initData
+    request_data: dict,  
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """Возвращает настройки Чекпоинта и склеивает их с уровнями из БД, подтягивая картинки наград."""
     try:
-        logging.info("[CHECKPOINT STATUS] ---> Получен запрос на статус Чекпоинта")
-        
-        # Узнаем, кто запрашивает
+        # 1. Авторизация
         init_data = request_data.get("initData", "")
         user_info = is_valid_init_data(init_data, ALL_VALID_TOKENS)
         tg_id = user_info["id"] if user_info else None
 
-        # 🔥 Логируем, кого распознал Vercel
+        # 2. Синхронизация водопада (Оставляем последовательно для безопасности обновления базы)
         if tg_id:
-            logging.info(f"[CHECKPOINT STATUS] Успешная авторизация. Пользователь: {tg_id}")
-        else:
-            logging.warning("[CHECKPOINT STATUS] ВНИМАНИЕ: Авторизация не пройдена (initData невалиден или пуст). tg_id = None")
-
-        # 🔥 ТОТ САМЫЙ ВЫЗОВ СИНХРОНИЗАЦИИ ВОДОПАДА 🔥
-        if tg_id:
-            logging.info(f"[WATERFALL] Начинаю синхронизацию прогресса БП для юзера {tg_id}...")
             try:
                 await sync_current_week_bp_progress(tg_id, supabase)
-                logging.info(f"[WATERFALL] Синхронизация БП для {tg_id} успешно отработала!")
             except Exception as sync_e:
                 logging.error(f"[WATERFALL] КРИТИЧЕСКАЯ ОШИБКА внутри синхронизации у {tg_id}: {sync_e}", exc_info=True)
-        else:
-            logging.warning("[WATERFALL] Пропуск синхронизации — нет tg_id!")
 
-        # 1. Получаем базовый конфиг
-        logging.info("[CHECKPOINT STATUS] Запрашиваю базовый конфиг из БД...")
-        content_resp = await supabase.get("/pages_content", params={"page_name": "eq.checkpoint", "select": "content", "limit": "1"})
+        # 🔥 ОПТИМИЗАЦИЯ 1: Параллельный запрос базового конфига и уровней
+        config_task = supabase.get("/pages_content", params={"page_name": "eq.checkpoint", "select": "content", "limit": "1"})
+        tiers_task = supabase.get("/checkpoint_tiers", params={"select": "*", "order": "level.asc"})
+        
+        content_resp, tiers_resp = await asyncio.gather(config_task, tiers_task)
+        
         content_resp.raise_for_status()
+        tiers_resp.raise_for_status()
+        
         base_config = content_resp.json()[0].get("content", {}) if content_resp.json() else {}
+        tiers_data = tiers_resp.json()
 
-        # =====================================================================
-        # 🔥 СУПЕР-ДЕБАГ: Проверяем, что реально отдается фронтенду (119 и 120)
-        # =====================================================================
-        q_config = base_config.get("quests_config", [])
-        logging.info(f"[DEBUG] Всего квестов в конфиге БП: {len(q_config)}")
-        
-        # Ищем и числа, и строки, чтобы точно поймать всё
-        target_debug_ids = [119, 120, "119", "120"]
-        suspicious_quests = [q for q in q_config if q.get("quest_id") in target_debug_ids]
-        
-        logging.info(f"[DEBUG] Найдено записей для заданий 119 и 120: {len(suspicious_quests)}")
-        for i, sq in enumerate(suspicious_quests):
-            q_id = sq.get("quest_id")
-            q_week = sq.get("week")
-            q_target = sq.get("target_amount", sq.get("target", "MISSING"))
-            
-            id_type = type(q_id).__name__
-            week_type = type(q_week).__name__
-            target_type = type(q_target).__name__
-            
-            logging.info(f"   [{i+1}] ID: {q_id} (тип: {id_type}) | Неделя: {q_week} (тип: {week_type}) | Цель: {q_target} (тип: {target_type})")
-        # =====================================================================
+        # Помощник для безопасного выполнения опциональных параллельных запросов
+        async def fetch_or_none(coro):
+            return await coro if coro else None
 
-        # --- НОВОЕ: ВЫЧИСЛЯЕМ ПРОГРЕСС ОБЩИХ ЗАДАНИЙ (GLOBAL QUESTS) ---
+        # --- ВЫЧИСЛЯЕМ ПРОГРЕСС ОБЩИХ ЗАДАНИЙ (GLOBAL QUESTS) ---
         global_quests = base_config.get("global_quests", [])
         if global_quests:
             bp_start_date_str = base_config.get("start_date")
             total_reactions = 0
             total_twitch_msgs = 0
             
-            # ДОСТАЕМ НАШ ЛИМИТ ИЗ БАЗЫ И ДЕЛАЕМ ЕГО ЧИСЛОМ
             raw_id = base_config.get("min_reaction_message_id")
             try:
                 min_msg_id = int(raw_id) if raw_id else 0
@@ -16694,43 +16673,38 @@ async def get_checkpoint_status(
                 bp_start_date = datetime.fromisoformat(bp_start_date_str.replace('Z', '+00:00'))
                 start_str = bp_start_date.strftime('%Y-%m-%d')
                 
-                # 1. ИДЕМ В ТАБЛИЦУ ПОСТОВ
-                reactions_resp = await supabase.get(
-                    "/tg_message_reactions", 
-                    params={
-                        "message_id": f"gte.{min_msg_id}", 
-                        "select": "reaction_count"
-                    }
-                )
+                # 🔥 ОПТИМИЗАЦИЯ 2: Параллельный запрос статистики ТГ и Твича
+                tg_task = supabase.get("/tg_message_reactions", params={"message_id": f"gte.{min_msg_id}", "select": "reaction_count"})
+                twitch_task = supabase.post("/rpc/get_global_twitch_messages", json={"start_date": start_str})
+                
+                reactions_resp, twitch_rpc_res = await asyncio.gather(tg_task, twitch_task)
+                
                 if reactions_resp.is_success and reactions_resp.json():
                     total_reactions = sum(r.get("reaction_count", 0) for r in reactions_resp.json())
                     
-                # 2. Считаем глобальные сообщения Twitch
-                twitch_rpc_res = await supabase.post("/rpc/get_global_twitch_messages", json={"start_date": start_str})
                 if twitch_rpc_res.is_success:
                     total_twitch_msgs = int(twitch_rpc_res.json() or 0)
             
             claimed_gq_ids = set()
             gq_ids_str = ",".join([str(q["quest_id"]) for q in global_quests])
             
+            prog_task = None
+            meta_task = None
+            
             if tg_id and gq_ids_str:
-                prog_resp = await supabase.get(
-                    "/user_bp_quests", 
-                    params={
-                        "user_id": f"eq.{tg_id}", 
-                        "quest_id": f"in.({gq_ids_str})", 
-                        "week": "eq.0", 
-                        "is_claimed": "is.true"
-                    }
-                )
-                if prog_resp.is_success and prog_resp.json():
-                    claimed_gq_ids = {q["quest_id"] for q in prog_resp.json()}
+                prog_task = supabase.get("/user_bp_quests", params={"user_id": f"eq.{tg_id}", "quest_id": f"in.({gq_ids_str})", "week": "eq.0", "is_claimed": "is.true"})
+            if gq_ids_str:
+                meta_task = supabase.get("/quests", params={"id": f"in.({gq_ids_str})", "select": "id,quest_type"})
+
+            # 🔥 ОПТИМИЗАЦИЯ 3: Параллельный запрос прогресса юзера и меты квестов
+            prog_resp, gq_meta_resp = await asyncio.gather(fetch_or_none(prog_task), fetch_or_none(meta_task))
+
+            if prog_resp and prog_resp.is_success and prog_resp.json():
+                claimed_gq_ids = {q["quest_id"] for q in prog_resp.json()}
 
             gq_meta = {}
-            if gq_ids_str:
-                gq_meta_resp = await supabase.get("/quests", params={"id": f"in.({gq_ids_str})", "select": "id,quest_type"})
-                if gq_meta_resp.is_success:
-                    gq_meta = {str(q["id"]): q.get("quest_type", "") for q in gq_meta_resp.json()}
+            if gq_meta_resp and gq_meta_resp.is_success:
+                gq_meta = {str(q["id"]): q.get("quest_type", "") for q in gq_meta_resp.json()}
 
             for gq in global_quests:
                 q_id_str = str(gq["quest_id"])
@@ -16747,12 +16721,7 @@ async def get_checkpoint_status(
         base_config["global_quests"] = global_quests
         # --- КОНЕЦ БЛОКА ОБЩИХ ЗАДАНИЙ ---
 
-        # 2. Получаем уровни
-        tiers_resp = await supabase.get("/checkpoint_tiers", params={"select": "*", "order": "level.asc"})
-        tiers_resp.raise_for_status()
-        tiers_data = tiers_resp.json()
-
-        # --- НАЧАЛО ЛОГИКИ ПОДТЯГИВАНИЯ КАРТИНОК ---
+        # --- ЛОГИКА ПОДТЯГИВАНИЯ КАРТИНОК ---
         skin_names = set()
         case_names = set()
 
@@ -16768,39 +16737,40 @@ async def get_checkpoint_status(
         skin_images = {}
         case_images = {}
 
+        skin_task = None
+        case_task = None
+
         if skin_names:
-            try:
-                formatted_skin_names = ",".join([f'"{name}"' for name in skin_names])
-                skins_resp = await supabase.get("/market_cache", params={"market_hash_name": f"in.({formatted_skin_names})", "select": "market_hash_name,image_url"})
-                if skins_resp.is_success:
-                    for s in skins_resp.json():
-                        skin_images[s["market_hash_name"]] = s.get("image_url")
-            except Exception as e:
-                logging.warning(f"[CHECKPOINT STATUS] Сбой при загрузке картинок скинов: {e}")
+            formatted_skin_names = ",".join([f'"{name}"' for name in skin_names])
+            skin_task = supabase.get("/market_cache", params={"market_hash_name": f"in.({formatted_skin_names})", "select": "market_hash_name,image_url"})
 
         if case_names:
-            try:
-                cases_category_id = 2716312
-                cases_resp = await supabase.get("/shop_cache", params={"category_id": f"eq.{cases_category_id}", "select": "data"})
-                if cases_resp.is_success and cases_resp.json():
-                    row_data = cases_resp.json()[0].get("data")
-                    
-                    if isinstance(row_data, str):
-                        try:
-                            cases_list = json.loads(row_data)
-                        except json.JSONDecodeError:
-                            cases_list = []
-                    else:
-                        cases_list = row_data or []
-                    
-                    for c in cases_list:
-                        name = c.get("name")
-                        if name in case_names:
-                            case_images[name] = c.get("image_url")
-            except Exception as e:
-                logging.warning(f"[CHECKPOINT STATUS] Сбой при загрузке картинок кейсов: {e}")
+            cases_category_id = 2716312
+            case_task = supabase.get("/shop_cache", params={"category_id": f"eq.{cases_category_id}", "select": "data"})
 
-        # Выносим функцию-помощник из цикла, чтобы не нагружать память и не злить линтеры
+        # 🔥 ОПТИМИЗАЦИЯ 4: Параллельный запрос кэша Маркета и Магазина
+        skins_resp, cases_resp = await asyncio.gather(fetch_or_none(skin_task), fetch_or_none(case_task))
+
+        if skins_resp and skins_resp.is_success:
+            for s in skins_resp.json():
+                skin_images[s["market_hash_name"]] = s.get("image_url")
+
+        if cases_resp and cases_resp.is_success and cases_resp.json():
+            row_data = cases_resp.json()[0].get("data")
+            
+            if isinstance(row_data, str):
+                try:
+                    cases_list = json.loads(row_data)
+                except json.JSONDecodeError:
+                    cases_list = []
+            else:
+                cases_list = row_data or []
+            
+            for c in cases_list:
+                name = c.get("name")
+                if name in case_names:
+                    case_images[name] = c.get("image_url")
+
         def get_image_for_reward(r_type, r_value):
             if r_type == "cs2_skin":
                 return skin_images.get(r_value, "")
@@ -16808,7 +16778,7 @@ async def get_checkpoint_status(
                 return case_images.get(r_value, "")
             return ""
 
-        # 3. Собираем массив уровней
+        # 3. Собираем финальный массив уровней
         formatted_tiers = []
         for t in tiers_data:
             formatted_tiers.append({
@@ -16829,8 +16799,6 @@ async def get_checkpoint_status(
             })
         
         base_config["tiers"] = formatted_tiers
-        
-        logging.info("[CHECKPOINT STATUS] <--- Данные успешно собраны и отправлены клиенту!")
         return base_config
 
     except Exception as e:
