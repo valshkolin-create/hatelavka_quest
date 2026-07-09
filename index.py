@@ -15936,8 +15936,36 @@ async def sync_current_week_bp_progress(user_id: int, supabase: httpx.AsyncClien
         # 🔥 ГЛАВНЫЙ ЦИКЛ СИМУЛЯЦИИ 🔥
         for q_type, chain in quests_by_type.items():
             
-            # Исключаем ручные задания из автоматического сброса
             if "battle_pass_only" in q_type:
+                # ОПЦИЯ В: Безопасно создаем "пустые колбы" для фронтенда с соблюдением Умного Замка
+                previous_cleared = True
+                for wq in chain:
+                    q_id_str = str(wq["quest_id"])
+                    q_week_int = int(wq.get("week", 1))
+                    
+                    unlock_date = bp_start_date + timedelta(days=(q_week_int - 1) * 7)
+                    # Если время не пришло ИЛИ прошлая неделя не закрыта - стоп
+                    if now.date() < unlock_date.date() or not previous_cleared:
+                        break
+                        
+                    db_state = existing_progress.get((q_id_str, q_week_int))
+                    
+                    if db_state:
+                        if not db_state.get("is_claimed"):
+                            previous_cleared = False
+                    else:
+                        # Строки нет, а путь открыт! Создаем пустую (0/X)
+                        payload = {
+                            "user_id": user_id,
+                            "quest_id": int(q_id_str),
+                            "week": q_week_int,
+                            "current_amount": 0,
+                            "target_amount": wq.get("target_amount", 1),
+                            "is_completed": False,
+                            "is_claimed": False
+                        }
+                        await supabase.post("/user_bp_quests", json=payload)
+                        previous_cleared = False
                 continue
             
             # 1. Подготавливаем виртуальную трубу для водопада
@@ -16171,7 +16199,12 @@ async def process_bp_auto_quest(supabase: httpx.AsyncClient, keyword: str, tg_id
             "user_id": f"eq.{tg_id}",
             "quest_id": f"in.({chain_ids_str})"
         })
-        user_progress = {int(q["week"]): q for q in prog_res.json()} if prog_res.status_code == 200 else {}
+        user_progress = {}
+        if prog_res.status_code == 200:
+            for q in prog_res.json():
+                w = q.get("week")
+                # Если неделя null, считаем ее первой (чтобы не сломать int)
+                user_progress[int(w) if w is not None else 1] = q
         
         week_to_update = None
         target_amount = 1
