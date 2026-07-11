@@ -3098,110 +3098,117 @@ async def run_mass_twitch_update():
     """Логика пакетной проверки: берем 30 юзеров и проверяем всех ОДНОВРЕМЕННО"""
     logging.info("⚡ Запуск РЕАКТИВНОГО пакетного обновления Twitch (30 юзеров)...")
     try:
-        broadcaster_id = os.getenv("TWITCH_BROADCASTER_ID")
+        raw_broadcaster_ids = os.getenv("TWITCH_BROADCASTER_ID")
         client_id = os.getenv("TWITCH_CLIENT_ID")
         client_secret = os.getenv("TWITCH_CLIENT_SECRET")
 
-        if not broadcaster_id or not client_id:
+        if not raw_broadcaster_ids or not client_id:
             logging.error("❌ Отсутствуют ключи Twitch в переменных окружения!")
             return
 
-        # 1. Получаем токен стримера (Синхронный запрос, тут это нормально)
-        br_resp = supabase.table("users").select("telegram_id, twitch_access_token, twitch_refresh_token").eq("twitch_id", broadcaster_id).execute()
-        br_data = br_resp.data if hasattr(br_resp, 'data') else br_resp
-        
-        async with httpx.AsyncClient() as client:
-            broadcaster_token = None
-            if br_data and br_data[0].get("twitch_refresh_token"):
-                br_user = br_data[0]
-                token_resp = await client.post("https://id.twitch.tv/oauth2/token", data={
-                    "client_id": client_id,
-                    "client_secret": client_secret,
-                    "grant_type": "refresh_token",
-                    "refresh_token": br_user.get("twitch_refresh_token")
-                })
-                
-                if token_resp.status_code == 200:
-                    new_tokens = token_resp.json()
-                    broadcaster_token = new_tokens["access_token"]
-                    supabase.table("users").update({
-                        "twitch_access_token": broadcaster_token,
-                        "twitch_refresh_token": new_tokens.get("refresh_token", br_user.get("twitch_refresh_token"))
-                    }).eq("telegram_id", br_user.get("telegram_id")).execute()
-                else:
-                    broadcaster_token = br_user.get("twitch_access_token")
+        # Разрезаем строку на список ID стримеров
+        broadcaster_ids = [b.strip() for b in raw_broadcaster_ids.split(",") if b.strip()]
 
-            br_headers = {"Authorization": f"Bearer {broadcaster_token}", "Client-Id": client_id} if broadcaster_token else None
-
-            # 2. Берем 30 самых "старых" юзеров из БД
-            resp = supabase.table("users").select(
-                "telegram_id, twitch_id, twitch_status, twitch_access_token"
-            ).not_.is_("twitch_id", "null").order("last_twitch_sync").limit(30).execute()
+        # 🔥 Прогоняем логику пакетного обновления для КАЖДОГО стримера из списка
+        for broadcaster_id in broadcaster_ids:
+            logging.info(f"🔄 Обработка базы для стримера: {broadcaster_id}")
             
-            users = resp.data if hasattr(resp, 'data') else resp
-            valid_users = [u for u in users if u.get("twitch_id") and u.get("twitch_id") != broadcaster_id]
-
-            if not valid_users:
-                logging.info("✅ Нет пользователей для обновления.")
-                return
-
-            # 🔥 МАССОВАЯ ПРОВЕРКА МОДЕРОВ И VIP (1 запрос вместо 60) 🔥
-            mods_set, vips_set = set(), set()
+            # 1. Получаем токен стримера (Синхронный запрос, тут это нормально)
+            br_resp = supabase.table("users").select("telegram_id, twitch_access_token, twitch_refresh_token").eq("twitch_id", broadcaster_id).execute()
+            br_data = br_resp.data if hasattr(br_resp, 'data') else br_resp
             
-            if br_headers:
-                # Склеиваем 30 ID в одну строку: &user_id=123&user_id=456...
-                query_string = "&".join([f"user_id={u['twitch_id']}" for u in valid_users])
-                
-                # Запрашиваем модеров сразу пачкой
-                m_resp = await client.get(f"https://api.twitch.tv/helix/moderation/moderators?broadcaster_id={broadcaster_id}&{query_string}", headers=br_headers)
-                if m_resp.status_code == 200:
-                    mods_set = {item['user_id'] for item in m_resp.json().get("data", [])}
-
-                # Запрашиваем VIP сразу пачкой
-                v_resp = await client.get(f"https://api.twitch.tv/helix/channels/vips?broadcaster_id={broadcaster_id}&{query_string}", headers=br_headers)
-                if v_resp.status_code == 200:
-                    vips_set = {item['user_id'] for item in v_resp.json().get("data", [])}
-
-            # 🔥 АСИНХРОННАЯ МЯСОРУБКА ДЛЯ ПОДПИСОК И БАЗЫ ДАННЫХ 🔥
-            db_client = await get_background_client() # Используем твой быстрый фоновый клиент
-
-            async def process_single_user(user):
-                twitch_id = user.get("twitch_id")
-                user_token = user.get("twitch_access_token")
-                new_status = "none"
-                
-                # 1. Проверяем Сабку (Нужен личный токен юзера, поэтому отдельный запрос)
-                if user_token:
-                    try:
-                        u_headers = {"Authorization": f"Bearer {user_token}", "Client-Id": client_id}
-                        sub_resp = await client.get(f"https://api.twitch.tv/helix/subscriptions?broadcaster_id={broadcaster_id}&user_id={twitch_id}", headers=u_headers)
-                        if sub_resp.status_code == 200 and len(sub_resp.json().get("data", [])) > 0:
-                            new_status = "subscriber"
-                    except: pass
-
-                # 2. Накатываем статусы Модера/VIP из наших массовых сетов (Они важнее сабки)
-                if twitch_id in mods_set:
-                    new_status = "moderator"
-                if twitch_id in vips_set:
-                    new_status = "vip"
-                
-                # 3. Обновляем статус в БД (Асинхронно!)
-                update_payload = {"last_twitch_sync": datetime.now(timezone.utc).isoformat()}
-                if new_status != user.get("twitch_status"):
-                    update_payload["twitch_status"] = new_status
-                    logging.info(f"🔄 Изменен статус для {twitch_id}: {user.get('twitch_status')} -> {new_status}")
+            async with httpx.AsyncClient() as client:
+                broadcaster_token = None
+                if br_data and br_data[0].get("twitch_refresh_token"):
+                    br_user = br_data[0]
+                    token_resp = await client.post("https://id.twitch.tv/oauth2/token", data={
+                        "client_id": client_id,
+                        "client_secret": client_secret,
+                        "grant_type": "refresh_token",
+                        "refresh_token": br_user.get("twitch_refresh_token")
+                    })
                     
-                await db_client.patch(
-                    "/users",
-                    params={"telegram_id": f"eq.{user.get('telegram_id')}"},
-                    json=update_payload
-                )
+                    if token_resp.status_code == 200:
+                        new_tokens = token_resp.json()
+                        broadcaster_token = new_tokens["access_token"]
+                        supabase.table("users").update({
+                            "twitch_access_token": broadcaster_token,
+                            "twitch_refresh_token": new_tokens.get("refresh_token", br_user.get("twitch_refresh_token"))
+                        }).eq("telegram_id", br_user.get("telegram_id")).execute()
+                    else:
+                        broadcaster_token = br_user.get("twitch_access_token")
 
-            # Запускаем обработку всех 30 юзеров ОДНОВРЕМЕННО
-            tasks = [process_single_user(u) for u in valid_users]
-            await asyncio.gather(*tasks)
+                br_headers = {"Authorization": f"Bearer {broadcaster_token}", "Client-Id": client_id} if broadcaster_token else None
 
-        logging.info("✅ Пакетное обновление (30 юзеров) завершено МГНОВЕННО.")
+                # 2. Берем 30 самых "старых" юзеров из БД
+                resp = supabase.table("users").select(
+                    "telegram_id, twitch_id, twitch_status, twitch_access_token"
+                ).not_.is_("twitch_id", "null").order("last_twitch_sync").limit(30).execute()
+                
+                users = resp.data if hasattr(resp, 'data') else resp
+                valid_users = [u for u in users if u.get("twitch_id") and u.get("twitch_id") != broadcaster_id]
+
+                if not valid_users:
+                    logging.info(f"✅ Нет пользователей для обновления (стример {broadcaster_id}).")
+                    continue # Переходим к следующему стримеру вместо return
+
+                # 🔥 МАССОВАЯ ПРОВЕРКА МОДЕРОВ И VIP (1 запрос вместо 60) 🔥
+                mods_set, vips_set = set(), set()
+                
+                if br_headers:
+                    # Склеиваем 30 ID в одну строку: &user_id=123&user_id=456...
+                    query_string = "&".join([f"user_id={u['twitch_id']}" for u in valid_users])
+                    
+                    # Запрашиваем модеров сразу пачкой
+                    m_resp = await client.get(f"https://api.twitch.tv/helix/moderation/moderators?broadcaster_id={broadcaster_id}&{query_string}", headers=br_headers)
+                    if m_resp.status_code == 200:
+                        mods_set = {item['user_id'] for item in m_resp.json().get("data", [])}
+
+                    # Запрашиваем VIP сразу пачкой
+                    v_resp = await client.get(f"https://api.twitch.tv/helix/channels/vips?broadcaster_id={broadcaster_id}&{query_string}", headers=br_headers)
+                    if v_resp.status_code == 200:
+                        vips_set = {item['user_id'] for item in v_resp.json().get("data", [])}
+
+                # 🔥 АСИНХРОННАЯ МЯСОРУБКА ДЛЯ ПОДПИСОК И БАЗЫ ДАННЫХ 🔥
+                db_client = await get_background_client() # Используем твой быстрый фоновый клиент
+
+                async def process_single_user(user):
+                    twitch_id = user.get("twitch_id")
+                    user_token = user.get("twitch_access_token")
+                    new_status = "none"
+                    
+                    # 1. Проверяем Сабку (Нужен личный токен юзера, поэтому отдельный запрос)
+                    if user_token:
+                        try:
+                            u_headers = {"Authorization": f"Bearer {user_token}", "Client-Id": client_id}
+                            sub_resp = await client.get(f"https://api.twitch.tv/helix/subscriptions?broadcaster_id={broadcaster_id}&user_id={twitch_id}", headers=u_headers)
+                            if sub_resp.status_code == 200 and len(sub_resp.json().get("data", [])) > 0:
+                                new_status = "subscriber"
+                        except: pass
+
+                    # 2. Накатываем статусы Модера/VIP из наших массовых сетов (Они важнее сабки)
+                    if twitch_id in mods_set:
+                        new_status = "moderator"
+                    if twitch_id in vips_set:
+                        new_status = "vip"
+                    
+                    # 3. Обновляем статус в БД (Асинхронно!)
+                    update_payload = {"last_twitch_sync": datetime.now(timezone.utc).isoformat()}
+                    if new_status != user.get("twitch_status"):
+                        update_payload["twitch_status"] = new_status
+                        logging.info(f"🔄 Изменен статус для {twitch_id}: {user.get('twitch_status')} -> {new_status}")
+                        
+                    await db_client.patch(
+                        "/users",
+                        params={"telegram_id": f"eq.{user.get('telegram_id')}"},
+                        json=update_payload
+                    )
+
+                # Запускаем обработку всех 30 юзеров ОДНОВРЕМЕННО
+                tasks = [process_single_user(u) for u in valid_users]
+                await asyncio.gather(*tasks)
+
+        logging.info("✅ Пакетное обновление (30 юзеров) для всех каналов завершено МГНОВЕННО.")
     except Exception as e:
         logging.error(f"❌ Критическая ошибка в run_mass_twitch_update: {e}", exc_info=True)
 
@@ -4735,75 +4742,84 @@ async def ensure_twitch_cache(supabase: httpx.AsyncClient):
 
 async def auto_sync_vips_logic(supabase: httpx.AsyncClient):
     """
-    🔄 Магическая функция: Обновляет токен стримера и синхронизирует VIP-ов.
+    🔄 Магическая функция: Обновляет токены стримеров и синхронизирует VIP-ов со всех каналов.
     """
-    broadcaster_id = os.getenv("TWITCH_BROADCASTER_ID")
-    if not broadcaster_id: return
-
-    # 1. Достаем Refresh Token стримера из базы
-    resp = await supabase.get(
-        "/users", 
-        params={"twitch_id": f"eq.{broadcaster_id}", "select": "twitch_refresh_token"}
-    )
-    data = resp.json()
-    if not data or not data[0].get("twitch_refresh_token"):
-        logging.error("❌ Не найден Refresh Token стримера. Зайдите в бота через Twitch!")
+    broadcaster_ids_str = os.getenv("TWITCH_BROADCASTER_ID")
+    if not broadcaster_ids_str: 
         return
+    
+    # Разбиваем строку с ID на список (поддержка 1 или нескольких каналов)
+    broadcaster_ids = [x.strip() for x in broadcaster_ids_str.split(',') if x.strip()]
+    
+    all_vip_logins = set() # Используем set, чтобы исключить дубликаты (если кто-то VIP везде)
 
-    old_refresh_token = data[0]["twitch_refresh_token"]
-
-    # 2. Обновляем токен через Twitch API
     async with httpx.AsyncClient() as client:
-        refresh_resp = await client.post(
-            "https://id.twitch.tv/oauth2/token",
-            data={
-                "client_id": TWITCH_CLIENT_ID,
-                "client_secret": TWITCH_CLIENT_SECRET,
-                "grant_type": "refresh_token",
-                "refresh_token": old_refresh_token
-            }
-        )
-        
-        if refresh_resp.status_code != 200:
-            logging.error(f"❌ Ошибка обновления токена: {refresh_resp.text}")
-            return
+        for b_id in broadcaster_ids:
+            # 1. Достаем Refresh Token конкретного стримера из базы
+            resp = await supabase.get(
+                "/users", 
+                params={"twitch_id": f"eq.{b_id}", "select": "twitch_refresh_token"}
+            )
+            data = resp.json()
+            if not data or not data[0].get("twitch_refresh_token"):
+                logging.error(f"❌ Не найден Refresh Token для стримера {b_id}. Зайдите в бота!")
+                continue # Идем к следующему каналу
 
-        tokens = refresh_resp.json()
-        new_access_token = tokens["access_token"]
-        new_refresh_token = tokens.get("refresh_token", old_refresh_token)
+            old_refresh_token = data[0]["twitch_refresh_token"]
 
-        # 3. Сохраняем новые ключи в базу (чтобы в следующий раз тоже сработало)
+            # 2. Обновляем токен через Twitch API
+            refresh_resp = await client.post(
+                "https://id.twitch.tv/oauth2/token",
+                data={
+                    "client_id": TWITCH_CLIENT_ID,
+                    "client_secret": TWITCH_CLIENT_SECRET,
+                    "grant_type": "refresh_token",
+                    "refresh_token": old_refresh_token
+                }
+            )
+            
+            if refresh_resp.status_code != 200:
+                logging.error(f"❌ Ошибка обновления токена стримера {b_id}: {refresh_resp.text}")
+                continue
+
+            tokens = refresh_resp.json()
+            new_access_token = tokens["access_token"]
+            new_refresh_token = tokens.get("refresh_token", old_refresh_token)
+
+            # 3. Сохраняем новые ключи стримера в базу
+            await supabase.patch(
+                "/users",
+                params={"twitch_id": f"eq.{b_id}"},
+                json={"twitch_access_token": new_access_token, "twitch_refresh_token": new_refresh_token}
+            )
+
+            # 4. Скачиваем список VIP-ов для этого канала
+            headers = {"Authorization": f"Bearer {new_access_token}", "Client-Id": TWITCH_CLIENT_ID}
+            vips_resp = await client.get(
+                f"https://api.twitch.tv/helix/channels/vips?broadcaster_id={b_id}&first=100",
+                headers=headers
+            )
+            
+            if vips_resp.status_code == 200:
+                vips_data = vips_resp.json().get("data", [])
+                for v in vips_data:
+                    all_vip_logins.add(v["user_login"].lower())
+            else:
+                logging.error(f"Ошибка получения VIP для {b_id}: {vips_resp.text}")
+
+    # 5. Проставляем статус VIP в базе всем собранным юзерам разом
+    if all_vip_logins:
+        vip_list = list(all_vip_logins)
         await supabase.patch(
             "/users",
-            params={"twitch_id": f"eq.{broadcaster_id}"},
-            json={"twitch_access_token": new_access_token, "twitch_refresh_token": new_refresh_token}
+            json={"twitch_status": "vip"},
+            params={"twitch_login": f"in.({','.join(vip_list)})"}
         )
-
-        # 4. Скачиваем список VIP-ов
-        headers = {"Authorization": f"Bearer {new_access_token}", "Client-Id": TWITCH_CLIENT_ID}
-        vips_resp = await client.get(
-            f"https://api.twitch.tv/helix/channels/vips?broadcaster_id={broadcaster_id}&first=100",
-            headers=headers
-        )
-        
-        if vips_resp.status_code == 200:
-            vips_data = vips_resp.json().get("data", [])
-            vip_logins = [v["user_login"].lower() for v in vips_data]
-            
-            if vip_logins:
-                # 5. Проставляем статус VIP в базе
-                await supabase.patch(
-                    "/users",
-                    json={"twitch_status": "vip"},
-                    params={"twitch_login": f"in.({','.join(vip_logins)})"}
-                )
-                logging.info(f"✅ Авто-синхронизация: Обновлено {len(vip_logins)} VIP-ов!")
-        else:
-            logging.error(f"Ошибка получения VIP: {vips_resp.text}")
+        logging.info(f"✅ Авто-синхронизация: Обновлено {len(vip_list)} VIP-ов (со всех каналов)!")
 
 async def silent_update_twitch_user(telegram_id: int):
     """
-    Фоновая задача: Обновляет никнейм и статус подписки.
+    Фоновая задача: Обновляет никнейм и статус подписки по всем каналам.
     ОПТИМИЗАЦИЯ: Убраны лишние логи для ускорения (IO blocking).
     """
     CACHE_TTL_SECONDS = 3600 # 1 час (как договаривались)
@@ -4825,24 +4841,19 @@ async def silent_update_twitch_user(telegram_id: int):
 
         user = user_data[0]
 
-        # Если статус Error - молча выходим
         if user.get("twitch_status") == "error":
             return
 
-        # Проверка кэша БЕЗ ЛОГОВ (чтобы не спамить в консоль)
+        # Проверка кэша БЕЗ ЛОГОВ
         last_sync_str = user.get("last_twitch_sync")
         if last_sync_str:
             try:
                 last_sync_dt = datetime.fromisoformat(last_sync_str.replace('Z', '+00:00'))
                 elapsed = (datetime.now(timezone.utc) - last_sync_dt).total_seconds()
-                
-                # 👇 УБРАЛИ ЛОГ "Пропуск...". Просто молча выходим, если кэш свежий.
                 if elapsed < CACHE_TTL_SECONDS:
                     return 
             except ValueError:
-                pass # Если дата кривая, обновляем молча
-        
-        # --------------------------------
+                pass 
 
         refresh_token = user["twitch_refresh_token"]
         twitch_id = user["twitch_id"]
@@ -4860,27 +4871,19 @@ async def silent_update_twitch_user(telegram_id: int):
                 }
             )
             
-            # 🔥 ОБРАБОТКА ОШИБКИ 400 (ТОКЕН УМЕР)
-            # Тут лог ОСТАВЛЯЕМ, потому что это важная ошибка, которую надо видеть.
             if token_resp.status_code == 400:
                 logging.warning(f"⚠️ Токен протух (400). Ставим статус 'error' для {telegram_id}...")
-                
                 try:
-                    # Делаем запрос к БД и сохраняем ответ в db_resp
                     db_resp = await client.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json={
                         "twitch_status": "error"
                     })
-                    
-                    # Проверяем ответ базы (для отладки критических сбоев)
                     if db_resp.status_code not in [200, 204]:
                         logging.error(f"💀 ОШИБКА БАЗЫ! Не удалось записать статус: {db_resp.status_code} {db_resp.text}")
-                        
                 except Exception as e:
                     logging.error(f"💀 КРИТИЧЕСКАЯ ОШИБКА при записи в БД: {e}")
                 return
 
             if token_resp.status_code != 200:
-                # Ошибки сервера Twitch логируем, но это не критично
                 logging.error(f"❌ [Twitch Error] Ошибка обновления токена: {token_resp.text}")
                 return
 
@@ -4896,26 +4899,36 @@ async def silent_update_twitch_user(telegram_id: int):
             if user_api_resp.status_code == 200:
                 twitch_login_actual = user_api_resp.json()["data"][0]["login"]
 
-            # 4. Проверяем подписку (ИСПРАВЛЕНО)
-            broadcaster_id = os.getenv("TWITCH_BROADCASTER_ID")
+            # 4. Проверяем подписку (МУЛЬТИАККАУНТ)
+            broadcaster_ids_str = os.getenv("TWITCH_BROADCASTER_ID")
             new_status = current_status if current_status else "none"
+            is_subscriber = False
             
-            if broadcaster_id:
-                try:
-                    sub_resp = await tw_client.get(
-                        f"https://api.twitch.tv/helix/subscriptions?broadcaster_id={broadcaster_id}&user_id={twitch_id}",
-                        headers=headers
-                    )
-                    sub_data = sub_resp.json().get("data", [])
-                    
-                    # Если вернул 200 и есть реальные данные — подписчик
-                    if sub_resp.status_code == 200 and len(sub_data) > 0:
-                        new_status = "subscriber"
-                    # Если 200, но массив ПУСТОЙ (или 404) — не подписчик
-                    elif (sub_resp.status_code == 200 and len(sub_data) == 0) or sub_resp.status_code == 404:
-                        if new_status == "subscriber": # Снимаем сабку, только если она истекла
-                            new_status = "none"
-                except: pass
+            if broadcaster_ids_str:
+                broadcaster_ids = [x.strip() for x in broadcaster_ids_str.split(',') if x.strip()]
+                
+                # Идем циклом по всем ID
+                for b_id in broadcaster_ids:
+                    try:
+                        sub_resp = await tw_client.get(
+                            f"https://api.twitch.tv/helix/subscriptions?broadcaster_id={b_id}&user_id={twitch_id}",
+                            headers=headers
+                        )
+                        sub_data = sub_resp.json().get("data", [])
+                        
+                        # Если вернул 200 и есть реальные данные — подписчик найден!
+                        if sub_resp.status_code == 200 and len(sub_data) > 0:
+                            is_subscriber = True
+                            break # Нашли сабку на одном канале - дальше можно не проверять
+                    except: 
+                        pass
+                
+                # Применяем итог проверок
+                if is_subscriber:
+                    new_status = "subscriber"
+                else:
+                    if new_status == "subscriber": # Снимаем сабку, только если она истекла везде
+                        new_status = "none"
             
             # Если он VIP, железобетонно не понижаем его
             if current_status == "vip":
@@ -4932,13 +4945,9 @@ async def silent_update_twitch_user(telegram_id: int):
                 update_data["twitch_login"] = twitch_login_actual
 
             await client.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json=update_data)
-            
-            # Лог успешного обновления (можно оставить, он редкий - раз в час)
-            # Если хочешь совсем тишину, закомментируй следующую строку:
             logging.info(f"✅ [Twitch] Успех для {telegram_id}: Ник={twitch_login_actual}, Статус={new_status}")
 
     except Exception as e:
-        # Логируем только реальные крэши функции
         logging.error(f"❌ [Twitch Critical] Ошибка функции: {e}")
         
 # --- 1. ФУНКЦИЯ ФОНОВОЙ ОБРАБОТКИ (Вставляетcя ПЕРЕД эндпоинтом) ---
@@ -4966,28 +4975,32 @@ async def process_twitch_notification_background(data: dict, message_id: str):
     event_type = subscription.get("type")
     event_data = data.get("event", {})
 
+    # 🔥 ДОБАВЛЯЕМ ДИНАМИЧЕСКИЙ ПЕРЕХВАТ СТРИМЕРА
+    current_broadcaster_id = event_data.get("broadcaster_user_id")
+    current_broadcaster_login = event_data.get("broadcaster_user_login", "hatelove_ttv")
+
     # --- ЛОГИКА ДЛЯ СТАТУСА СТРИМА ---
     if event_type == "stream.online":
-        logging.info("🟣 Стрим ONLINE! Обновляем статус и запускаем рассылку.")
+        logging.info(f"🟣 Стрим ONLINE на канале {current_broadcaster_login}! Обновляем статус и запускаем рассылку.")
         
-        # 1. Сохраняем статус в settings
-        await supabase.post("/settings", json={"key": "twitch_stream_status", "value": True}, headers={"Prefer": "resolution=merge-duplicates"})
+        # 1. Сохраняем статус в settings (можно сделать ключи раздельными, если нужно отслеживать оба)
+        await supabase.post("/settings", json={"key": f"twitch_status_{current_broadcaster_id}", "value": True}, headers={"Prefer": "resolution=merge-duplicates"})
 
-        # 🔥 [НОВОЕ] ВКЛЮЧАЕМ CRON-ЗАДАЧУ
+        # Включаем CRON-задачу
         await toggle_cron_job(True)
 
-        # --- АВТО-СИНХРОНИЗАЦИЯ VIP ---
+        # Авто-синхронизация VIP
         try:
             logging.info("🔄 Запуск авто-обновления VIP-ов...")
             await auto_sync_vips_logic(supabase)
         except Exception as e:
             logging.error(f"⚠️ Ошибка при авто-синхронизации VIP: {e}")
         
-        # 2. Формируем сообщение
+        # 2. Формируем сообщение с динамической ссылкой!
         msg_text = (
-            "🟣 <b>Стрим НАЧАЛСЯ!</b>\n\n"
+            f"🟣 <b>Стрим НАЧАЛСЯ на канале {current_broadcaster_login}!</b>\n\n"
             "Залетайте на трансляцию, лутайте баллы и участвуйте в ивентах! 🚀\n\n"
-            "https://www.twitch.tv/hatelove_ttv"
+            f"https://www.twitch.tv/{current_broadcaster_login}"
         )
         
         # 3. ЗАПУСКАЕМ МАССОВУЮ РАССЫЛКУ
@@ -5068,10 +5081,11 @@ async def process_twitch_notification_background(data: dict, message_id: str):
                     logging.error(f"Ошибка автозапуска отгадайки через Твич: {e}")
                 
                 try:
-                    token_res = await supabase.get("/users", params={"twitch_id": f"eq.{BROADCASTER_ID}", "select": "twitch_access_token"})
-                    broadcaster_token = token_res.json()[0].get("twitch_access_token")
+                    # 🔥 Хирургическая замена: ищем токен именно того стримера, на котором куплена награда
+                    token_res = await supabase.get("/users", params={"twitch_id": f"eq.{current_broadcaster_id}", "select": "twitch_access_token"})
+                    broadcaster_token = token_res.json()[0].get("twitch_access_token") if token_res.json() else None
                     if broadcaster_token:
-                        await toggle_twitch_reward(broadcaster_token, reward_id, is_enabled=False)
+                        await toggle_twitch_reward(broadcaster_token, current_broadcaster_id, reward_id, is_enabled=False)
                 except Exception as e:
                     logging.error(f"Не удалось скрыть награду Твича после завершения сбора: {e}")
 
@@ -11691,16 +11705,20 @@ async def sync_leaderboard_to_supabase(
     request: Request,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    # 1. Проверяем секретный ключ для защиты от несанкционированного доступа
+    # 1. Проверяем секретный ключ
     cron_secret = os.getenv("CRON_SECRET")
     auth_header = request.headers.get("Authorization")
     if not cron_secret or auth_header != f"Bearer {cron_secret}":
         raise HTTPException(status_code=403, detail="Forbidden: Invalid secret")
 
-    logging.info("🚀 Запуск синхронизации через ОБЩИЙ ЛИДЕРБОРД...")
+    logging.info("🚀 Запуск синхронизации через ОБЩИЙ ЛИДЕРБОРД (МУЛЬТИАККАУНТ)...")
 
-    if not WIZEBOT_API_KEY:
+    # 2. Достаем ключи Wizebot и превращаем их в список (поддерживаем 1 или несколько)
+    raw_wizebot_keys = os.getenv("WIZEBOT_API_KEY")
+    if not raw_wizebot_keys:
         raise HTTPException(status_code=500, detail="Wizebot API не настроен.")
+    
+    wizebot_keys = [k.strip() for k in raw_wizebot_keys.split(",") if k.strip()]
 
     # Определяем, какие метрики мы хотим синхронизировать
     metrics_to_sync = [
@@ -11709,64 +11727,73 @@ async def sync_leaderboard_to_supabase(
     ]
     
     try:
-        # Используем set, чтобы не было дубликатов ID пользователей для пересчёта
         users_to_recalculate = set()
 
-        # Проходим по каждой метрике (сообщения, время)
-        for metric in metrics_to_sync:
-            metric_name = metric["name"]
-            metric_type_db = metric["metric_type_db"]
-            logging.info(f"--- Синхронизация метрики: {metric_name} ---")
+        # Используем одну сессию клиента для всех запросов
+        async with httpx.AsyncClient() as client:
+            # Проходим по каждой метрике (сообщения, время)
+            for metric in metrics_to_sync:
+                metric_name = metric["name"]
+                metric_type_db = metric["metric_type_db"]
+                logging.info(f"--- Синхронизация метрики: {metric_name} ---")
 
-            # Запрашиваем топ-100 у Wizebot
-            limit = 100
-            url = f"https://wapi.wizebot.tv/api/ranking/{WIZEBOT_API_KEY}/top/{metric_name}/session/{limit}"
-            
-            leaderboard_data = []
-            updated_user_logins = set()
-            try:
-                async with httpx.AsyncClient() as client:
-                    resp = await client.get(url, timeout=25.0)
-                    resp.raise_for_status()
-                    data = resp.json()
-                    leaderboard_data = data.get("list", [])
-            except Exception as e:
-                logging.error(f"❌ Ошибка при получении лидерборда ({metric_name}) от Wizebot: {e}")
-                continue
+                limit = 100
+                merged_stats = {} # Словарь для склейки данных: { "ник": суммарное_значение }
+                updated_user_logins = set()
 
-            if not leaderboard_data:
-                logging.info(f"Лидерборд ({metric_name}) от Wizebot пуст.")
-                continue
-            
-            # Готовим данные для отправки в нашу "умную" SQL-функцию
-            stats_payload = []
-            for entry in leaderboard_data:
-                twitch_login = entry.get("user_name")
-                value = int(entry.get("value", 0))
-                if twitch_login:
-                    stats_payload.append({"twitch_login": twitch_login.lower(), "value": value})
-                    updated_user_logins.add(twitch_login.lower())
+                # 🔥 ЦИКЛ ПО ВСЕМ КАНАЛАМ (WIZEBOT КЛЮЧАМ)
+                for w_key in wizebot_keys:
+                    url = f"https://wapi.wizebot.tv/api/ranking/{w_key}/top/{metric_name}/session/{limit}"
+                    try:
+                        resp = await client.get(url, timeout=25.0)
+                        resp.raise_for_status()
+                        data = resp.json()
+                        leaderboard_data = data.get("list", [])
+                        
+                        # Парсим ответ и СУММИРУЕМ значения для пересекающихся зрителей
+                        for entry in leaderboard_data:
+                            twitch_login = entry.get("user_name")
+                            value = int(entry.get("value", 0))
+                            
+                            if twitch_login:
+                                login_lower = twitch_login.lower()
+                                # Если зритель уже есть (смотрел другой канал) - плюсуем стату. Если нет - создаем.
+                                merged_stats[login_lower] = merged_stats.get(login_lower, 0) + value
+                                updated_user_logins.add(login_lower)
+                                
+                    except Exception as e:
+                        logging.error(f"❌ Ошибка при получении лидерборда ({metric_name}) для ключа {w_key[-4:]}: {e}")
+                        continue
 
-            # ИСПРАВЛЕНИЕ: Добавлен недостающий параметр p_period, который требуется функцией sync_twitch_stats
-            await supabase.post(
-                "/rpc/sync_twitch_stats",
-                json={
-                    "p_metric_type": metric_type_db,
-                    "p_period": "session",  # <-- Вот здесь мы добавили параметр
-                    "p_stats": stats_payload
-                }
-            )
-            
-            # Находим telegram_id всех пользователей, чьи данные обновились
-            if updated_user_logins:
-                users_resp = await supabase.get(
-                    "/users",
-                    params={"select": "telegram_id", "twitch_login": f"in.({','.join(map(lambda x: f'\"{x}\"', updated_user_logins))})"}
+                if not merged_stats:
+                    logging.info(f"Лидерборд ({metric_name}) от всех Wizebot пуст.")
+                    continue
+                
+                # Готовим ИТОГОВЫЕ данные для отправки в нашу SQL-функцию
+                stats_payload = [{"twitch_login": login, "value": val} for login, val in merged_stats.items()]
+
+                # Отправляем одним массивом, чтобы не затереть ничего в БД
+                await supabase.post(
+                    "/rpc/sync_twitch_stats",
+                    json={
+                        "p_metric_type": metric_type_db,
+                        "p_period": "session", 
+                        "p_stats": stats_payload
+                    }
                 )
-                users_resp.raise_for_status()
-                for user in users_resp.json():
-                    if user.get("telegram_id"):
-                        users_to_recalculate.add(user["telegram_id"])
+                
+                # Находим telegram_id всех пользователей, чьи данные обновились
+                if updated_user_logins:
+                    # Supabase 'in.' filter имеет лимиты на длину URL, поэтому лучше разбивать, 
+                    # но для топ-100 с двух каналов (макс 200 ников) это сработает без проблем
+                    users_resp = await supabase.get(
+                        "/users",
+                        params={"select": "telegram_id", "twitch_login": f"in.({','.join(map(lambda x: f'\"{x}\"', updated_user_logins))})"}
+                    )
+                    users_resp.raise_for_status()
+                    for user in users_resp.json():
+                        if user.get("telegram_id"):
+                            users_to_recalculate.add(user["telegram_id"])
 
         # ✅ После обновления всех статистик, запускаем пересчёт прогресса для затронутых пользователей
         if users_to_recalculate:
@@ -11776,8 +11803,6 @@ async def sync_leaderboard_to_supabase(
 
     except Exception as e:
         logging.error(f"❌ Ошибка при синхронизации Twitch: {e}", exc_info=True)
-        # TODO: Можно добавить возврат ошибки 500
-        # raise HTTPException(status_code=500, detail="Ошибка при синхронизации Twitch")
 
     logging.info("🎉 Синхронизация статистики Twitch завершена.")
     return {"message": "Leaderboard sync completed."}
@@ -13116,38 +13141,57 @@ async def get_wizebot_leaderboard(
     limit: int = 50,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    if not WIZEBOT_API_KEY:
+    raw_wizebot_keys = os.getenv("WIZEBOT_API_KEY")
+    if not raw_wizebot_keys:
         raise HTTPException(status_code=500, detail="Wizebot API is not configured.")
-
-    url = f"https://wapi.wizebot.tv/api/ranking/{WIZEBOT_API_KEY}/top/ranks/{sub_type}/{limit}"
+        
+    wizebot_keys = [k.strip() for k in raw_wizebot_keys.split(",") if k.strip()]
+    merged_data = {}
 
     async with httpx.AsyncClient() as client:
-        try:
-            resp = await client.get(url, timeout=15.0)
-            resp.raise_for_status()
-            data = resp.json()
+        for w_key in wizebot_keys:
+            url = f"https://wapi.wizebot.tv/api/ranking/{w_key}/top/ranks/{sub_type}/{limit}"
+            try:
+                resp = await client.get(url, timeout=15.0)
+                resp.raise_for_status()
+                data = resp.json()
 
-            formatted_data = [
-                {
-                    "full_name": entry.get("user_name"),
-                    "user_id": entry.get("user_uid"),
-                    "total_activity": int(entry.get("value", 0))
-                }
-                for entry in data.get("list", [])
-            ]
+                for entry in data.get("list", []):
+                    username = entry.get("user_name")
+                    if not username:
+                        continue
+                    
+                    key = username.lower()
+                    val = int(entry.get("value", 0))
+                    
+                    if key in merged_data:
+                        merged_data[key]["total_activity"] += val
+                    else:
+                        merged_data[key] = {
+                            "full_name": username,
+                            "user_id": entry.get("user_uid"),
+                            "total_activity": val
+                        }
+            except Exception as e:
+                import logging
+                logging.error(f"❌ Ошибка при запросе к Wizebot API (ключ {w_key[-4:]}): {e}")
+                # Продолжаем цикл: если один канал упал, второй все равно покажет стату
 
-            # 🔥 ПРИКЛЕИВАЕМ НАГРАДЫ (Динамический ключ - фронтенд по умолчанию шлет session для рангов) 🔥
-            leaderboard_key = "twitch_ranks_session"
-            formatted_data = await attach_rewards_to_leaderboard(formatted_data, supabase, leaderboard_key)
-            return formatted_data
+    # 1. Превращаем словарь в список
+    # 2. Сортируем по убыванию (чтобы собрать правильный топ после склейки)
+    # 3. Обрезаем до нужного лимита (limit)
+    formatted_data = sorted(merged_data.values(), key=lambda x: x["total_activity"], reverse=True)[:limit]
 
-        except Exception as e:
-            import logging
-            logging.error(f"❌ Ошибка при запросе к Wizebot API: {e}")
-            return JSONResponse(
-                status_code=502,
-                content={"error": "Failed to fetch leaderboard from Wizebot"}
-            )
+    try:
+        # 🔥 ПРИКЛЕИВАЕМ НАГРАДЫ (Динамический ключ) 🔥
+        leaderboard_key = "twitch_ranks_session"
+        formatted_data = await attach_rewards_to_leaderboard(formatted_data, supabase, leaderboard_key)
+        return formatted_data
+    except Exception as e:
+        import logging
+        logging.error(f"❌ Ошибка при приклеивании наград (Ранги): {e}")
+        return JSONResponse(status_code=502, content={"error": "Failed to attach rewards"})
+
 
 # --- WIZEBOT СТАТИСТИКА (Сообщения/Время) ---
 @app.get("/api/v1/leaderboard/wizebot/stats")
@@ -13157,45 +13201,53 @@ async def get_wizebot_stats(
     limit: int = 50,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    if not WIZEBOT_API_KEY:
+    raw_wizebot_keys = os.getenv("WIZEBOT_API_KEY")
+    if not raw_wizebot_keys:
         raise HTTPException(status_code=500, detail="Wizebot API is not configured.")
-
-    url = f"https://wapi.wizebot.tv/api/ranking/{WIZEBOT_API_KEY}/top/{metric}/{period}/{limit}"
+        
+    wizebot_keys = [k.strip() for k in raw_wizebot_keys.split(",") if k.strip()]
+    merged_data = {}
 
     async with httpx.AsyncClient() as client:
-        try:
-            resp = await client.get(url, timeout=15.0)
-            resp.raise_for_status()
-            data = resp.json()
+        for w_key in wizebot_keys:
+            url = f"https://wapi.wizebot.tv/api/ranking/{w_key}/top/{metric}/{period}/{limit}"
+            try:
+                resp = await client.get(url, timeout=15.0)
+                resp.raise_for_status()
+                data = resp.json()
 
-            formatted_data = [
-                {
-                    "username": entry.get("user_name"),
-                    "user_id": entry.get("user_uid"),
-                    "value": int(entry.get("value", 0))
-                }
-                for entry in data.get("list", [])
-            ]
+                for entry in data.get("list", []):
+                    username = entry.get("user_name")
+                    if not username:
+                        continue
+                    
+                    key = username.lower()
+                    val = int(entry.get("value", 0))
+                    
+                    if key in merged_data:
+                        merged_data[key]["value"] += val
+                    else:
+                        merged_data[key] = {
+                            "username": username,
+                            "user_id": entry.get("user_uid"),
+                            "value": val
+                        }
+            except Exception as e:
+                import logging
+                logging.error(f"❌ Ошибка от Wizebot API (ключ {w_key[-4:]}): {e}")
 
-            # 🔥 ПРИКЛЕИВАЕМ НАГРАДЫ (Динамический ключ) 🔥
-            leaderboard_key = f"twitch_{metric}_{period}"
-            formatted_data = await attach_rewards_to_leaderboard(formatted_data, supabase, leaderboard_key)
-            return {"metric": metric, "period": period, "leaderboard": formatted_data}
+    # Сортируем и обрезаем итоговый массив
+    formatted_data = sorted(merged_data.values(), key=lambda x: x["value"], reverse=True)[:limit]
 
-        except httpx.HTTPStatusError as e:
-            import logging
-            logging.error(f"❌ Ошибка от Wizebot API: {e.response.status_code} - {e.response.text}")
-            return JSONResponse(
-                status_code=e.response.status_code,
-                content={"error": "Failed to fetch stats from Wizebot", "detail": e.response.text}
-            )
-        except Exception as e:
-            import logging
-            logging.error(f"❌ Неизвестная ошибка при запросе к Wizebot API: {e}")
-            return JSONResponse(
-                status_code=502,
-                content={"error": "An unexpected error occurred while communicating with Wizebot"}
-            )
+    try:
+        # 🔥 ПРИКЛЕИВАЕМ НАГРАДЫ (Динамический ключ) 🔥
+        leaderboard_key = f"twitch_{metric}_{period}"
+        formatted_data = await attach_rewards_to_leaderboard(formatted_data, supabase, leaderboard_key)
+        return {"metric": metric, "period": period, "leaderboard": formatted_data}
+    except Exception as e:
+        import logging
+        logging.error(f"❌ Ошибка при приклеивании наград (Статистика): {e}")
+        return JSONResponse(status_code=502, content={"error": "Failed to attach rewards"})
 
 # =====================================================================
 # 3. ЭНДПОИНТЫ АДМИНКИ (СОХРАНЕНИЕ И РУЧНАЯ ВЫДАЧА)
@@ -18751,49 +18803,68 @@ async def check_wizebot_user_stats(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    Проверяет статистику конкретного пользователя напрямую через API Wizebot.
+    Проверяет статистику конкретного пользователя напрямую через API Wizebot по ВСЕМ каналам.
     """
     # Проверка, что запрос от админа
     user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
-    if not WIZEBOT_API_KEY:
+    raw_wizebot_keys = os.getenv("WIZEBOT_API_KEY")
+    if not raw_wizebot_keys:
         raise HTTPException(status_code=500, detail="Wizebot API не настроен.")
+        
+    wizebot_keys = [k.strip() for k in raw_wizebot_keys.split(",") if k.strip()]
 
     twitch_username_to_find = request_data.twitch_username.lower()
     period = request_data.period
     limit = 100 # Ищем в топ-100
 
-    # Запрашиваем у Wizebot топ по сообщениям за указанный период
-    url = f"https://wapi.wizebot.tv/api/ranking/{WIZEBOT_API_KEY}/top/message/{period}/{limit}"
+    found_anywhere = False
+    total_messages = 0
+    actual_username = request_data.twitch_username # На случай, если найдем красивый регистр
 
     try:
         async with httpx.AsyncClient() as client:
-            resp = await client.get(url, timeout=15.0)
-            resp.raise_for_status()
-            data = resp.json()
-            leaderboard = data.get("list", [])
+            for w_key in wizebot_keys:
+                url = f"https://wapi.wizebot.tv/api/ranking/{w_key}/top/message/{period}/{limit}"
+                
+                try:
+                    resp = await client.get(url, timeout=15.0)
+                    resp.raise_for_status()
+                    data = resp.json()
+                    leaderboard = data.get("list", [])
 
-            # Ищем нашего пользователя в полученном списке
-            for user in leaderboard:
-                if user.get("user_name", "").lower() == twitch_username_to_find:
-                    return {
-                        "found": True,
-                        "username": user.get("user_name"),
-                        "messages": int(user.get("value", 0)),
-                        "rank": user.get("rank"),
-                        "period": period
-                    }
-            
-            # Если пользователь не найден в цикле
+                    # Ищем нашего пользователя в полученном списке этого канала
+                    for user in leaderboard:
+                        if user.get("user_name", "").lower() == twitch_username_to_find:
+                            found_anywhere = True
+                            actual_username = user.get("user_name") # Сохраняем оригинальный регистр ника
+                            total_messages += int(user.get("value", 0))
+                            break # Нашли на этом канале — плюсуем сообщения и идем проверять следующий канал
+                            
+                except Exception as e:
+                    logging.error(f"Ошибка при запросе к Wizebot API (ключ {w_key[-4:]}): {e}")
+                    # Не прерываем функцию из-за ошибки одного канала
+
+        # После проверки всех каналов формируем ответ
+        if found_anywhere:
             return {
-                "found": False,
-                "message": f"Пользователь '{request_data.twitch_username}' не найден в топ-{limit} Wizebot за этот период."
+                "found": True,
+                "username": actual_username,
+                "messages": total_messages,
+                "rank": None, # Ранг теряет смысл при суммировании с нескольких каналов
+                "period": period
             }
+        
+        # Если ни на одном канале пользователь не найден
+        return {
+            "found": False,
+            "message": f"Пользователь '{request_data.twitch_username}' не найден в топ-{limit} ни на одном из каналов."
+        }
 
     except Exception as e:
-        logging.error(f"Ошибка при запросе к Wizebot API: {e}")
+        logging.error(f"Глобальная ошибка при проверке Wizebot: {e}")
         raise HTTPException(status_code=502, detail="Не удалось получить данные от Wizebot.")
 
 @app.post("/api/v1/admin/twitch_rewards/issue_promocode")
@@ -21065,17 +21136,17 @@ async def claim_trust_amnesty(
         logging.error(f"Trust amnesty error: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
-# --- 🛠️ РЕМОНТ ПОДПИСОК TWITCH ---
+# --- 🛠️ РЕМОНТ ПОДПИСОК TWITCH (МУЛЬТИАККАУНТ) ---
 @app.get("/api/v1/debug/fix_twitch_subs")
 async def fix_twitch_subs(
     request: Request,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    Удаляет старые подписки и создает новые: Награды + СТРИМ (Online/Offline).
+    Удаляет старые подписки и создает новые для ВСЕХ стримеров: Награды + СТРИМ (Online/Offline).
     """
     async with httpx.AsyncClient() as client:
-        # 1. Получаем токен
+        # 1. Получаем токен авторизации приложения
         token_resp = await client.post(
             "https://id.twitch.tv/oauth2/token",
             data={
@@ -21094,21 +21165,22 @@ async def fix_twitch_subs(
             "Content-Type": "application/json"
         }
 
-        # 2. Ищем ID админа (стримера)
-        admin_user = None
+        # 🔥 2. СОБИРАЕМ ID ВСЕХ СТРИМЕРОВ
+        broadcaster_ids = set()
         for admin_id in ADMIN_IDS:
             u_resp = await supabase.get("/users", params={"telegram_id": f"eq.{admin_id}", "select": "twitch_id"})
-            if u_resp.json() and u_resp.json()[0].get("twitch_id"):
-                admin_user = u_resp.json()[0]
-                break
+            if u_resp.status_code == 200 and u_resp.json() and u_resp.json()[0].get("twitch_id"):
+                broadcaster_ids.add(u_resp.json()[0]["twitch_id"])
         
-        if not admin_user:
-            return {"error": "Не найден Twitch ID админа. Зайдите в профиль бота и привяжите Twitch."}
+        # Железобетонно добавляем второй канал
+        broadcaster_ids.add("755238101")
         
-        broadcaster_id = admin_user["twitch_id"]
+        if not broadcaster_ids:
+            return {"error": "Не найдено ни одного Twitch ID."}
+
         callback_url = f"{WEB_APP_URL}/api/v1/webhooks/twitch"
 
-        # 3. Удаляем ВСЕ старые подписки
+        # 3. Удаляем ВСЕ старые подписки (очищаем базу Твича)
         subs_resp = await client.get("https://api.twitch.tv/helix/eventsub/subscriptions", headers=headers)
         if subs_resp.status_code == 200:
             for sub in subs_resp.json().get("data", []):
@@ -21116,7 +21188,7 @@ async def fix_twitch_subs(
                 if sub["status"] != "enabled" or callback_url in sub["transport"]["callback"]:
                     await client.delete(f"https://api.twitch.tv/helix/eventsub/subscriptions?id={sub['id']}", headers=headers)
 
-        # 4. Создаем НОВЫЕ подписки (Награды + Online + Offline)
+        # 4. Создаем НОВЫЕ подписки для КАЖДОГО стримера
         event_types = [
             "channel.channel_points_custom_reward_redemption.add",
             "stream.online",
@@ -21124,23 +21196,26 @@ async def fix_twitch_subs(
         ]
         
         created_subs = []
-        for event_type in event_types:
-            sub_payload = {
-                "type": event_type,
-                "version": "1",
-                "condition": {"broadcaster_user_id": broadcaster_id},
-                "transport": {
-                    "method": "webhook",
-                    "callback": callback_url,
-                    "secret": TWITCH_WEBHOOK_SECRET
+        for b_id in broadcaster_ids:
+            for event_type in event_types:
+                sub_payload = {
+                    "type": event_type,
+                    "version": "1",
+                    "condition": {"broadcaster_user_id": b_id},
+                    "transport": {
+                        "method": "webhook",
+                        "callback": callback_url,
+                        "secret": TWITCH_WEBHOOK_SECRET
+                    }
                 }
-            }
-            create_resp = await client.post("https://api.twitch.tv/helix/eventsub/subscriptions", headers=headers, json=sub_payload)
-            created_subs.append({event_type: create_resp.status_code})
+                create_resp = await client.post("https://api.twitch.tv/helix/eventsub/subscriptions", headers=headers, json=sub_payload)
+                
+                # Логируем результат для каждого канала
+                created_subs.append({f"Channel {b_id} - {event_type}": create_resp.status_code})
 
         return {
-            "message": "Подписки обновлены (Rewards + Stream Online/Offline)!",
-            "broadcaster_id": broadcaster_id,
+            "message": "Подписки успешно обновлены для всех каналов!",
+            "broadcaster_ids": list(broadcaster_ids),
             "results": created_subs
         }
 
@@ -26154,8 +26229,9 @@ async def get_market_items(
 # ==========================================
 # 🎮 ИГРА "УГАДАЙ СЛОВО" (FOSSABOT + OBS + ADMIN)
 # ==========================================
-# Подтягиваем твой ID из настроек Vercel
-BROADCASTER_ID = os.getenv("TWITCH_BROADCASTER_ID", "883996654")
+# Подтягиваем ID из настроек Vercel и превращаем в список
+RAW_BROADCASTER_IDS = os.getenv("TWITCH_BROADCASTER_ID", "883996654")
+BROADCASTER_IDS = [b.strip() for b in RAW_BROADCASTER_IDS.split(",") if b.strip()]
 
 # --- 1. АДМИНКА: Создать новый сбор (для ИГРЫ) ---
 @app.post("/api/v1/admin/community_events/create")
@@ -26165,30 +26241,37 @@ async def create_community_event(req: CommunityEventCreateRequest, supabase: htt
     if not user_info or user_info.get('id') not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
-    # 2. Достаем токен стримера
-    token_res = await supabase.get("/users", params={"twitch_id": f"eq.{BROADCASTER_ID}", "select": "twitch_access_token"})
-    broadcaster_token = token_res.json()[0].get("twitch_access_token") if token_res.json() else None
-
-    # 3. Закрываем старые активные сборы
+    # 3. Закрываем старые активные сборы (Поднял выше, чтобы закрыть до создания наград)
     await supabase.patch("/community_events", params={"is_active": "eq.true"}, json={"is_active": False})
 
-    # 4. Создаем награду на Твиче
-    reward_id = None
-    if broadcaster_token:
-        twitch_reward_title = f"Закрыть сбор: {req.title}"
-        try:
-            reward_id = await create_twitch_reward(broadcaster_token, twitch_reward_title, req.twitch_reward_cost)
-        except Exception as e:
-            logging.error(f"Не удалось создать награду Твича: {e}")
+    # 2 & 4. Достаем токены стримеров и создаем награду на Твиче ДЛЯ ВСЕХ
+    reward_ids = []
+    twitch_reward_title = f"Закрыть сбор: {req.title}"
+    
+    for b_id in BROADCASTER_IDS:
+        token_res = await supabase.get("/users", params={"twitch_id": f"eq.{b_id}", "select": "twitch_access_token"})
+        broadcaster_token = token_res.json()[0].get("twitch_access_token") if token_res.json() else None
+
+        if broadcaster_token:
+            try:
+                # Передаем конкретный b_id в функцию
+                r_id = await create_twitch_reward(broadcaster_token, b_id, twitch_reward_title, req.twitch_reward_cost)
+                if r_id:
+                    reward_ids.append(r_id)
+            except Exception as e:
+                logging.error(f"Не удалось создать награду Твича для канала {b_id}: {e}")
+
+    # Склеиваем ID всех наград через запятую для БД
+    final_reward_id = ",".join(reward_ids) if reward_ids else None
 
     # 5. Сохраняем ивент в базу
     new_event = {
         "title": req.title,
         "event_type": "guess", # Обязательное поле для БД!
         "target_points": req.target_points,
-        "current_points": 0,   # 🔥 ВОТ ЧЕГО НЕ ХВАТАЛО! Стартуем с 0 очков
+        "current_points": 0,   # Стартуем с 0 очков
         "cover_url": req.cover_url,
-        "twitch_reward_id": reward_id,
+        "twitch_reward_id": final_reward_id, # Сохраняем строку с ID
         "twitch_reward_gain": req.twitch_reward_gain,
         "coin_multiplier": req.coin_multiplier,
         "ticket_multiplier": req.ticket_multiplier,
@@ -26197,21 +26280,21 @@ async def create_community_event(req: CommunityEventCreateRequest, supabase: htt
     
     res = await supabase.post("/community_events", json=new_event, headers={"Prefer": "return=representation"})
     
-    # 🔥 ПРОВЕРЯЕМ ОТВЕТ БАЗЫ, ЧТОБЫ БОЛЬШЕ НЕ ПРОПУСКАТЬ ОШИБКИ
+    # 🔥 ПРОВЕРЯЕМ ОТВЕТ БАЗЫ
     if res.status_code not in (200, 201):
         logging.error(f"Ошибка сохранения сбора в Supabase: {res.text}")
         raise HTTPException(status_code=500, detail="Ошибка базы данных при создании сбора.")
         
-    return {"status": "success"}
+    res_data = res.json()
 
-    # Защита от KeyError, если база вернула ошибку
+    # Защита от KeyError, если база вернула ошибку внутри JSON (но статус 200/201)
     if isinstance(res_data, dict) and "message" in res_data:
         logging.error(f"ОШИБКА SUPABASE: {res_data}")
         raise HTTPException(status_code=400, detail=f"Ошибка БД: {res_data['message']}")
 
     event_data = res_data[0] if isinstance(res_data, list) else res_data
     return {"status": "success", "event": event_data}
-
+    
 # --- 2. ФРОНТЕНД: Получить текущий сбор ---
 @app.get("/api/v1/events/current")
 async def get_current_event(response: Response, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
@@ -26293,13 +26376,18 @@ async def donate_to_event(req: EventDonateRequest, supabase: httpx.AsyncClient =
         except Exception as e:
             logging.error(f"Ошибка автозапуска отгадайки: {e}")
 
+        # 🔥 ИСПРАВЛЕНИЕ МУЛЬТИАККАУНТА: Выключаем награды на всех каналах
         if event.get("twitch_reward_id"):
-            try:
-                token_res = await supabase.get("/users", params={"twitch_id": f"eq.{BROADCASTER_ID}", "select": "twitch_access_token"})
-                broadcaster_token = token_res.json()[0].get("twitch_access_token")
-                await toggle_twitch_reward(broadcaster_token, event["twitch_reward_id"], is_enabled=False)
-            except Exception as e:
-                logging.error(f"Сбор завершен, но не удалось скрыть награду Твича: {e}")
+            reward_ids = [r.strip() for r in event["twitch_reward_id"].split(",") if r.strip()]
+            # zip объединяет каналы и их награды попарно
+            for b_id, r_id in zip(BROADCASTER_IDS, reward_ids):
+                try:
+                    token_res = await supabase.get("/users", params={"twitch_id": f"eq.{b_id}", "select": "twitch_access_token"})
+                    broadcaster_token = token_res.json()[0].get("twitch_access_token") if token_res.json() else None
+                    if broadcaster_token:
+                        await toggle_twitch_reward(broadcaster_token, r_id, is_enabled=False)
+                except Exception as e:
+                    logging.error(f"Сбор завершен, но не удалось скрыть награду Твича для канала {b_id}: {e}")
 
     return {
         "status": "success", 
@@ -26350,14 +26438,17 @@ async def force_finish_event(
     except Exception as e:
         logging.error(f"Ошибка автозапуска: {e}")
 
-    # Скрываем награду Твича
+    # 🔥 ИСПРАВЛЕНИЕ МУЛЬТИАККАУНТА: Выключаем награды на всех каналах
     if event.get("twitch_reward_id"):
-        try:
-            token_res = await supabase.get("/users", params={"twitch_id": f"eq.{BROADCASTER_ID}", "select": "twitch_access_token"})
-            broadcaster_token = token_res.json()[0].get("twitch_access_token")
-            await toggle_twitch_reward(broadcaster_token, event["twitch_reward_id"], is_enabled=False)
-        except Exception as e:
-            logging.error(f"Сбор завершен, но не удалось скрыть награду Твича: {e}")
+        reward_ids = [r.strip() for r in event["twitch_reward_id"].split(",") if r.strip()]
+        for b_id, r_id in zip(BROADCASTER_IDS, reward_ids):
+            try:
+                token_res = await supabase.get("/users", params={"twitch_id": f"eq.{b_id}", "select": "twitch_access_token"})
+                broadcaster_token = token_res.json()[0].get("twitch_access_token") if token_res.json() else None
+                if broadcaster_token:
+                    await toggle_twitch_reward(broadcaster_token, r_id, is_enabled=False)
+            except Exception as e:
+                logging.error(f"Сбор завершен, но не удалось скрыть награду Твича для канала {b_id}: {e}")
 
     return f"Сбор закрыт! Игра 'Угадай слово' запущена."
 
