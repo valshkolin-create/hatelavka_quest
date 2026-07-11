@@ -21165,18 +21165,12 @@ async def fix_twitch_subs(
             "Content-Type": "application/json"
         }
 
-        # 🔥 2. СОБИРАЕМ ID ВСЕХ СТРИМЕРОВ
-        broadcaster_ids = set()
-        for admin_id in ADMIN_IDS:
-            u_resp = await supabase.get("/users", params={"telegram_id": f"eq.{admin_id}", "select": "twitch_id"})
-            if u_resp.status_code == 200 and u_resp.json() and u_resp.json()[0].get("twitch_id"):
-                broadcaster_ids.add(u_resp.json()[0]["twitch_id"])
-        
-        # Железобетонно добавляем второй канал
-        broadcaster_ids.add("755238101")
-        
-        if not broadcaster_ids:
-            return {"error": "Не найдено ни одного Twitch ID."}
+        # 🔥 2. СОБИРАЕМ ID ВСЕХ СТРИМЕРОВ ИЗ .ENV
+        raw_broadcasters = os.getenv("TWITCH_BROADCASTER_ID")
+        if not raw_broadcasters:
+            return {"error": "TWITCH_BROADCASTER_ID не настроен в .env"}
+            
+        broadcaster_ids = [b.strip() for b in raw_broadcasters.split(",") if b.strip()]
 
         callback_url = f"{WEB_APP_URL}/api/v1/webhooks/twitch"
 
@@ -21215,7 +21209,7 @@ async def fix_twitch_subs(
 
         return {
             "message": "Подписки успешно обновлены для всех каналов!",
-            "broadcaster_ids": list(broadcaster_ids),
+            "broadcaster_ids": broadcaster_ids,
             "results": created_subs
         }
 
