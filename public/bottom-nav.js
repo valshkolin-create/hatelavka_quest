@@ -174,37 +174,32 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
-    // 4. АВТОНОМНАЯ ПРОВЕРКА СТАТУСА ИГРЫ
+    // 4. АВТОНОМНАЯ ПРОВЕРКА СТАТУСА ИГРЫ И СТРИМА (МУЛЬТИАККАУНТ)
     const checkGameStatus = async () => {
         try {
-            const res = await fetch('https://pyeuckjcrsiaseyqrsek.supabase.co/rest/v1/guess_state?id=eq.1&select=is_active', {
-                headers: { 
-                    'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5ZXVja2pjcnNpYXNleXFyc2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ0NzEyOTgsImV4cCI6MjA3MDA0NzI5OH0.srRwuUygiF7jr3-b2AwyRNAmrChlW3Bzp3I-9Ju2TVg', 
-                    'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5ZXVja2pjcnNpYXNleXFyc2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ0NzEyOTgsImV4cCI6MjA3MDA0NzI5OH0.srRwuUygiF7jr3-b2AwyRNAmrChlW3Bzp3I-9Ju2TVg' 
-                }
-            });
-            const data = await res.json();
+            const headers = { 
+                'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5ZXVja2pjcnNpYXNleXFyc2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ0NzEyOTgsImV4cCI6MjA3MDA0NzI5OH0.srRwuUygiF7jr3-b2AwyRNAmrChlW3Bzp3I-9Ju2TVg', 
+                'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB5ZXVja2pjcnNpYXNleXFyc2VrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ0NzEyOTgsImV4cCI6MjA3MDA0NzI5OH0.srRwuUygiF7jr3-b2AwyRNAmrChlW3Bzp3I-9Ju2TVg' 
+            };
+
+            // 🔥 Запрашиваем ОДНОВРЕМЕННО статус игры и статусы обоих стримеров
+            const [guessRes, settingsRes] = await Promise.all([
+                fetch('https://pyeuckjcrsiaseyqrsek.supabase.co/rest/v1/guess_state?id=eq.1&select=is_active', { headers }),
+                fetch('https://pyeuckjcrsiaseyqrsek.supabase.co/rest/v1/settings?key=in.(twitch_status_883996654,twitch_status_755238101)&select=value', { headers })
+            ]);
+
+            const guessData = await guessRes.json();
+            const settingsData = await settingsRes.json();
+            
             const gamesBtn = document.getElementById('nav-games-btn');
             
-            if (gamesBtn && data && data.length > 0) {
-                // 🔥 БРОНЕБОЙНАЯ ПРОВЕРКА СТАТУСА СТРИМА ДЛЯ ВСЕХ СТРАНИЦ 🔥
-                let isStreamOnline = false;
-
-                // 1. Сначала ищем в оперативной памяти (если основной скрипт на странице)
-                if (typeof userData !== 'undefined' && userData.is_stream_online) {
-                    isStreamOnline = true;
-                } 
-                // 2. Если памяти нет, достаем из сохраненного кэша бутстрапа (для других страниц)
-                else {
-                    try {
-                        const cached = JSON.parse(localStorage.getItem('cache_bootstrap') || '{}');
-                        if (cached && cached.user && cached.user.is_stream_online) {
-                            isStreamOnline = true;
-                        }
-                    } catch(e) {}
-                }
+            if (gamesBtn && guessData && guessData.length > 0) {
+                // Проверяем, есть ли хотя бы один стрим со статусом true
+                // (учитываем, что value может прийти как boolean или как строка 'true')
+                const isStreamOnline = settingsData && settingsData.some(s => s.value === true || s.value === 'true') || false;
                 
-                if (data[0].is_active && isStreamOnline) {
+                // Если игра активна И хотя бы один канал онлайн -> показываем бейдж
+                if (guessData[0].is_active && isStreamOnline) {
                     gamesBtn.classList.add('game-live');
                 } else {
                     gamesBtn.classList.remove('game-live');
