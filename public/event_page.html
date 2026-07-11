@@ -675,17 +675,24 @@
             } catch (e) { container.innerHTML = '<div class="text-[#ff4d4d] text-center text-xs mt-2">Ошибка загрузки</div>'; }
         }
 
-        // 🔥 НОВОЕ: Проверка админки и статуса твича (работает в рамках инициализации)
+        // 🔥 НОВОЕ: Проверка админки и статуса твича (Мультиаккаунт)
         async function checkAdmin() {
             try {
+                // 1. Проверяем админку через API
                 const userData = await apiCall('/api/v1/user/me', {}, 'POST');
-                if (userData) {
-                    if (userData.is_admin) { document.getElementById('admin-btn').classList.remove('hidden'); }
-                    if (userData.is_stream_online !== undefined) {
-                        isStreamLive = userData.is_stream_online;
-                    } else {
-                        isStreamLive = false;
-                    }
+                if (userData && userData.is_admin) { 
+                    document.getElementById('admin-btn').classList.remove('hidden'); 
+                }
+
+                // 2. 🔥 Прямой запрос в Supabase для проверки обоих стримеров
+                const { data, error } = await supabaseClient
+                    .from('settings')
+                    .select('value')
+                    .in('key', ['twitch_status_883996654', 'twitch_status_755238101']);
+                
+                if (!error && data && data.length > 0) {
+                    // Если хотя бы один из каналов вернул true -> стрим идет
+                    isStreamLive = data.some(s => s.value === true || s.value === 'true');
                 } else {
                     isStreamLive = false;
                 }
