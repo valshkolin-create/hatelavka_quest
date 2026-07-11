@@ -1863,13 +1863,18 @@ function renderItems(items) {
     // 🔥 Защита от краша
     if (!Array.isArray(items)) items = []; 
 
+    // ✅ ДОБАВЛЯЕМ УНИВЕРСАЛЬНУЮ БРОНЕБОЙНУЮ ПРОВЕРКУ
+    const isItemFree = (itemName) => {
+        const target = (itemName || "").trim().toLowerCase();
+        return window.activeFreeCases.some(n => (n || "").trim().toLowerCase() === target);
+    };
+
     // ============================================================
     // 👇 ЛОГИКА СЕКРЕТНЫХ КЕЙСОВ (is_secret) 👇
     // ============================================================
     items = items.filter(item => {
         if (item.is_secret) {
-            const hasCoupon = window.activeFreeCases.includes(item.name);
-            return hasCoupon; 
+            return isItemFree(item.name); // ✅ ИСПОЛЬЗУЕМ НАШУ ФУНКЦИЮ
         }
         return true; 
     });
@@ -1901,11 +1906,10 @@ function renderItems(items) {
         items = items.filter(item => {
             if (item.is_folder) return true; 
             
-            const isFreeItem = window.activeFreeCases.includes(item.name);
-            if (isFreeItem) return true; 
+            if (isItemFree(item.name)) return true; // ✅ ИСПОЛЬЗУЕМ НАШУ ФУНКЦИЮ
 
             const originalPrice = parseFloat(item.price) || 0;
-            if (originalPrice === 9999) return false; 
+            if (originalPrice === 9999) return false;
 
             const displayPriceCoins = originalPrice * trustMultiplier;
             const displayPriceTickets = (originalPrice * 2) * trustMultiplier;
@@ -1930,8 +1934,8 @@ function renderItems(items) {
         if (a.is_folder && !b.is_folder) return -1;
         if (!a.is_folder && b.is_folder) return 1;
 
-        const isFreeA = window.activeFreeCases.includes(a.name);
-        const isFreeB = window.activeFreeCases.includes(b.name);
+        const isFreeA = isItemFree(a.name); // ✅ ИСПОЛЬЗУЕМ НАШУ ФУНКЦИЮ
+        const isFreeB = isItemFree(b.name); // ✅ ИСПОЛЬЗУЕМ НАШУ ФУНКЦИЮ
 
         if (isFreeA && !isFreeB) return -1;
         if (!isFreeA && isFreeB) return 1;
