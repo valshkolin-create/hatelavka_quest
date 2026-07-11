@@ -2049,7 +2049,7 @@ function renderItems(items) {
                 </div>
             `;
        } else if (isCase) {
-            let showFreeButton = window.activeFreeCases.includes(item.name);
+    let showFreeButton = isFreeItem; // ✅ ИСПОЛЬЗУЕМ ЖЕЛЕЗОБЕТОННУЮ ПРОВЕРКУ
             
             if (showFreeButton) {
                 buttonHtml = `<div class="case-buttons-container" style="display:flex; width:100%; height:35px; align-items:center; justify-content:center;">
@@ -2142,7 +2142,8 @@ window.openCase = async function(id, price, name, imageUrl, currency = 'coins') 
     const displayPrice = price * trustMultiplier;
 
     // 1. ПРОВЕРКА ЧЕРЕЗ ГЛОБАЛЬНЫЙ МАССИВ (СИНХРОНИЗАЦИЯ С БД)
-    let isFreeOpen = window.activeFreeCases.includes(name);
+const safeTargetName = (name || "").trim().toLowerCase();
+let isFreeOpen = window.activeFreeCases.some(n => (n || "").trim().toLowerCase() === safeTargetName); // ✅ ЖЕЛЕЗОБЕТОННО
     
     // Флаг для бэкенда, чтобы он понял: код вводить не надо, чекай базу по ID
     let activeCoupon = isFreeOpen ? "FREE_BY_ID" : null;
@@ -2206,11 +2207,12 @@ window.openCase = async function(id, price, name, imageUrl, currency = 'coins') 
              // 2. 🔥 БЕТОННОЕ СПИСАНИЕ ОДНОЙ ШТУКИ 🔥
             if (isFreeOpen) {
                 // Находим индекс ПЕРВОГО совпадения
-                const indexToRemove = window.activeFreeCases.indexOf(name);
-                if (indexToRemove > -1) {
-                    // Вырезаем ровно 1 штуку из массива
-                    window.activeFreeCases.splice(indexToRemove, 1);
-                }
+                // Находим индекс ПЕРВОГО совпадения
+const indexToRemove = window.activeFreeCases.findIndex(n => (n || "").trim().toLowerCase() === safeTargetName);
+if (indexToRemove > -1) {
+    // Вырезаем ровно 1 штуку из массива
+    window.activeFreeCases.splice(indexToRemove, 1);
+}
                 
                 // Перерисовываем визуал магазина (счетчик обновится)
                 renderItems(itemsCache[currentCategoryId] || []); 
