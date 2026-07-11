@@ -4979,14 +4979,14 @@ async def process_twitch_notification_background(data: dict, message_id: str):
     current_broadcaster_id = event_data.get("broadcaster_user_id")
     current_broadcaster_login = event_data.get("broadcaster_user_login", "hatelove_ttv")
 
-    # --- ЛОГИКА ДЛЯ СТАТУСА СТРИМА ---
+   # --- ЛОГИКА ДЛЯ СТАТУСА СТРИМА ---
     if event_type == "stream.online":
         logging.info(f"🟣 Стрим ONLINE на канале {current_broadcaster_login}! Обновляем статус и запускаем рассылку.")
         
-        # 1. Сохраняем статус в settings (можно сделать ключи раздельными, если нужно отслеживать оба)
+        # 1. Сохраняем статус ИМЕННО ЭТОГО стримера
         await supabase.post("/settings", json={"key": f"twitch_status_{current_broadcaster_id}", "value": True}, headers={"Prefer": "resolution=merge-duplicates"})
 
-        # Включаем CRON-задачу
+        # Включаем CRON-задачу (если она уже включена другим стримером - ничего страшного)
         await toggle_cron_job(True)
 
         # Авто-синхронизация VIP
@@ -4996,7 +4996,7 @@ async def process_twitch_notification_background(data: dict, message_id: str):
         except Exception as e:
             logging.error(f"⚠️ Ошибка при авто-синхронизации VIP: {e}")
         
-        # 2. Формируем сообщение с динамической ссылкой!
+        # 2. Формируем сообщение с динамической ссылкой
         msg_text = (
             f"🟣 <b>Стрим НАЧАЛСЯ на канале {current_broadcaster_login}!</b>\n\n"
             "Залетайте на трансляцию, лутайте баллы и участвуйте в ивентах! 🚀\n\n"
@@ -5007,9 +5007,34 @@ async def process_twitch_notification_background(data: dict, message_id: str):
         await broadcast_notification_task(msg_text, "notify_stream_start")
         return
         
-
     elif event_type == "stream.offline":
-        logging.info("⚫ Стрим OFFLINE.")
+        logging.info(f"⚫ Стрим OFFLINE на канале {current_broadcaster_login}.")
+        
+        # 1. Выключаем статус ИМЕННО ЭТОГО канала
+        await supabase.post("/settings", json={"key": f"twitch_status_{current_broadcaster_id}", "value": False}, headers={"Prefer": "resolution=merge-duplicates"})
+        
+        # 🔥 2. ПРОВЕРЯЕМ, ИДУТ ЛИ СТРИМЫ НА ДРУГИХ КАНАЛАХ 🔥
+        import os
+        broadcaster_ids = [b.strip() for b in os.getenv("TWITCH_BROADCASTER_ID", "").split(",") if b.strip()]
+        is_any_online = False
+        
+        for b_id in broadcaster_ids:
+            resp = await supabase.get("/settings", params={"key": f"eq.twitch_status_{b_id}", "select": "value"})
+            if resp.status_code == 200 and resp.json() and resp.json()[0].get("value") is True:
+                is_any_online = True
+                break
+                
+        if not is_any_online:
+            logging.info("🔴 Все каналы OFFLINE. Выдаем награды за сессию и тушим крон...")
+            try:
+                await trigger_stream_end_rewards(supabase)
+            except Exception as e:
+                logging.error(f"⚠️ Ошибка вызова trigger_stream_end_rewards: {e}")
+
+            await toggle_cron_job(False)
+        else:
+            logging.info(f"🟡 Канал {current_broadcaster_login} ушел офлайн, но другие стримы еще идут. Крон продолжает работу.")
+        return
         
         # 🔥 [НОВОЕ] ВЫДАЕМ НАГРАДЫ ЗА СЕССИЮ (до сброса счетчиков)
         try:
@@ -5029,7 +5054,7 @@ async def process_twitch_notification_background(data: dict, message_id: str):
     event_data = data.get("event", {})
     reward_title = event_data.get("reward", {}).get("title", "Unknown")
 
-    # =====================================================================
+   # =====================================================================
     # 👇👇👇 НАШ НОВЫЙ ПЕРЕХВАТЧИК СБОРА ТУТ 👇👇👇
     # =====================================================================
     reward_id = event_data.get("reward", {}).get("id")
@@ -5041,8 +5066,11 @@ async def process_twitch_notification_background(data: dict, message_id: str):
     if active_events and len(active_events) > 0:
         event = active_events[0]
         
-        # Если ID купленной награды совпадает с наградой нашего сбора:
-        if reward_id == event.get("twitch_reward_id"):
+        # 🔥 ИСПРАВЛЕНИЕ: Превращаем строку из БД в список ID наград и проверяем вхождение
+        db_reward_ids = [r.strip() for r in event.get("twitch_reward_id", "").split(",") if r.strip()]
+        
+        # Если ID купленной награды есть в нашем списке наград сбора:
+        if reward_id in db_reward_ids:
             gain = event.get("twitch_reward_gain", 20) # Сколько очков даем за 1 покупку
             new_points = event.get("current_points", 0) + gain
             is_finished = new_points >= event.get("target_points", 100)
@@ -5054,11 +5082,11 @@ async def process_twitch_notification_background(data: dict, message_id: str):
                 
             await supabase.patch("/community_events", params={"id": f"eq.{event['id']}"}, json=update_payload)
             
-            logging.info(f"🔥 В СБОР ЗАЛЕТЕЛИ ОЧКИ! {user_name} принес +{gain} очков через Twitch!")
+            logging.info(f"🔥 В СБОР ЗАЛЕТЕЛИ ОЧКИ! {user_name} принес +{gain} очков через Twitch ({current_broadcaster_login})!")
             
             # Уведомляем админа о пополнении сбора
             if ADMIN_NOTIFY_CHAT_ID:
-                await safe_send_message(ADMIN_NOTIFY_CHAT_ID, f"🚀 <b>Вклад в сбор с Твича!</b>\nПользователь <b>{user_name}</b> купил награду и добавил +{gain} очков.\nПрогресс: {new_points} / {event.get('target_points')}")
+                await safe_send_message(ADMIN_NOTIFY_CHAT_ID, f"🚀 <b>Вклад в сбор с Твича ({current_broadcaster_login})!</b>\nПользователь <b>{user_name}</b> купил награду и добавил +{gain} очков.\nПрогресс: {new_points} / {event.get('target_points')}")
 
             # ЕСЛИ ШКАЛА ДОШЛА ДО 100% -> ЗАПУСКАЕМ ИГРУ И ТУШИМ НАГРАДУ
             if is_finished:
@@ -5081,7 +5109,7 @@ async def process_twitch_notification_background(data: dict, message_id: str):
                     logging.error(f"Ошибка автозапуска отгадайки через Твич: {e}")
                 
                 try:
-                    # 🔥 Хирургическая замена: ищем токен именно того стримера, на котором куплена награда
+                    # 🔥 Хирургическая замена: используем токен ИМЕННО ТОГО канала, где добили сбор
                     token_res = await supabase.get("/users", params={"twitch_id": f"eq.{current_broadcaster_id}", "select": "twitch_access_token"})
                     broadcaster_token = token_res.json()[0].get("twitch_access_token") if token_res.json() else None
                     if broadcaster_token:
