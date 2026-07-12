@@ -12709,8 +12709,6 @@ async def cron_leaderboard_issue(request: Request, source: str = Query(...), per
     Автоматическая выдача наград. Вызывается по расписанию от cron-job.org
     Параметры: ?source=telegram&period=day или ?source=twitch&period=day
     """
-    import logging
-    
     # 1. ЗАЩИТА: Проверяем токен от cron-job.org
     auth_header = request.headers.get("Authorization")
     if auth_header != f"Bearer {VERCEL_CRON_SECRET}":
@@ -12722,9 +12720,11 @@ async def cron_leaderboard_issue(request: Request, source: str = Query(...), per
     if source == "telegram":
         keys_to_check = [f"telegram_{period}"]
     elif source == "twitch":
-        # Для твича сопоставляем 'day' с 'session'
-        t_period = "session" if period == "day" else period
-        keys_to_check = [f"twitch_message_{t_period}", f"twitch_uptime_{t_period}", f"twitch_ranks_{t_period}"]
+        # Убрали приравнивание day к session для безопасности.
+        # Теперь cron отвечает только за week/month.
+        if period == "day":
+            return {"success": True, "details": "Сессионные награды выдаются только по завершению стрима"}
+        keys_to_check = [f"twitch_message_{period}", f"twitch_uptime_{period}", f"twitch_ranks_{period}"]
     else:
         raise HTTPException(status_code=400, detail="Invalid source")
 
@@ -12739,7 +12739,6 @@ async def cron_leaderboard_issue(request: Request, source: str = Query(...), per
                 
             config = cfg_data[0].get("value", {})
             if isinstance(config, str):
-                import json
                 try: config = json.loads(config)
                 except: config = {}
 
@@ -12754,7 +12753,7 @@ async def cron_leaderboard_issue(request: Request, source: str = Query(...), per
             elif source == "twitch":
                 parts = l_key.split("_")
                 metric = parts[1] # message, uptime, ranks
-                t_period = parts[2] # session, week, month
+                t_period = parts[2] # week, month
                 
                 if metric == "ranks":
                     board_data = await get_wizebot_leaderboard(sub_type="ALL", limit=3, supabase=supabase)
@@ -12793,14 +12792,15 @@ async def cron_leaderboard_issue(request: Request, source: str = Query(...), per
             continue
 
     return {"success": True, "processed": processed_boards}
-
+    
+# =====================================================================
+# 5. АВТОВЫДАЧА ПРИ ОКОНЧАНИИ СТРИМА
+# =====================================================================
 async def trigger_stream_end_rewards(supabase: httpx.AsyncClient):
     """
     Вызывается автоматически, когда стрим заканчивается (stream.offline).
     Проверяет настройки авто-выдачи для сессионного Твича.
     """
-    import logging
-    
     leaderboards_to_check = [
         {"key": "twitch_message_session", "db_col": "daily_message_count"},
         {"key": "twitch_uptime_session", "db_col": "daily_uptime_minutes"}
@@ -12817,7 +12817,6 @@ async def trigger_stream_end_rewards(supabase: httpx.AsyncClient):
             # 2. Достаем JSON из колонки 'value'
             config = cfg_data[0].get("value", {})
             if isinstance(config, str):
-                import json
                 try: config = json.loads(config)
                 except: config = {}
                 
@@ -12884,15 +12883,15 @@ async def trigger_stream_end_rewards(supabase: httpx.AsyncClient):
         except Exception as e:
             logging.error(f"❌ Ошибка авто-выдачи наград после стрима ({board['key']}): {e}")
     
+# =====================================================================
+# 1. УНИВЕРСАЛЬНАЯ ФУНКЦИЯ ВЫДАЧИ (С ЖЕЛЕЗОБЕТОННОЙ ЗАЩИТОЙ ОТ ДУБЛЕЙ)
+# =====================================================================
 async def process_reward_issuance(tg_id: int, r_type: str, r_value: str, config_key: str, supabase: httpx.AsyncClient) -> str:
     """
     Универсальная функция выдачи наград. Ищет юзера по telegram_id ИЛИ twitch_id.
     После успешного начисления отправляет in-app уведомление «в колокольчик».
+    ВСТРОЕНА ЗАЩИТА: Награда за конкретный лидерборд выдается строго 1 раз в 12 часов.
     """
-    import uuid
-    from datetime import datetime, timezone
-    import logging
-
     # 1. Ищем по обоим столбцам сразу через параметр 'or'
     u_resp = await supabase.get("/users", params={
         "or": f"(telegram_id.eq.{tg_id},twitch_id.eq.{tg_id})",
@@ -12926,9 +12925,26 @@ async def process_reward_issuance(tg_id: int, r_type: str, r_value: str, config_
     }
     board_title = board_map.get(config_key, f"Лидерборд ({config_key})")
     
+    # 🔥 Временная граница: 12 часов назад
+    twelve_hours_ago = (datetime.now(timezone.utc) - timedelta(hours=12)).isoformat()
+    
     try:
         # --- ВЫДАЧА МОНЕТ ---
         if r_type == "coins":
+            # ЗАЩИТА: Проверяем, не выдавали ли уже монеты за этот лидерборд
+            check_dup = await supabase.get(
+                "/promocodes", 
+                params={
+                    "telegram_id": f"eq.{real_tg_id}",
+                    "description": f"eq.Топ Лидерборда: {config_key}",
+                    "created_at": f"gte.{twelve_hours_ago}",
+                    "select": "id"
+                }
+            )
+            if check_dup.status_code == 200 and check_dup.json():
+                logging.warning(f"🛡 Защита: Монеты за '{config_key}' уже выдавались {real_tg_id}.")
+                return f"ID {tg_id} -> Монеты '{config_key}' уже были выданы (защита от дубля)"
+
             unique_promo_code = f"LB-COIN-{real_tg_id}-{uuid.uuid4().hex[:4].upper()}"
             promo_insert = await supabase.post(
                 "/promocodes", 
@@ -12990,6 +13006,20 @@ async def process_reward_issuance(tg_id: int, r_type: str, r_value: str, config_
                 
         # --- ВЫДАЧА КЕЙСОВ ---
         elif r_type == "case":
+            # ЗАЩИТА: Проверяем, не выдавали ли мы уже этот кейс
+            check_dup = await supabase.get(
+                "/cs_codes", 
+                params={
+                    "assigned_to": f"eq.{real_tg_id}",
+                    "description": f"eq.Авто-код: Топ Лидерборда ({config_key})",
+                    "assigned_at": f"gte.{twelve_hours_ago}",
+                    "select": "id"
+                }
+            )
+            if check_dup.status_code == 200 and check_dup.json():
+                logging.warning(f"🛡 Защита: Кейс за '{config_key}' уже выдавался {real_tg_id}.")
+                return f"ID {tg_id} -> Кейс '{r_value}' уже был выдан (защита от дубля)"
+
             unique_code = f"LB-{real_tg_id}-{uuid.uuid4().hex[:4].upper()}"
             coupon_res = await supabase.post(
                 "/cs_codes", 
@@ -13024,9 +13054,9 @@ async def process_reward_issuance(tg_id: int, r_type: str, r_value: str, config_
     except Exception as e:
         logging.error(f"Ошибка выдачи награды {tg_id}: {e}", exc_info=True)
         return f"ID {tg_id}: Системная ошибка ({str(e)})"
-        
+
 # =====================================================================
-# 1. ХЕЛПЕР ДЛЯ ОТОБРАЖЕНИЯ НАГРАД (С ДИНАМИЧЕСКИМ КЛЮЧОМ И ЗАЩИТОЙ ОТ СТРОК)
+# 2. ХЕЛПЕР ДЛЯ ОТОБРАЖЕНИЯ НАГРАД
 # =====================================================================
 async def attach_rewards_to_leaderboard(leaderboard_data: list, supabase: httpx.AsyncClient, leaderboard_key: str) -> list:
     """
@@ -13048,13 +13078,11 @@ async def attach_rewards_to_leaderboard(leaderboard_data: list, supabase: httpx.
             if isinstance(settings_data, list) and len(settings_data) > 0 and isinstance(settings_data[0], dict):
                 val = settings_data[0].get("value", {})
                 if isinstance(val, str):
-                    import json
                     try: val = json.loads(val)
                     except: val = {}
                 if isinstance(val, dict):
                     rewards_config = val
         except Exception as e:
-            import logging
             logging.warning(f"Не удалось распарсить settings_data: {e}")
 
         # 2. Безопасное чтение картинок кейсов (ИСПРАВЛЕНО)
@@ -13066,7 +13094,6 @@ async def attach_rewards_to_leaderboard(leaderboard_data: list, supabase: httpx.
                 items = shop_data[0].get("data") or shop_data[0].get("items", [])
                 
                 if isinstance(items, str):
-                    import json
                     try: items = json.loads(items)
                     except: items = []
                 
@@ -13077,7 +13104,6 @@ async def attach_rewards_to_leaderboard(leaderboard_data: list, supabase: httpx.
                             safe_name = item["name"].strip()
                             case_images[safe_name] = item["image_url"]
         except Exception as e:
-            import logging
             logging.warning(f"Не удалось распарсить shop_data: {e}")
 
         # Иконки для валют
@@ -13096,7 +13122,6 @@ async def attach_rewards_to_leaderboard(leaderboard_data: list, supabase: httpx.
                 cfg = rewards_config[rank_str]
                 
                 if isinstance(cfg, str):
-                    import json
                     try:
                         parsed_cfg = json.loads(cfg)
                         if isinstance(parsed_cfg, dict):
@@ -13129,7 +13154,6 @@ async def attach_rewards_to_leaderboard(leaderboard_data: list, supabase: httpx.
             entry["reward"] = reward_obj
 
     except Exception as e:
-        import logging
         logging.error(f"Ошибка привязки наград: {e}")
     
     return leaderboard_data
@@ -13315,9 +13339,6 @@ async def save_leaderboard_config(request: Request, supabase: httpx.AsyncClient 
 
 @app.post("/api/v1/admin/leaderboard/issue")
 async def issue_leaderboard_rewards(request: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
-    import os
-    import logging
-    
     body = await request.json()
     user_info = is_valid_init_data(body.get("initData"), ALL_VALID_TOKENS)
     if not user_info: 
