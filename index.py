@@ -3392,12 +3392,13 @@ async def sync_steam_inventory(
     import traceback
     import asyncio
     import re
-    from fastapi import HTTPException # На всякий случай добавил импорт, чтобы не было ошибки
+    import datetime # 🔥 ДОБАВИЛИ ДЛЯ ПРОВЕРКИ ДАТЫ 🔥
+    from fastapi import HTTPException
 
     if token != CRON_SECRET:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
-    # 🔥 БЭКЕНД-АНАЛИЗАТОР РЕДКОСТИ (Для предметов, которых нет на ботах)
+    # 🔥 БЭКЕНД-АНАЛИЗАТОР РЕДКОСТИ
     def guess_backend_rarity(name: str, price: float) -> str:
         n = name.lower()
         if any(k in n for k in ['knife', 'нож', 'karambit', 'bayonet', 'shadow daggers', 'gloves', 'перчатки', 'wraps', 'bloodhound', 'talon', 'butterfly']):
@@ -3408,232 +3409,224 @@ async def sync_steam_inventory(
         if price >= 20: return 'blue'
         return 'common'
 
+    bot_results = []
+    bots = []
+    bot_stats = {}
+    known_rarities = {}
+
     try:
         # 1. Получаем ВСЕХ активных ботов из базы
         res = await supabase.get("/steam_accounts", params={"status": "eq.active"})
-        bots = res.json()
+        if res.status_code == 200:
+            bots = res.json()
+        
+        # 🔥 ПРАВКА: ТЕПЕРЬ МЫ НЕ ДЕЛАЕМ RETURN! Просто пишем статус и идем дальше.
         if not bots: 
-            return {"success": False, "message": "Нет активных ботов для синхронизации"}
+            bot_stats["system"] = "Нет активных ботов для синхронизации, переходим к обновлению Маркета."
+            print("[SYNC] Нет активных ботов, пропускаем инвентари.")
+        else:
+            # Функция для параллельного сбора инвентаря ОДНОГО бота
+            async def fetch_bot_inventory(client, bot):
+                bot_id = bot['id']
+                cookies = bot.get('session_data', {}).get('cookies', {})
+                steam_login = urllib.parse.unquote(cookies.get('steamLoginSecure', ''))
+                steam_id = steam_login.split('||')[0] if '||' in steam_login else None
+                
+                if not steam_id:
+                    return {"bot_id": bot_id, "error": "SteamID не найден в куках", "items": []}
 
-        # Функция для параллельного сбора инвентаря ОДНОГО бота
-        async def fetch_bot_inventory(client, bot):
-            bot_id = bot['id']
-            cookies = bot.get('session_data', {}).get('cookies', {})
-            steam_login = urllib.parse.unquote(cookies.get('steamLoginSecure', ''))
-            steam_id = steam_login.split('||')[0] if '||' in steam_login else None
-            
-            if not steam_id:
-                return {"bot_id": bot_id, "error": "SteamID не найден в куках", "items": []}
+                url_en = f"https://steamcommunity.com/inventory/{steam_id}/730/2?l=english&count=1000"
+                url_ru = f"https://steamcommunity.com/inventory/{steam_id}/730/2?l=russian&count=1000"
+                
+                async def safe_get(url):
+                    last_resp = None
+                    for attempt in range(3):
+                        try:
+                            resp = await client.get(url, cookies=cookies, timeout=25.0)
+                            if resp.status_code == 200:
+                                return resp
+                            last_resp = resp
+                            await asyncio.sleep(3 * (attempt + 1)) 
+                        except Exception:
+                            await asyncio.sleep(3)
+                    return last_resp
 
-            # Ссылки на инвентарь (EN для ключей цен, RU для названий в боте)
-            url_en = f"https://steamcommunity.com/inventory/{steam_id}/730/2?l=english&count=1000"
-            url_ru = f"https://steamcommunity.com/inventory/{steam_id}/730/2?l=russian&count=1000"
-            
-            async def safe_get(url):
-                last_resp = None
-                for attempt in range(3):
-                    try:
-                        resp = await client.get(url, cookies=cookies, timeout=25.0)
-                        if resp.status_code == 200:
-                            return resp
-                        last_resp = resp
-                        await asyncio.sleep(3 * (attempt + 1)) 
-                    except Exception:
-                        await asyncio.sleep(3)
-                return last_resp
+                resp_en, resp_ru = await asyncio.gather(safe_get(url_en), safe_get(url_ru))
 
-            # Запускаем запросы EN и RU параллельно для экономии времени
-            resp_en, resp_ru = await asyncio.gather(safe_get(url_en), safe_get(url_ru))
+                if not resp_en or resp_en.status_code != 200:
+                    return {"bot_id": bot_id, "error": f"Steam EN Error: {resp_en.status_code if resp_en else 'Network Error'}", "items": []}
 
-            if not resp_en or resp_en.status_code != 200:
-                err_code = resp_en.status_code if resp_en else "Network Error"
-                return {"bot_id": bot_id, "error": f"Steam EN Error: {err_code}", "items": []}
+                if not resp_ru or resp_ru.status_code != 200:
+                    return {"bot_id": bot_id, "error": f"Steam RU Error: {resp_ru.status_code if resp_ru else 'Network Error'}", "items": []}
 
-            if not resp_ru or resp_ru.status_code != 200:
-                err_code = resp_ru.status_code if resp_ru else "Network Error"
-                return {"bot_id": bot_id, "error": f"Steam RU Error: {err_code}", "items": []}
+                en_desc_map = {}
+                for desc in resp_en.json().get("descriptions", []):
+                    if desc.get("tradable") == 1:
+                        key = f"{desc.get('classid')}_{desc.get('instanceid')}"
+                        en_desc_map[key] = desc.get("market_hash_name", "")
 
-            # Собираем английские названия (Market Hash Name)
-            en_desc_map = {}
-            for desc in resp_en.json().get("descriptions", []):
-                if desc.get("tradable") == 1:
-                    key = f"{desc.get('classid')}_{desc.get('instanceid')}"
-                    en_desc_map[key] = desc.get("market_hash_name", "")
+                data_ru = resp_ru.json()
+                assets = data_ru.get("assets", [])
+                bot_items = []
+                desc_map = {}
 
-            # Парсим русские данные
-            data_ru = resp_ru.json()
-            assets = data_ru.get("assets", [])
-            bot_items = []
+                for desc in data_ru.get("descriptions", []):
+                    if desc.get("tradable") == 1:
+                        key = f"{desc.get('classid')}_{desc.get('instanceid')}"
+                        raw_cond = "-"
+                        rarity_col = "default"
+                        
+                        for tag in desc.get("tags", []):
+                            if tag.get("category") == "Exterior":
+                                raw_cond = tag.get("localized_tag_name", tag.get("name"))
+                            elif tag.get("category") == "Rarity":
+                                rarity_col = tag.get("color", "").lower()
+                        
+                        desc_map[key] = {
+                            "name_ru": desc.get("market_name", desc.get("name", "Неизвестно")),
+                            "hash_name_en": en_desc_map.get(key, desc.get("market_hash_name", "")),
+                            "condition": CONDITION_MAP.get(raw_cond, "-"), 
+                            "rarity": RARITY_COLOR_MAP.get(rarity_col, "common"), 
+                            "icon_url": f"https://community.cloudflare.steamstatic.com/economy/image/{desc.get('icon_url_large') or desc.get('icon_url')}/512fx512f" if (desc.get("icon_url_large") or desc.get("icon_url")) else ""
+                        }
 
-            desc_map = {}
-            for desc in data_ru.get("descriptions", []):
-                if desc.get("tradable") == 1:
-                    key = f"{desc.get('classid')}_{desc.get('instanceid')}"
-                    raw_cond = "-"
-                    rarity_col = "default"
-                    
-                    for tag in desc.get("tags", []):
-                        if tag.get("category") == "Exterior":
-                            raw_cond = tag.get("localized_tag_name", tag.get("name"))
-                        elif tag.get("category") == "Rarity":
-                            rarity_col = tag.get("color", "").lower()
-                    
-                    desc_map[key] = {
-                        "name_ru": desc.get("market_name", desc.get("name", "Неизвестно")),
-                        "hash_name_en": en_desc_map.get(key, desc.get("market_hash_name", "")),
-                        "condition": CONDITION_MAP.get(raw_cond, "-"), # Используем твой глобальный маппинг
-                        "rarity": RARITY_COLOR_MAP.get(rarity_col, "common"), # И твой маппинг редкости
-                        "icon_url": f"https://community.cloudflare.steamstatic.com/economy/image/{desc.get('icon_url_large') or desc.get('icon_url')}/512fx512f" if (desc.get("icon_url_large") or desc.get("icon_url")) else ""
-                    }
+                for asset in assets:
+                    key = f"{asset['classid']}_{asset['instanceid']}"
+                    if key in desc_map:
+                        info = desc_map[key]
+                        bot_items.append({
+                            "assetid": asset["assetid"],
+                            "account_id": bot_id,
+                            "market_hash_name": info["hash_name_en"],
+                            "name_ru": info["name_ru"],
+                            "condition": info["condition"],
+                            "rarity": info["rarity"],
+                            "icon_url": info["icon_url"],
+                            "is_reserved": False
+                        })
+                
+                return {"bot_id": bot_id, "error": None, "items": bot_items}
 
-            for asset in assets:
-                key = f"{asset['classid']}_{asset['instanceid']}"
-                if key in desc_map:
-                    info = desc_map[key]
-                    bot_items.append({
-                        "assetid": asset["assetid"],
-                        "account_id": bot_id,
-                        "market_hash_name": info["hash_name_en"],
-                        "name_ru": info["name_ru"],
-                        "condition": info["condition"],
-                        "rarity": info["rarity"],
-                        "icon_url": info["icon_url"],
-                        "is_reserved": False
-                    })
-            
-            return {"bot_id": bot_id, "error": None, "items": bot_items}
+            # 2. ЗАПУСКАЕМ ПАРАЛЛЕЛЬНЫЙ СБОР СО ВСЕХ БОТОВ
+            async with httpx.AsyncClient(headers={"User-Agent": "Mozilla/5.0"}) as client:
+                tasks = [fetch_bot_inventory(client, bot) for bot in bots]
+                bot_results = await asyncio.gather(*tasks)
 
-        # 2. ЗАПУСКАЕМ ПАРАЛЛЕЛЬНЫЙ СБОР СО ВСЕХ БОТОВ
-        async with httpx.AsyncClient(headers={"User-Agent": "Mozilla/5.0"}) as client:
-            tasks = [fetch_bot_inventory(client, bot) for bot in bots]
-            bot_results = await asyncio.gather(*tasks)
+            # СОБИРАЕМ РЕДКОСТИ С БОТОВ
+            for res in bot_results:
+                for item in res.get("items", []):
+                    m_name = item.get("market_hash_name")
+                    if m_name:
+                        known_rarities[m_name] = item.get("rarity", "blue")
 
-        # 🔥 СОБИРАЕМ 100% ТОЧНЫЕ РЕДКОСТИ С БОТОВ 🔥
-        known_rarities = {}
-        for res in bot_results:
-            for item in res.get("items", []):
-                m_name = item.get("market_hash_name")
-                if m_name:
-                    known_rarities[m_name] = item.get("rarity", "blue")
+    except Exception as e:
+        print(f"Ошибка при работе с ботами: {e}")
+        bot_stats["system_error"] = str(e)
 
-        # 3. ПОЛУЧАЕМ ЦЕНЫ ИЗ CS:GO MARKET (1 быстрый запрос)
-        market_prices_rub = {}
-        popular_market_items = [] # 🔥 СЮДА СОБЕРЕМ МАССОВКУ (Включая дешевые наклейки) 🔥
-        
-        # 🔥 Заголовки для обхода защиты Cloudflare 🔥
-        cf_headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-            "Accept": "application/json",
-            "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
-            "Sec-Ch-Ua": '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
-            "Sec-Ch-Ua-Mobile": "?0",
-            "Sec-Ch-Ua-Platform": '"Windows"'
-        }
-        
+
+    # --- 🚀 УМНАЯ И ПРИОРИТЕТНАЯ ЗАГРУЗКА ЦЕН (ОТ ДЕШЕВЫХ К ДОРОГИМ) ---
+    market_prices_rub = {}
+    market_cache_payload = []
+    
+    cf_headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Accept": "application/json"
+    }
+    
+    try:
+        # Шаг 1: Загружаем текущее состояние базы, чтобы узнать дату last_sync
+        db_sync_dates = {}
         try:
-            # Передаем заголовки в клиент
-            async with httpx.AsyncClient(headers=cf_headers) as client:
-                price_resp = await client.get("https://cs2.market/api/v2/prices/RUB.json", timeout=30.0)
-                if price_resp.status_code == 200:
-                    market_data = price_resp.json()
-                    for item in market_data.get("items", []):
-                        m_name = item["market_hash_name"]
-                        price = float(item["price"])
+            # Загружаем кеш. Лимит 30000 чтобы охватить всю базу
+            cache_res = await supabase.get("/market_cache", params={"select": "market_hash_name, last_sync", "limit": 30000})
+            if cache_res.status_code == 200:
+                for row in cache_res.json():
+                    db_sync_dates[row["market_hash_name"]] = row.get("last_sync")
+        except Exception as e:
+            print(f"Не смогли загрузить даты last_sync из базы: {e}")
 
+        # Шаг 2: Получаем актуальные цены с Маркета
+        async with httpx.AsyncClient(headers=cf_headers) as client:
+            price_resp = await client.get("https://cs2.market/api/v2/prices/RUB.json", timeout=30.0)
+            
+            if price_resp.status_code == 200:
+                market_data = price_resp.json()
+                
+                # Собираем валидные айтемы (только с ценой > 0)
+                valid_market_items = []
+                for item in market_data.get("items", []):
+                    m_name = item["market_hash_name"]
+                    price = float(item["price"])
+                    if price > 0:
                         market_prices_rub[m_name] = price
-                        
-                        # 🔥 Берем ВСЁ от копеек (0.30 руб и т.д.) до 3000 рублей. Отсекаем только нули. 🔥
-                        if 0 < price <= 3000:
-                            # Определяем редкость для Маркета (визуализация на складе)
-                            final_rarity = known_rarities.get(m_name) or guess_backend_rarity(m_name, price)
+                        valid_market_items.append({"name": m_name, "price": price})
+
+                # 🔥 СОРТИРУЕМ ОТ САМЫХ ДЕШЕВЫХ К ДОРОГИМ (Приоритет)
+                valid_market_items.sort(key=lambda x: x["price"])
+
+                now_utc = datetime.datetime.now(datetime.timezone.utc)
+                
+                # Шаг 3: Выбираем 1000 штук для умного обновления
+                for item in valid_market_items:
+                    m_name = item["name"]
+                    m_price = item["price"]
+                    
+                    needs_update = True
+                    last_sync_str = db_sync_dates.get(m_name)
+                    
+                    if last_sync_str:
+                        try:
+                            # Парсим дату из базы (Supabase отдает в формате 2026-06-26 02:04:46+03)
+                            clean_str = last_sync_str.replace(" ", "T")
+                            last_sync_date = datetime.datetime.fromisoformat(clean_str)
                             
-                            popular_market_items.append({
-                                "market_hash_name": m_name,
-                                "price_rub": price,
-                                "rarity": final_rarity, 
-                                "is_available": True,
-                                "last_sync": "now()"
-                            })
-        except Exception as e:
-            print(f"Критическая ошибка загрузки цен: {e}")
-
-        # --- 🚀 ШАГ 3.5: ОБНОВЛЯЕМ MARKET_CACHE (ВИТРИНА + МАРКЕТ) ---
-        try:
-            # 🔥 ДОБАВИЛИ ЗАПРОС ID, CONDITION И RARITY 🔥
-            items_res = await supabase.get("/cs_items", params={"select": "id, market_hash_name, condition, rarity"})
-            shop_items = items_res.json()
-            
-            if shop_items and isinstance(shop_items, list):
-                # Словарь для перевода твоих коротких качеств в формат Маркета
-                cond_map = {
-                    "FN": " (Factory New)", 
-                    "MW": " (Minimal Wear)",
-                    "FT": " (Field-Tested)", 
-                    "WW": " (Well-Worn)", 
-                    "BS": " (Battle-Scarred)"
-                }
-                
-                market_cache_payload = []
-                unique_names_to_sync = set()
-                
-                for item in shop_items:
-                    base_name = item.get('market_hash_name')
-                    if not base_name: continue
-                    
-                    full_name = base_name
-                    
-                    # 🛠 УМНАЯ СКЛЕЙКА: Если в имени нет скобок, но есть condition
-                    if "(" not in base_name and item.get("condition") in cond_map:
-                        full_name = f"{base_name}{cond_map[item['condition']]}"
+                            if last_sync_date.tzinfo is None:
+                                last_sync_date = last_sync_date.replace(tzinfo=datetime.timezone.utc)
+                            else:
+                                last_sync_date = last_sync_date.astimezone(datetime.timezone.utc)
+                                
+                            time_diff = now_utc - last_sync_date
+                            
+                            # Если обновляли МЕНЬШЕ 24 часов назад -> пропускаем
+                            if time_diff.total_seconds() < 86400: 
+                                needs_update = False
+                        except Exception:
+                            # Если дата кривая или не парсится - обновляем принудительно
+                            pass
+                            
+                    if needs_update:
+                        market_cache_payload.append({
+                            "market_hash_name": m_name,
+                            "price_rub": m_price,
+                            "rarity": known_rarities.get(m_name) or guess_backend_rarity(m_name, m_price),
+                            "is_available": True,
+                            "last_sync": "now()"
+                        })
                         
-                        # Бонус: Сразу отправляем команду в БД исправить имя в cs_items навсегда!
-                        asyncio.create_task(
-                            supabase.patch("/cs_items", params={"id": f"eq.{item['id']}"}, json={"market_hash_name": full_name})
-                        )
+                    # 🔥 КАК ТОЛЬКО НАБРАЛИ 1000 — ОСТАНАВЛИВАЕМСЯ
+                    if len(market_cache_payload) >= 1000:
+                        break
+                        
+                # Шаг 4: Заливаем собранные предметы в базу пачками по 100 штук
+                if market_cache_payload:
+                    print(f"[SYNC] Заливаем {len(market_cache_payload)} умных обновлений в market_cache...")
+                    for i in range(0, len(market_cache_payload), 100):
+                        await supabase.post("/market_cache", json=market_cache_payload[i:i+100], headers={"Prefer": "resolution=merge-duplicates"})
+                else:
+                    print("[SYNC] Нет предметов, требующих обновления в market_cache (все свежее).")
 
-                    if full_name in unique_names_to_sync: 
-                        continue
-                    unique_names_to_sync.add(full_name)
+    except Exception as e:
+        print(f"Критическая ошибка загрузки и обновления цен Маркета: {e}")
+        bot_stats["market_error"] = str(e)
 
-                    # Ищем цену по ПОЛНОМУ имени
-                    m_price = market_prices_rub.get(full_name, 0.0)
-                    
-                    # 🔥 Сохраняем редкость из базы витрины, ботов или угадываем
-                    final_rarity = item.get("rarity") or known_rarities.get(full_name) or guess_backend_rarity(full_name, m_price)
+    # 4. ОБРАБОТКА И СОХРАНЕНИЕ В КЭШ БОТОВ (Если боты были)
+    total_synced = 0
+    unique_pairs = {} 
 
-                    market_cache_payload.append({
-                        "market_hash_name": full_name,
-                        "price_rub": m_price,
-                        "rarity": final_rarity, # 🔥 ПИШЕМ РЕДКОСТЬ В БАЗУ
-                        "is_available": m_price > 0,
-                        "last_sync": "now()"
-                    })
-                
-                # 🔥 ДОБРАСЫВАЕМ ГЛОБАЛЬНЫЕ СКИНЫ (ПРИОРИТЕТ 2) 🔥
-                import random
-                random.shuffle(popular_market_items)
-                extra_items = popular_market_items[:1000] # Берем 1000 случайных ликвидных скинов
-                
-                for ext_item in extra_items:
-                    if ext_item["market_hash_name"] not in unique_names_to_sync:
-                        market_cache_payload.append(ext_item)
-                        unique_names_to_sync.add(ext_item["market_hash_name"])
-                
-                # Заливаем пачками по 100
-                for i in range(0, len(market_cache_payload), 100):
-                    await supabase.post("/market_cache", json=market_cache_payload[i:i+100], headers={"Prefer": "resolution=merge-duplicates"})
-                print(f"[SYNC] market_cache обновлен для {len(market_cache_payload)} товаров. Гибридная склейка отработала.")
-        except Exception as e:
-            print(f"Ошибка обновления market_cache: {e}")
-
-        # 4. ОБРАБОТКА, РАСЧЕТ ТИКЕТОВ И СОХРАНЕНИЕ В КЭШ БОТОВ
-        total_synced = 0
-        bot_stats = {}
-        unique_pairs = {} 
-
+    if bot_results:
         for res_data in bot_results:
             bot_id = res_data["bot_id"]
-            if res_data["error"]:
+            if res_data.get("error"):
                 bot_stats[bot_id] = res_data["error"]
                 continue
                 
@@ -3657,18 +3650,15 @@ async def sync_steam_inventory(
                 bot_inventory.append(item)
 
             if bot_inventory:
-                # 🔥 ПРАВКА 1: СНАЧАЛА УДАЛЯЕМ И ЖДЕМ ЗАВЕРШЕНИЯ (Защита от гонки)
                 try:
                     await supabase.delete(f"/steam_inventory_cache?account_id=eq.{bot_id}")
                 except Exception as e:
                     print(f"Ошибка очистки инвентаря бота {bot_id}: {e}")
                 
-                # Готовим задачи на вставку
                 insert_tasks = []
                 for i in range(0, len(bot_inventory), 50):
                     insert_tasks.append(supabase.post("/steam_inventory_cache", json=bot_inventory[i:i+50]))
                 
-                # 🔥 ПРАВКА 2: ВСТАВЛЯЕМ ПАЧКАМИ ПО 5 ЗАПРОСОВ (Защита от httpx.ReadError)
                 for i in range(0, len(insert_tasks), 5):
                     await asyncio.gather(*insert_tasks[i:i+5])
                 
@@ -3677,31 +3667,24 @@ async def sync_steam_inventory(
             else:
                 bot_stats[bot_id] = "Инвентарь пуст."
 
-        # --- 🚀 ШАГ 5: УСКОРЕННАЯ СИНХРОНИЗАЦИЯ CS_ITEMS ---
+        # УСКОРЕННАЯ СИНХРОНИЗАЦИЯ CS_ITEMS
         if unique_pairs:
             print(f"[SYNC] Обновление market_hash_name для {len(unique_pairs)} предметов...")
             update_tasks = [
                 supabase.patch("/cs_items", params={"name": f"eq.{ru_name}"}, json={"market_hash_name": en_name})
                 for ru_name, en_name in unique_pairs.items()
             ]
-            # 🔥 ПРАВКА 3: Уменьшаем пачку с 30 до 10, чтобы Supabase не сбрасывал соединение
             for i in range(0, len(update_tasks), 10):
                 await asyncio.gather(*update_tasks[i:i+10])
 
-        return {
-            "success": True, 
-            "total_items_synced": total_synced,
-            "templates_updated": len(unique_pairs),
-            "bot_details": bot_stats
-        }
-
-    # 👇 ДОБАВЬ ВОТ ЭТИ 6 СТРОК 👇
-    except Exception as e:
-        return {
-            "success": False, 
-            "error": str(e), 
-            "traceback": traceback.format_exc()
-        }
+    return {
+        "success": True, 
+        "total_items_synced": total_synced,
+        "templates_updated": len(unique_pairs),
+        "market_items_updated": len(market_cache_payload), # Показываем, сколько залили
+        "bot_details": bot_stats
+    }
+    
 # Новый эндпоинт для быстрой загрузки всего сразу
 @app.post("/api/v1/bootstrap")
 async def get_bootstrap_data(
