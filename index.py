@@ -3552,11 +3552,21 @@ async def sync_steam_inventory(
             if price_resp.status_code == 200:
                 market_data = price_resp.json()
                 
-                # Собираем валидные айтемы (только с ценой > 0)
+                # 🔥 ШАГ 2.5: ФИЛЬТРУЕМ МУСОР (ГРАФФИТИ, КЕЙСЫ, НАКЛЕЙКИ) 🔥
                 valid_market_items = []
+                # Список английских слов, которые мы не хотим видеть в базе
+                stop_words = ['graffiti', 'sticker', 'case', 'capsule', 'patch', 'package', 'box', 'pin', 'music kit']
+                
                 for item in market_data.get("items", []):
                     m_name = item["market_hash_name"]
                     price = float(item["price"])
+                    
+                    # Проверяем, есть ли мусорное слово в названии (в нижнем регистре)
+                    name_lower = m_name.lower()
+                    if any(sw in name_lower for sw in stop_words):
+                        continue # Пропускаем этот предмет, он нам не нужен!
+                    
+                    # Берем всё, что дешевле любых денег (главное больше 0), так как мусор мы уже отсеяли
                     if price > 0:
                         market_prices_rub[m_name] = price
                         valid_market_items.append({"name": m_name, "price": price})
