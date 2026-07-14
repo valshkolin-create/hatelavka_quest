@@ -16272,7 +16272,7 @@ async def process_bp_auto_quest(supabase: httpx.AsyncClient, keyword: str, tg_id
         config = cp_res.json()[0].get("content", {})
         if not config.get("is_active") or not config.get("start_date"): return
         
-        # Зона МСК (UTC+3)
+        # 🔥 Задаем зону МСК (UTC+3) 🔥
         msk_tz = timezone(timedelta(hours=3))
 
         # Переводим дату старта из базы в МСК
@@ -16283,9 +16283,11 @@ async def process_bp_auto_quest(supabase: httpx.AsyncClient, keyword: str, tg_id
         
         if now < start_date: return
         
+        # 🔥 ХИРУРГИЧЕСКАЯ ПРАВКА 1: Убрали +1, чтобы время совпадало с водопадом
         days_passed = (now.date() - start_date.date()).days
         current_week = (days_passed // 7) + 1
         
+        # 🔥 ХИРУРГИЧЕСКАЯ ПРАВКА 2: Добавили int(), чтобы защита календаря не сломалась о строки
         active_quests = [q for q in config.get("quests_config", []) if int(q.get("week", 1)) <= current_week]
         if not active_quests: return
         
@@ -16296,6 +16298,7 @@ async def process_bp_auto_quest(supabase: httpx.AsyncClient, keyword: str, tg_id
         if quests_res.status_code != 200: return
         
         quests_db_data = quests_res.json()
+        target_quest_type = None
         
         # ИЗОЛИРУЕМ ЦЕПОЧКУ СТРОГО ПО КЛЮЧЕВОМУ СЛОВУ В НАЗВАНИИ
         chain_quest_ids = []
@@ -16307,6 +16310,7 @@ async def process_bp_auto_quest(supabase: httpx.AsyncClient, keyword: str, tg_id
         
         chain_ids_str = ",".join(map(str, chain_quest_ids))
         
+       # 🔥 ХИРУРГИЧЕСКАЯ ПРАВКА 3: Добавили int() в сортировку и ПОИСК
         target_configs = sorted([q for q in active_quests if int(q["quest_id"]) in chain_quest_ids], key=lambda x: int(x.get("week", 1)))
         
         # Запрашиваем прогресс для ВСЕХ квестов в цепочке
@@ -16315,29 +16319,29 @@ async def process_bp_auto_quest(supabase: httpx.AsyncClient, keyword: str, tg_id
             "quest_id": f"in.({chain_ids_str})"
         })
         
-        # 🔥 ИСПРАВЛЕНИЕ 1: Собираем словарь строго по quest_id. 
-        # Поля 'week' в таблице user_bp_quests нет, поэтому старый двойной ключ ломал логику.
         user_progress = {}
         if prog_res.status_code == 200:
             for q in prog_res.json():
+                w = q.get("week")
                 q_id = q.get("quest_id")
+                # 🔥 ПРАВКА ТУТ: Двойной ключ (ID, Неделя), чтобы квесты не перезаписывали друг друга
                 if q_id is not None:
-                    user_progress[int(q_id)] = q
+                    user_progress[(int(q_id), int(w) if w is not None else 1)] = q
         
         week_to_update = None
         target_amount = 1
         current_db_record = None
         target_quest_id_for_week = None # СОХРАНЯЕМ ID ИМЕННО ЭТОЙ НЕДЕЛИ
         
-        # УМНЫЙ ЗАМОК ЦЕПОЧКИ
+        # 🔥 УМНЫЙ ЗАМОК ЦЕПОЧКИ 🔥
         previous_cleared = True
         
         for cfg in target_configs:
             w = int(cfg.get("week", 1))
             q_id = int(cfg.get("quest_id"))
             
-            # 🔥 ИСПРАВЛЕНИЕ 2: Достаем существующий прогресс по ID квеста
-            prog = user_progress.get(q_id)
+            # 🔥 ПРАВКА ТУТ: Ищем по двойному ключу
+            prog = user_progress.get((q_id, w))
             
             # Если предыдущая неделя не пройдена ИЛИ не забрана - блокируем все следующие!
             if not previous_cleared:
@@ -16348,6 +16352,7 @@ async def process_bp_auto_quest(supabase: httpx.AsyncClient, keyword: str, tg_id
                     break # Текущая выполнена, но висит награда. Стоп. Не даем идти дальше.
                 elif not prog.get("is_completed"):
                     week_to_update = w
+                    # 🔥 ПРАВКА ТУТ: Безопасно тянем цель
                     target_amount = int(cfg.get("target_amount", cfg.get("target", 1)))
                     current_db_record = prog
                     target_quest_id_for_week = q_id
@@ -16358,6 +16363,7 @@ async def process_bp_auto_quest(supabase: httpx.AsyncClient, keyword: str, tg_id
             else:
                 # Записи нет, а предыдущая чиста. Берем эту неделю!
                 week_to_update = w
+                # 🔥 И ПРАВКА ТУТ: Безопасно тянем цель
                 target_amount = int(cfg.get("target_amount", cfg.get("target", 1)))
                 current_db_record = None
                 target_quest_id_for_week = q_id
@@ -16368,17 +16374,28 @@ async def process_bp_auto_quest(supabase: httpx.AsyncClient, keyword: str, tg_id
         if current_db_record:
             new_amount = current_db_record["current_amount"] + 1
             is_completed = new_amount >= target_amount
-            await supabase.patch("/user_bp_quests", params={"id": f"eq.{current_db_record['id']}"}, json={
+            
+            # 🔥 ПРАВКА ТУТ: Безопасное обновление (страховка от отсутствующего 'id')
+            record_id = current_db_record.get('id')
+            if record_id:
+                patch_params = {"id": f"eq.{record_id}"}
+            else:
+                patch_params = {
+                    "user_id": f"eq.{tg_id}",
+                    "quest_id": f"eq.{target_quest_id_for_week}",
+                    "week": f"eq.{week_to_update}"
+                }
+                
+            await supabase.patch("/user_bp_quests", params=patch_params, json={
                 "current_amount": new_amount,
                 "is_completed": is_completed
             })
         else:
             is_completed = 1 >= target_amount
-            # 🔥 ИСПРАВЛЕНИЕ 3: Полностью убрали "week" из JSON-тела POST запроса.
-            # Так как этой колонки нет в таблице БД, Supabase возвращал ошибку схемы 400 Bad Request.
             await supabase.post("/user_bp_quests", json={
                 "user_id": tg_id,
-                "quest_id": int(target_quest_id_for_week),
+                "quest_id": int(target_quest_id_for_week), # 🔥 На всякий случай обернули в int()
+                "week": week_to_update,
                 "current_amount": 1,
                 "target_amount": target_amount,
                 "is_completed": is_completed,
