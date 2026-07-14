@@ -5589,11 +5589,11 @@ async def handle_twitch_webhook(
     headers = request.headers
     message_id = headers.get("Twitch-Eventsub-Message-Id", "NO_ID")
     message_type = headers.get("Twitch-Eventsub-Message-Type", "NO_TYPE")
+    sub_id = headers.get("Twitch-Eventsub-Subscription-Id", "NO_SUB_ID")
     timestamp = headers.get("Twitch-Eventsub-Message-Timestamp")
     signature = headers.get("Twitch-Eventsub-Message-Signature")
 
-    # 🚨 ЛОГ 1: Что вообще постучалось в эндпоинт?
-    logging.info(f"🚨 [ВХОД] Twitch дернул вебхук! Message-ID: {message_id} | Message-Type: {message_type}")
+   logging.info(f"🚨 [ВХОД] Twitch дернул вебхук! Message-ID: {message_id} | Sub-ID: {sub_id} | Type: {message_type}")
 
     if not all([message_id, timestamp, signature, TWITCH_WEBHOOK_SECRET]):
         logging.error("🚨 [ОШИБКА] Нет нужных заголовков.")
@@ -21154,7 +21154,8 @@ async def fix_twitch_subs(
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
     """
-    Удаляет старые подписки и создает новые для ВСЕХ стримеров: Награды + СТРИМ (Online/Offline).
+    ОСНОВНАЯ ВЕРСИЯ: Удаляет старый мусор и создает ЧИСТЫЕ подписки.
+    Только этот бот имеет право слушать Twitch.
     """
     async with httpx.AsyncClient() as client:
         # 1. Получаем токен авторизации приложения
@@ -21176,24 +21177,25 @@ async def fix_twitch_subs(
             "Content-Type": "application/json"
         }
 
-        # 🔥 2. СОБИРАЕМ ID ВСЕХ СТРИМЕРОВ ИЗ .ENV
+        # 2. СОБИРАЕМ ID СТРИМЕРОВ
         raw_broadcasters = os.getenv("TWITCH_BROADCASTER_ID")
         if not raw_broadcasters:
             return {"error": "TWITCH_BROADCASTER_ID не настроен в .env"}
             
         broadcaster_ids = [b.strip() for b in raw_broadcasters.split(",") if b.strip()]
-
+        
+        # Гарантируем, что вебхуки идут только на основной домен
         callback_url = f"{WEB_APP_URL}/api/v1/webhooks/twitch"
 
-        # 3. Удаляем ВСЕ старые подписки (очищаем базу Твича)
+        # 🔥 3. АГРЕССИВНОЕ УДАЛЕНИЕ ВСЕХ СТАРЫХ ПОДПИСОК
         subs_resp = await client.get("https://api.twitch.tv/helix/eventsub/subscriptions", headers=headers)
+        deleted_count = 0
         if subs_resp.status_code == 200:
             for sub in subs_resp.json().get("data", []):
-                # Удаляем вообще все, чтобы пересоздать чисто
-                if sub["status"] != "enabled" or callback_url in sub["transport"]["callback"]:
-                    await client.delete(f"https://api.twitch.tv/helix/eventsub/subscriptions?id={sub['id']}", headers=headers)
+                await client.delete(f"https://api.twitch.tv/helix/eventsub/subscriptions?id={sub['id']}", headers=headers)
+                deleted_count += 1
 
-        # 4. Создаем НОВЫЕ подписки для КАЖДОГО стримера
+        # 4. СОЗДАЕМ НОВЫЕ ПОДПИСКИ
         event_types = [
             "channel.channel_points_custom_reward_redemption.add",
             "stream.online",
@@ -21214,13 +21216,12 @@ async def fix_twitch_subs(
                     }
                 }
                 create_resp = await client.post("https://api.twitch.tv/helix/eventsub/subscriptions", headers=headers, json=sub_payload)
-                
-                # Логируем результат для каждого канала
                 created_subs.append({f"Channel {b_id} - {event_type}": create_resp.status_code})
 
         return {
-            "message": "Подписки успешно обновлены для всех каналов!",
-            "broadcaster_ids": broadcaster_ids,
+            "message": "Подписки основного бота успешно пересозданы!",
+            "deleted_old_subs_count": deleted_count,
+            "target_webhook": callback_url,
             "results": created_subs
         }
 
