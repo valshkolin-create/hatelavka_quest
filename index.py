@@ -16322,8 +16322,9 @@ async def process_bp_auto_quest(supabase: httpx.AsyncClient, keyword: str, tg_id
         if prog_res.status_code == 200:
             for q in prog_res.json():
                 w = q.get("week")
-                # Если неделя null, считаем ее первой (чтобы не сломать int)
-                user_progress[int(w) if w is not None else 1] = q
+                q_id = q.get("quest_id")
+                # 🔥 ФИКС: Двойной ключ (ID, Неделя), защита от слияния квестов
+                user_progress[(int(q_id), int(w) if w is not None else 1)] = q
         
         week_to_update = None
         target_amount = 1
@@ -16335,7 +16336,9 @@ async def process_bp_auto_quest(supabase: httpx.AsyncClient, keyword: str, tg_id
         
         for cfg in target_configs:
             w = int(cfg.get("week", 1))
-            prog = user_progress.get(w)
+            q_id = int(cfg.get("quest_id"))
+            # 🔥 ФИКС: Достаем прогресс строго по двойному ключу
+            prog = user_progress.get((q_id, w))
             
             # Если предыдущая неделя не пройдена ИЛИ не забрана - блокируем все следующие!
             if not previous_cleared:
