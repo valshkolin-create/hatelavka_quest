@@ -1412,20 +1412,20 @@
                         <strong>Место регистрации:</strong> РФ, г. Псков<br>
                         <strong>Электронная почта поддержки:</strong> val.shkolin@gmail.com<br>
                         <strong>Telegram поддержки:</strong> @hatelove_twitch</p>
-
                     </div>
+
+                <label class="checkbox-label">
+                        <input type="checkbox" id="terms-agree-checkbox" onchange="window.toggleAgreementNext(this.checked)">
+                        <span>Я принимаю условия <a href="/agreement.htm" onclick="event.preventDefault(); event.stopPropagation(); window.location.href = '/agreement.html';" style="color: var(--primary); text-decoration: none; border-bottom: 1px dashed var(--primary);">пользовательского соглашения</a> и оферты.</span>
+                    </label>
+
+                    <button id="premium-next-stage-btn" class="btn-claim ready disabled-terms" style="margin-top: 5px;" disabled onclick="window.confirmRublePayment()">
+                        Перейти к оплате <i class="fa-solid fa-arrow-right" style="margin-left: 5px; font-size: 11px;"></i>
+                    </button>
                 </div>
-
-                <label class="checkbox-label" style="display: flex; align-items: flex-start; gap: 10px; margin-top: 15px;">
-                    <input type="checkbox" id="terms-agree-checkbox" onchange="window.toggleAgreementNext(this.checked)" style="margin-top: 3px;">
-                    <span style="font-size: 12px; color: var(--text-muted); line-height: 1.4;">Я принимаю условия <a href="/agreement.html" onclick="event.preventDefault(); event.stopPropagation(); window.location.href = '/agreement.html';" style="color: var(--primary); text-decoration: none; border-bottom: 1px dashed var(--primary);">пользовательского соглашения</a> и оферты.</span>
-                </label>
-
-                <button id="premium-next-stage-btn" class="btn-claim ready disabled-terms" style="margin-top: 15px; width: 100%; padding: 14px; font-weight: 700; border-radius: 12px;" disabled onclick="window.confirmRublePayment()">
-                    Перейти к оплате <i class="fa-solid fa-arrow-right" style="margin-left: 5px; font-size: 11px;"></i>
-                </button>
-                
             </div>
+        </div>
+    </div>
 
     <div id="premium-success-modal" class="modal-overlay" onclick="if(event.target===this) { closeAllModals(); }">
         <div class="premium-panel" style="background: transparent !important; border: none !important; box-shadow: none !important; text-align: center; max-width: 320px; padding: 20px;">
