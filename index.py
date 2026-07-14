@@ -5578,7 +5578,6 @@ async def process_twitch_notification_background(data: dict, message_id: str):
             await safe_send_message(ADMIN_NOTIFY_CHAT_ID, notification_text)
 
 # --- 2. ГЛАВНЫЙ ЭНДПОИНТ (Мгновенный ответ) ---
-# --- 2. ГЛАВНЫЙ ЭНДПОИНТ (Мгновенный ответ) ---
 @app.post("/api/v1/webhooks/twitch")
 async def handle_twitch_webhook(
     request: Request,
@@ -5593,7 +5592,7 @@ async def handle_twitch_webhook(
     timestamp = headers.get("Twitch-Eventsub-Message-Timestamp")
     signature = headers.get("Twitch-Eventsub-Message-Signature")
 
-   logging.info(f"🚨 [ВХОД] Twitch дернул вебхук! Message-ID: {message_id} | Sub-ID: {sub_id} | Type: {message_type}")
+       logging.info(f"🚨 [ВХОД] Twitch дернул вебхук! Message-ID: {message_id} | Sub-ID: {sub_id} | Type: {message_type}")
 
     if not all([message_id, timestamp, signature, TWITCH_WEBHOOK_SECRET]):
         logging.error("🚨 [ОШИБКА] Нет нужных заголовков.")
