@@ -4902,7 +4902,11 @@ async def silent_update_twitch_user(telegram_id: int):
 # --- 1. ФУНКЦИЯ ФОНОВОЙ ОБРАБОТКИ (Вставляетcя ПЕРЕД эндпоинтом) ---
 async def process_twitch_notification_background(data: dict, message_id: str):
     if not message_id: return
-
+    
+    # 🚨 ЛОГ 5: Воркер запустился
+    event_type = data.get("subscription", {}).get("type", "UNKNOWN")
+    logging.info(f"⚙️ [ВОРКЕР СТАРТ] Начали обработку ID: {message_id} | Событие: {event_type}")
+    
     # Целевой чат для уведомлений
     TARGET_CHAT_ID = -1002996604964 
 
@@ -5574,74 +5578,73 @@ async def process_twitch_notification_background(data: dict, message_id: str):
             await safe_send_message(ADMIN_NOTIFY_CHAT_ID, notification_text)
 
 # --- 2. ГЛАВНЫЙ ЭНДПОИНТ (Мгновенный ответ) ---
+# --- 2. ГЛАВНЫЙ ЭНДПОИНТ (Мгновенный ответ) ---
 @app.post("/api/v1/webhooks/twitch")
 async def handle_twitch_webhook(
     request: Request,
     background_tasks: BackgroundTasks
 ):
-    """
-    Принимает вебхуки от Twitch. 
-    ПРОВЕРЯЕТ подпись и СРАЗУ возвращает 200 OK.
-    Вся логика перенесена в background_tasks.
-    """
-    print("🔥🔥🔥 ВЕБХУК ПОЛУЧЕН! КОД ОБНОВЛЕН! 🔥🔥🔥")
-    
     # 1. Читаем тело и заголовки
     body = await request.body()
     headers = request.headers
-    message_id = headers.get("Twitch-Eventsub-Message-Id")
+    message_id = headers.get("Twitch-Eventsub-Message-Id", "NO_ID")
+    message_type = headers.get("Twitch-Eventsub-Message-Type", "NO_TYPE")
     timestamp = headers.get("Twitch-Eventsub-Message-Timestamp")
     signature = headers.get("Twitch-Eventsub-Message-Signature")
 
+    # 🚨 ЛОГ 1: Что вообще постучалось в эндпоинт?
+    logging.info(f"🚨 [ВХОД] Twitch дернул вебхук! Message-ID: {message_id} | Message-Type: {message_type}")
+
     if not all([message_id, timestamp, signature, TWITCH_WEBHOOK_SECRET]):
+        logging.error("🚨 [ОШИБКА] Нет нужных заголовков.")
         return Response(content="Missing headers", status_code=403)
 
-    # 2. Проверяем подпись (синхронно, это быстро)
+    # 2. Проверяем подпись
     hmac_message = (message_id + timestamp).encode() + body
     expected_signature = "sha256=" + hmac.new(
         TWITCH_WEBHOOK_SECRET.encode(), hmac_message, hashlib.sha256
     ).hexdigest()
 
     if not hmac.compare_digest(expected_signature, signature):
+        logging.error("🚨 [ОШИБКА] Подпись не совпала.")
         return Response(content="Invalid signature", status_code=403)
 
     # 3. Разбираем JSON
     try:
         data = json.loads(body)
+        event_type = data.get("subscription", {}).get("type", "UNKNOWN")
+        # 🚨 ЛОГ 2: Какой это ивент?
+        logging.info(f"🚨 [ИВЕНТ] ID: {message_id} | Тип подписки: {event_type}")
     except json.JSONDecodeError:
         return Response(content="Invalid JSON", status_code=400)
 
-    message_type = headers.get("Twitch-Eventsub-Message-Type")
-
-    # A. Подтверждение подписки (Challenge) - отвечаем сразу
+    # A. Подтверждение подписки
     if message_type == "webhook_callback_verification":
         challenge = data.get("challenge")
+        logging.info("🚨 [ВЕРИФИКАЦИЯ] Twitch проверяет URL. Отвечаем challenge.")
         return Response(content=challenge, media_type="text/plain")
 
-    # B. Уведомление (Reward Redemption)
+    # B. Уведомление
     if message_type == "notification":
-        # --- ЗАЩИТА ОТ ДУБЛЕЙ ---
         current_time = time.time()
         
-        # Очистка старого кэша (раз в 10 минут)
         if current_time - webhook_cache["last_cleanup"] > WEBHOOK_CACHE_TTL:
             webhook_cache["ids"].clear()
             webhook_cache["last_cleanup"] = current_time
 
-        # Если ID уже в кэше — это повтор от Twitch, игнорируем
+        # 🚨 ЛОГ 3: Проверка кэша
         if message_id in webhook_cache["ids"]:
-            logging.info(f"♻️ Дубликат вебхука Twitch (ID: {message_id}). Игнорируем.")
+            logging.warning(f"♻️ [ДУБЛЬ ОТБИТ КЭШЕМ] ID: {message_id} уже был. Убиваем.")
             return Response(content="Duplicate ignored", status_code=200)
 
-        # Запоминаем ID
         webhook_cache["ids"].add(message_id)
 
-        # 🔥 ВАЖНО: Добавляем задачу в фон и СРАЗУ отвечаем Twitch'у
-        background_tasks.add_task(process_twitch_notification_background, data, message_id)
+        # 🚨 ЛОГ 4: Отправка в фон
+        logging.info(f"✅ [ФОНОВАЯ ЗАДАЧА] ID: {message_id} прошел защиты! Передаем в process_twitch_notification_background.")
         
+        background_tasks.add_task(process_twitch_notification_background, data, message_id)
         return Response(content="Processing started", status_code=200)
 
-    # Прочие типы сообщений (на всякий случай отвечаем ОК)
     return Response(status_code=200)
             
 # --- НОВЫЙ ЭНДПОИНТ ДЛЯ ПОЛУЧЕНИЯ ДЕТАЛЕЙ ПОБЕДИТЕЛЕЙ РОЗЫГРЫШЕЙ ---
