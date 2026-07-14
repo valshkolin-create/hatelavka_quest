@@ -4997,6 +4997,16 @@ async def process_twitch_notification_background(data: dict, message_id: str):
         await toggle_cron_job(False)
         return
 
+    # ==========================================
+    # 👇 ВОТ СЮДА НУЖНО ВСТАВИТЬ ЭТУ ПРОВЕРКУ 👇
+    # ==========================================
+    if event_type != "channel.channel_points_custom_reward_redemption.add":
+        logging.info(f"Игнорируем событие типа {event_type} (это не новая покупка, а обновление статуса)")
+        return
+    # ==========================================
+    # ☝️ КОНЕЦ ВСТАВКИ ☝️
+    # ==========================================
+
     # 2. ОПТИМИЗАЦИЯ: Обновляем и читаем кэш
     await ensure_twitch_cache(supabase)
     
