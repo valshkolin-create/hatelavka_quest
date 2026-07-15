@@ -3420,7 +3420,7 @@ window.claimQuestReward = async function(questId, week) {
         dom.premiumBuyModal.classList.remove('modal-active');
         
         // ОТКРЫВАЕМ РОБОКАССУ ПРЯМО ПОВЕРХ MINI APP
-        window.Telegram.WebApp.openLink(res.url);
+        window.Telegram.WebApp.openLink(res.url, { try_instant_view: true });
 
     } catch (e) {
         tg.HapticFeedback.notificationOccurred('error');
