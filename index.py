@@ -25072,12 +25072,12 @@ async def get_user_inventory(
     
     user_id = user_data['id']
 
-    # 🔥 ИСПРАВЛЕНИЕ: Добавили price_rub в select!
+    # 🔥 ИСПРАВЛЕНИЕ 1: Добавили source в select
     resp = await supabase.get(
         "/cs_history",
         params={
             "user_id": f"eq.{user_id}",
-            "select": "id, status, created_at, updated_at, replaced_name, replaced_price, replaced_image_url, replaced_rarity, is_swapped, item:cs_items(id, name, image_url, rarity, condition, price, price_rub)",
+            "select": "id, status, created_at, updated_at, source, replaced_name, replaced_price, replaced_image_url, replaced_rarity, is_swapped, item:cs_items(id, name, image_url, rarity, condition, price, price_rub)",
             "order": "created_at.desc"
         }
     )
@@ -25097,7 +25097,7 @@ async def get_user_inventory(
         raw_price = row.get('replaced_price') if row.get('replaced_price') else item_data.get('price', 0)
         ticket_val = int(float(raw_price))
 
-        # 🔥 Новая цена в МОНЕТАХ для обмена (Свапа)
+        # Новая цена в МОНЕТАХ для обмена (Свапа)
         coin_val = row.get('replaced_price') if row.get('replaced_price') else item_data.get('price_rub', 0)
 
         inventory.append({
@@ -25106,12 +25106,13 @@ async def get_user_inventory(
             "name": row.get('replaced_name') or item_data.get('name', 'Секретный скин'),
             "image_url": row.get('replaced_image_url') or item_data.get('image_url', ''),
             "rarity": row.get('replaced_rarity') or item_data.get('rarity', 'common'),
-            "condition": item_data.get('condition', ''), # <--- ДОБАВИТЬ ЭТУ СТРОКУ
-            "price": ticket_val,  # Оставляем билеты для кнопки "Продать за билеты"
-            "price_rub": float(coin_val), # 🔥 ОТПРАВЛЯЕМ МОНЕТЫ НА ФРОНТ
+            "condition": item_data.get('condition', ''),
+            "price": ticket_val,  
+            "price_rub": float(coin_val), 
             "status": row['status'],
             "received_at": row['created_at'],
             "updated_at": row.get('updated_at') or row['created_at'],
+            "source": row.get('source', 'shop'), # 🔥 ИСПРАВЛЕНИЕ 2: Передаем source на фронт
             "replaced_name": row.get('replaced_name'),
             "replaced_price": row.get('replaced_price'),
             "is_swapped": row.get('is_swapped', False) 
