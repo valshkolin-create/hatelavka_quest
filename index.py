@@ -12211,30 +12211,36 @@ async def mark_notifications_as_read(request: Request, supabase: httpx.AsyncClie
 
 # --- ОБНОВЛЕННАЯ ОСНОВНАЯ ФУНКЦИЯ ---
 
-async def send_approval_notification(user_id: int, quest_title: str):
-    """Отправляет уведомление об одобрении заявки в фоне (без промокода)."""
+async def send_approval_notification(user_id, quest_title, promo_code=None):
+    """Отправляет уведомление об одобрении заявки в фоне."""
     try:
-        notification_text = (
-            f"<b>🎉 Твоя награда за квест «{html_decoration.quote(quest_title)}»!</b>\n\n"
-            f"Заявка одобрена, и награда уже автоматически зачислена на твой баланс."
-        )
-        
-        # Клавиатура только с кнопкой закрытия
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🗑️ Понятно, скрыть", callback_data="delete_this_message")]
-        ])
+        if promo_code:
+            # Старая логика с ручной активацией промокода
+            safe_promo_code = re.sub(r"[^a-zA-Z0-9_]", "_", promo_code)
+            activation_url = f"https://t.me/HATElavka_bot?start={safe_promo_code}"
+            
+            notification_text = (
+                f"<b>🎉 Твоя награда за квест «{html_decoration.quote(quest_title)}»!</b>\n\n"
+                f"Скопируй промокод и используй его в @HATElavka_bot, чтобы получить свои звёзды.\n\n"
+                f"Твой промокод:\n<code>{promo_code}</code>"
+            )
+            
+            keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="✅ Активировать в HATElavka", url=activation_url)],
+                [InlineKeyboardButton(text="🗑️ Получил, удалить из списка", callback_data=f"confirm_reward:promocode:{promo_code}")]
+            ])
+        else:
+            # Новая логика: авто-начисление, кнопок нет
+            notification_text = (
+                f"<b>🎉 Твой квест «{html_decoration.quote(quest_title)}» одобрен!</b>\n\n"
+                f"Награда уже автоматически зачислена на твой баланс."
+            )
+            keyboard = None
 
-        # 👇 ИСПОЛЬЗУЕМ НОВУЮ ФУНКЦИЮ ОТПРАВКИ С ПРОВЕРКОЙ НАСТРОЕК 👇
-        # Передаем ключ настройки 'notify_rewards'
-        await check_and_send_notification(
-            user_id, 
-            notification_text, 
-            "notify_rewards", 
-            reply_markup=keyboard
-        )
-        # 👆 -------------------------------------------------------- 👆
-
+        # Отправляем сообщение напрямую
+        await safe_send_message(user_id, text=notification_text, reply_markup=keyboard, parse_mode=ParseMode.HTML)
         logging.info(f"Фоновое уведомление для {user_id} успешно отправлено.")
+        
     except Exception as e:
         logging.error(f"Ошибка при отправке фонового уведомления для {user_id}: {e}")
 
