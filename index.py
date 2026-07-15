@@ -15819,7 +15819,129 @@ async def get_checkpoint_content(supabase: httpx.AsyncClient = Depends(get_supab
     except Exception as e:
         logging.error(f"Ошибка при получении контента Чекпоинта: {e}")
         raise HTTPException(status_code=500, detail="Не удалось загрузить контент страницы.")
-        
+
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # ROBOKASSA  # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # РОБОКАССА  # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # РОБО - КАССА  # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+# Достаем переменные из Vercel
+ROBOX_LOGIN = os.getenv("ROBOX_LOGIN", "hatelavka_pay")
+ROBOX_PASS1 = os.getenv("ROBOX_PASS1", "")
+ROBOX_PASS2 = os.getenv("ROBOX_PASS2", "")
+IS_TEST = 1  # 1 - тестовый режим, 0 - боевой (реальные деньги)
+
+class PaymentCreateRequest(BaseModel):
+    initData: str
+    action_type: str  # 'premium' или 'exp'
+    levels: Optional[int] = 0
+    price: Optional[float] = 199.00
+
+@app.post("/api/v1/payment/create")
+async def create_robokassa_link(req: PaymentCreateRequest, supabase=Depends(get_supabase_client)):
+    # 1. Проверка авторизации (используй свою функцию)
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+    
+    tg_id = user_info["id"]
+
+    # 2. Определяем детали заказа
+    if req.action_type == "premium":
+        out_sum = "199.00"
+        item_name = "Premium Статус Battle Pass"
+    elif req.action_type == "exp":
+        out_sum = f"{float(req.price):.2f}"
+        item_name = f"Покупка опыта ({req.levels} ур.)"
+    else:
+        raise HTTPException(status_code=400, detail="Неизвестный тип покупки")
+
+    inv_id = int(time.time())  # Генерируем уникальный номер заказа
+    
+    # Кастомные параметры (строго по алфавиту для MD5: Shp_action -> Shp_levels -> Shp_tgid)
+    shp_action = req.action_type
+    shp_levels = str(req.levels)
+    shp_tgid = str(tg_id)
+
+    # 3. Чек для самозанятого (без НДС)
+    receipt = {
+        "sno": "npd", 
+        "items": [
+            {
+                "name": item_name,
+                "quantity": 1,
+                "sum": float(out_sum),
+                "tax": "none"
+            }
+        ]
+    }
+    
+    # Убираем пробелы из JSON, как требует Робокасса
+    receipt_json = json.dumps(receipt, separators=(',', ':'))
+    receipt_url_encoded = urllib.parse.quote(receipt_json)
+
+    # 4. Формируем MD5 подпись с Паролем #1
+    # Формат: Login:OutSum:InvId:Receipt:Pass1:Shp_action:Shp_levels:Shp_tgid
+    signature_string = f"{ROBOX_LOGIN}:{out_sum}:{inv_id}:{receipt_json}:{ROBOX_PASS1}:Shp_action={shp_action}:Shp_levels={shp_levels}:Shp_tgid={shp_tgid}"
+    signature = hashlib.md5(signature_string.encode('utf-8')).hexdigest()
+
+    # 5. Собираем итоговую ссылку
+    base_url = "https://auth.robokassa.ru/Merchant/Index.aspx"
+    payment_url = (
+        f"{base_url}?MerchantLogin={ROBOX_LOGIN}&OutSum={out_sum}&InvId={inv_id}"
+        f"&Receipt={receipt_url_encoded}&Description={urllib.parse.quote(item_name)}"
+        f"&SignatureValue={signature}&IsTest={IS_TEST}"
+        f"&Shp_action={shp_action}&Shp_levels={shp_levels}&Shp_tgid={shp_tgid}"
+    )
+
+    return {"status": "success", "url": payment_url}
+
+@app.post("/api/v1/payment/callback")
+async def robokassa_callback(
+    OutSum: str = Form(...),
+    InvId: str = Form(...),
+    SignatureValue: str = Form(...),
+    Shp_action: str = Form(...),
+    Shp_levels: str = Form(...),
+    Shp_tgid: str = Form(...),
+    supabase=Depends(get_supabase_client)
+):
+    # 1. Проверяем подпись от Робокассы с Паролем #2 (здесь Receipt уже не участвует)
+    signature_string = f"{OutSum}:{InvId}:{ROBOX_PASS2}:Shp_action={Shp_action}:Shp_levels={Shp_levels}:Shp_tgid={Shp_tgid}"
+    my_signature = hashlib.md5(signature_string.encode('utf-8')).hexdigest().upper()
+
+    if my_signature != SignatureValue.upper():
+        logging.error(f"ROBOKASSA: Неверная подпись! Заказ {InvId}")
+        return PlainTextResponse(content="bad sign", status_code=400)
+
+    # 2. Если всё ок — выдаем товар в Supabase
+    try:
+        if Shp_action == "premium":
+            # Выдаем Premium
+            await supabase.patch(
+                "/users", 
+                params={"telegram_id": f"eq.{Shp_tgid}"}, 
+                json={"has_cp_premium": True}
+            )
+            logging.info(f"ROBOKASSA: Premium выдан юзеру {Shp_tgid}")
+
+        elif Shp_action == "exp":
+            # Выдаем опыт (тебе нужно будет использовать свою логику добавления опыта)
+            # Например, узнать, сколько звезд дает 1 уровень, и прибавить к checkpoint_stars
+            pass
+
+    except Exception as e:
+        logging.error(f"ROBOKASSA: Ошибка БД при выдаче товара {Shp_tgid}: {e}")
+        # Возвращаем OK даже при ошибке БД, чтобы касса не спамила запросами,
+        # но товар придется выдать руками по логам.
+
+    # 3. Обязательный ответ Робокассе, чтобы она поняла, что платеж учтен
+    return PlainTextResponse(content=f"OK{InvId}", status_code=200)
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # ROBOKASSA  # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # РОБОКАССА  # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # РОБО - КАССА  # # # # # # # # # # # # # # # # # # # # # # # # # #
+
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # БАТТЛ-ПАСС  # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # БАТТЛ-ПАСС  # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # БАТТЛ-ПАСС  # # # # # # # # # # # # # # # # # # # # # # # # # # # #
