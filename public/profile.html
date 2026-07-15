@@ -2326,7 +2326,7 @@ if (status === 'canceled' && !isCancelAcked) {
         else {
             // Это статусы available, pending, canceled
             
-            // =========================================================
+           // =========================================================
             // 🔥 ЛОГИКА ТАЙМЕРА СГОРАНИЯ (ПОЛНЫЙ СИНХРОН С БД SUPABASE)
             // =========================================================
             const updateTimeMs = parseSafeDate(item.updated_at || item.created_at);
@@ -2350,7 +2350,7 @@ if (status === 'canceled' && !isCancelAcked) {
             }
             
             let expirationHtml = '';
-            let isExpired = false; // 🔥 Флаг для блокировки кнопки
+            let isExpired = false; // 🔥 Флаг для блокировки кнопок
             
             if (updateTimeMs > 0) {
                 const timeLeftMs = expireTimeMs - Date.now();
@@ -2372,7 +2372,7 @@ if (status === 'canceled' && !isCancelAcked) {
                             <i class="fa-solid fa-fire"></i> Сгорит: ${timeStr}
                         </div>`;
                 } else {
-                    isExpired = true; // 🔥 Устанавливаем флаг, что время вышло
+                    isExpired = true; // 🔥 Время вышло!
                     expirationHtml = `
                         <div style="color: #ff3b30; font-size: 8px; font-weight: 800; margin-bottom: 4px; text-transform: uppercase;">
                             <i class="fa-solid fa-skull"></i> ВРЕМЯ ВЫШЛО
@@ -2381,20 +2381,21 @@ if (status === 'canceled' && !isCancelAcked) {
             }
             // =========================================================
 
-            // 🔥 Настраиваем внешний вид и логику кнопок в зависимости от флага
-            const withdrawBtnStyle = isExpired ? 'background: #555; color: #888; cursor: not-allowed; opacity: 0.6;' : '';
+            // 🔥 Блокируем ОБЕ кнопки, если время вышло
+            const btnStyle = isExpired ? 'background: #555; color: #888; cursor: not-allowed; opacity: 0.6; border: none;' : '';
             const withdrawAction = isExpired ? '' : `onclick="withdrawItem(${historyId}, '${displayName.replace(/'/g, "\\'")}')"`;
+            const sellAction = isExpired ? '' : `onclick="exchangeItem(${historyId}, ${ticketVal})"`;
 
             rightContentHtml = `
                 ${expirationHtml}
-                <button id="withdraw-btn-${historyId}" class="inv-btn inv-btn-claim" style="${withdrawBtnStyle}" ${withdrawAction} ${isExpired ? 'disabled' : ''}>
+                <button id="withdraw-btn-${historyId}" class="inv-btn inv-btn-claim" style="${btnStyle}" ${withdrawAction} ${isExpired ? 'disabled' : ''}>
                     ЗАБРАТЬ
                 </button>
-                <button class="inv-btn inv-btn-sell" onclick="exchangeItem(${historyId}, ${ticketVal})">
+                <button class="inv-btn inv-btn-sell" style="${btnStyle}" ${sellAction} ${isExpired ? 'disabled' : ''}>
                     ЗА ${ticketVal} 🎟️
                 </button>`;
         }
-
+        
         const el = document.createElement('div');
         el.className = 'inv-card';
         el.style.opacity = cardOpacity;
