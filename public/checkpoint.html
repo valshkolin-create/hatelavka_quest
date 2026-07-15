@@ -3382,50 +3382,57 @@ window.claimQuestReward = async function(questId, week) {
 
     // Финальное подтверждение оплаты рублями (после принятия оферты)
     window.confirmRublePayment = async function() {
-        haptic('medium');
-        
-        const btn = document.getElementById('premium-next-stage-btn');
-        const originalHtml = btn ? btn.innerHTML : '';
+    haptic('medium');
+    const btn = document.getElementById('premium-next-stage-btn');
+    const originalHtml = btn ? btn.innerHTML : '';
 
-        // 🔥 Если оферта ещё не сохранена в БД, отправляем запрос на сохранение
-        if (userData && !userData.has_accepted_oferta) {
-            if (btn) {
-                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Сохранение...';
-                btn.style.pointerEvents = 'none';
-            }
-            
-            try {
-                // Вызываем эндпоинт сохранения согласия
-                const agreeRes = await window.makeApiRequest('/api/v1/user/accept_oferta', {});
-                if (agreeRes.status === 'success' || agreeRes.has_accepted_oferta) {
-                    userData.has_accepted_oferta = true; // Запоминаем локально для всей сессии
-                }
-            } catch (e) {
-                tg.HapticFeedback.notificationOccurred('error');
-                showCustomAlert('Ошибка', 'Не удалось сохранить согласие. Попробуйте еще раз.', 'error');
-                if (btn) {
-                    btn.innerHTML = originalHtml;
-                    btn.style.pointerEvents = 'auto';
-                }
-                return; // Прерываем процесс, если база отвалилась
-            }
+    if (userData && !userData.has_accepted_oferta) {
+        if (btn) {
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Сохранение...';
+            btn.style.pointerEvents = 'none';
         }
+        try {
+            const agreeRes = await window.makeApiRequest('/api/v1/user/accept_oferta', {});
+            if (agreeRes.status === 'success' || agreeRes.has_accepted_oferta) {
+                userData.has_accepted_oferta = true; 
+            }
+        } catch (e) {
+            tg.HapticFeedback.notificationOccurred('error');
+            showCustomAlert('Ошибка', 'Не удалось сохранить согласие.', 'error');
+            if (btn) {
+                btn.innerHTML = originalHtml;
+                btn.style.pointerEvents = 'auto';
+            }
+            return; 
+        }
+    }
 
-        // --- Здесь потом будет реальная оплата Робокассой ---
+    if (btn) {
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Создание платежа...';
+    }
+
+    try {
+        // ЗАПРАШИВАЕМ ССЫЛКУ У БЭКЕНДА
+        const res = await window.makeApiRequest('/api/v1/payment/create', {
+            action_type: 'premium'
+        });
+
         dom.premiumBuyModal.classList.remove('modal-active');
         
-        showCustomAlert(
-            "В разработке", 
-            "Оплата рублями в данный момент подключается! Используйте монеты.", 
-            "error" 
-        );
-        
+        // ОТКРЫВАЕМ РОБОКАССУ ПРЯМО ПОВЕРХ MINI APP
+        window.Telegram.WebApp.openLink(res.url);
+
+    } catch (e) {
+        tg.HapticFeedback.notificationOccurred('error');
+        showCustomAlert("Ошибка", "Не удалось создать платеж. Попробуйте позже.", "error");
+    } finally {
         if (btn) {
             btn.innerHTML = originalHtml;
             btn.style.pointerEvents = 'auto';
         }
-    };
-
+    }
+};
+    
     // КЛИК: ОПЛАТА МОНЕТАМИ (остается как было, идет сразу в оплату)
     if (coinsBtn) {
         coinsBtn.addEventListener('click', async () => {
