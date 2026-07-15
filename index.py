@@ -16635,12 +16635,14 @@ async def claim_bp_quest(
             is_repeatable = q_db_res.json()[0].get("is_repeatable", False)
             quest_type = q_db_res.json()[0].get("quest_type", "")
 
-        # 3. ИЩЕМ ПРОГРЕСС (🔥 УМНЫЙ ФИЛЬТР БЕЗ ЖЕСТКОЙ НЕДЕЛИ ДЛЯ РАЗОВЫХ)
+        # 3. ИЩЕМ ПРОГРЕСС (🔥 УМНЫЙ ФИЛЬТР: Строго по неделе!)
         query_params = {
             "user_id": f"eq.{tg_id}", 
             "quest_id": f"eq.{req.quest_id}"
         }
-        if is_repeatable:
+        
+        # 🔥 ФИКС 1: Жестко фильтруем по неделе, если она пришла с фронта
+        if req.week is not None and str(req.week) != 'global':
             query_params["week"] = f"eq.{req.week}"
             
         quest_res = await supabase.get("/user_bp_quests", params=query_params)
@@ -16655,7 +16657,7 @@ async def claim_bp_quest(
             is_claimed = quest_data.get("is_claimed")
             
         else:
-            # 🚀 Ищем в старой классической системе квестов с УМНЫМ ФИЛЬТРОМ
+            # 🚀 Ищем в старой классической системе квестов
             subs_query = {
                 "user_id": f"eq.{tg_id}", 
                 "quest_id": f"eq.{req.quest_id}", 
@@ -16681,7 +16683,8 @@ async def claim_bp_quest(
             post_res = await supabase.post("/user_bp_quests", json={
                 "user_id": tg_id, 
                 "quest_id": req.quest_id, 
-                "week": req.week if is_repeatable else None, # <--- Разовым ставим null
+                # 🔥 ФИКС 2: Прокидываем правильную неделю для старых квестов
+                "week": req.week if req.week is not None and str(req.week) != 'global' else None, 
                 "current_amount": 1, 
                 "target_amount": 1, 
                 "is_completed": True, 
@@ -16695,7 +16698,9 @@ async def claim_bp_quest(
                 "quest_id": f"eq.{req.quest_id}",
                 "is_claimed": "is.false" # 🔥 МАГИЯ ЗДЕСЬ: обновит только если сейчас False
             }
-            if is_repeatable:
+            
+            # 🔥 ФИКС 3: Патчим строго нужную неделю!
+            if req.week is not None and str(req.week) != 'global':
                 patch_params["week"] = f"eq.{req.week}"
 
             patch_res = await supabase.patch(
@@ -16708,7 +16713,6 @@ async def claim_bp_quest(
             # 🔥 Если результат пустой - значит другой процесс уже успел забрать награду в эту миллисекунду
             if not patch_res.json():
                  raise HTTPException(status_code=400, detail="Награда уже получена или обрабатывается!")
-
 
         # 🔥 5. ВЫДАЕМ EXP 🔥
         # Одним запросом тянем и опыт
