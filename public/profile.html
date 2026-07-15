@@ -2314,18 +2314,60 @@ if (status === 'canceled' && !isCancelAcked) {
             cardOpacity = '0.5';
             rightContentHtml = `<div style="color: #888; font-size: 9px; font-weight: 700;">СВАП</div>`;
         }
-        else if (status === 'failed') {
-            cardOpacity = '0.8';
-            rightContentHtml = `
-                <div style="color: #ff3b30; font-size: 9px; font-weight: 800; margin-bottom: 4px;">
-                    <i class="fa-solid fa-triangle-exclamation"></i> ФАТАЛЬНАЯ ОШИБКА
-                </div>
-                <div style="font-size: 8px; color: #aaa; line-height: 1.2;">Скин заморожен.<br>Сообщите администратору.</div>
-            `;
-        }
         else {
             // Это статусы available, pending, canceled
+            
+            // =========================================================
+            // 🔥 ЛОГИКА ТАЙМЕРА СГОРАНИЯ (ПОЛНЫЙ СИНХРОН С БД SUPABASE)
+            // =========================================================
+            const updateTimeMs = parseSafeDate(item.updated_at || item.created_at);
+            const source = item.source || 'shop'; // Если источника нет, считаем как лавку
+            
+            // Точная дата амнистии, как в SQL (15 июля 2026, 00:00:00 МСК)
+            const amnestyTimestamp = new Date('2026-07-15T00:00:00+03:00').getTime();
+            
+            let daysToKeep = 14; // Базовый срок жизни
+            
+            // Правило 2: Если это новые халявные скины — даем 3 дня
+            if (['raffle', 'auction', 'twitch'].includes(source) && updateTimeMs >= amnestyTimestamp) {
+                daysToKeep = 3;
+            }
+            
+            let expirationHtml = '';
+            
+            if (updateTimeMs > 0) {
+                const expireTimeMs = updateTimeMs + (daysToKeep * 24 * 60 * 60 * 1000);
+                const timeLeftMs = expireTimeMs - Date.now();
+                
+                if (timeLeftMs > 0) {
+                    const days = Math.floor(timeLeftMs / (1000 * 60 * 60 * 24));
+                    const hours = Math.floor((timeLeftMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                    
+                    let timeStr = days > 0 ? `${days}д ${hours}ч` : `${hours}ч`;
+                    
+                    // Если осталось меньше часа, показываем минуты
+                    if (days === 0 && hours === 0) {
+                        const mins = Math.floor((timeLeftMs % (1000 * 60 * 60)) / (1000 * 60));
+                        timeStr = `${mins}м`;
+                    }
+                    
+                    // Если времени меньше 24 часов — зажигаем красным, иначе желтым
+                    const textColor = days < 1 ? '#ff3b30' : '#ff9f0a';
+                    expirationHtml = `
+                        <div style="color: ${textColor}; font-size: 8px; font-weight: 800; margin-bottom: 4px; text-transform: uppercase;">
+                            <i class="fa-solid fa-fire"></i> Сгорит: ${timeStr}
+                        </div>`;
+                } else {
+                    expirationHtml = `
+                        <div style="color: #ff3b30; font-size: 8px; font-weight: 800; margin-bottom: 4px; text-transform: uppercase;">
+                            <i class="fa-solid fa-skull"></i> ВРЕМЯ ВЫШЛО
+                        </div>`;
+                }
+            }
+            // =========================================================
+
             rightContentHtml = `
+                ${expirationHtml}
                 <button id="withdraw-btn-${historyId}" class="inv-btn inv-btn-claim" onclick="withdrawItem(${historyId}, '${displayName.replace(/'/g, "\\'")}')">
                     ЗАБРАТЬ
                 </button>
