@@ -2853,12 +2853,16 @@ const processedQuests = weekQuests.map(cfg => {
 
             const allUserProgress = userData.bp_quests ? userData.bp_quests.filter(q => String(q.quest_id) === String(cfg.quest_id)) : [];
 
-            let rawProgress = null;
-            if (!isRepeatable) {
-                rawProgress = allUserProgress.length > 0 ? allUserProgress[0] : null;
-            } else {
-                rawProgress = allUserProgress.find(q => String(q.week) === String(cfg.week));
-                if (!rawProgress) {
+            // 🔥 ФИКС: Сначала всегда ищем прогресс строго для нужной недели!
+            let rawProgress = allUserProgress.find(q => String(q.week) === String(cfg.week));
+            
+            // Если записи для этой недели еще нет в БД
+            if (!rawProgress) {
+                if (!isRepeatable) {
+                    // Для старых разовых квестов берем первую попавшуюся запись
+                    rawProgress = allUserProgress.find(q => q.week == null) || (allUserProgress.length > 0 ? allUserProgress[0] : null);
+                } else {
+                    // Фоллбэк для старых повторяемых квестов
                     const oldNullProgress = allUserProgress.find(q => q.week == null);
                     if (oldNullProgress && oldNullProgress.updated_at) {
                         const progressDate = new Date(oldNullProgress.updated_at || oldNullProgress.created_at);
