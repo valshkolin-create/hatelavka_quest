@@ -15840,6 +15840,11 @@ ROBOX_PASS1 = os.getenv("ROBOX_PASS1", "")
 ROBOX_PASS2 = os.getenv("ROBOX_PASS2", "")
 IS_TEST = 0  # Поставь 0, когда будешь готов к реальным списаниям с карт
 
+# Добавляем к существующим переменным
+ROBOX_TEST_PASS1 = os.getenv("ROBOX_TEST_PASS1", "ваш_тестовый_пароль_1")
+ROBOX_TEST_PASS2 = os.getenv("ROBOX_TEST_PASS2", "ваш_тестовый_пароль_2")
+ADMIN_TG_ID = int(os.getenv("ADMIN_TELEGRAM_IDS", "477521935")) # Замените на свой Telegram ID
+
 class PaymentCreateRequest(BaseModel):
     initData: str
     action_type: str  # 'premium' или 'exp'
@@ -15898,16 +15903,25 @@ async def create_robokassa_link(
     # URL-кодируем чек
     receipt_url_encoded = urllib.parse.quote(receipt_json)
 
-    # ИСПРАВЛЕНИЕ: В строку подписи добавляем именно закодированный чек (receipt_url_encoded), а не сырой JSON
-    signature_string = f"{ROBOX_LOGIN}:{out_sum}:{inv_id}:{receipt_url_encoded}:{ROBOX_PASS1}:Shp_action={shp_action}:Shp_exp={shp_exp}:Shp_tgid={shp_tgid}"
+    # --- ЛОГИКА БЕЗОПАСНОГО ТЕСТИРОВАНИЯ ---
+    # Проверяем, совершает ли покупку админ (вы)
+    is_admin_request = (tg_id == ADMIN_TG_ID)
+    
+    # Динамически выбираем пароль и флаг IsTest
+    current_pass1 = ROBOX_TEST_PASS1 if is_admin_request else ROBOX_PASS1
+    current_is_test = 1 if is_admin_request else 0
+    # ---------------------------------------
+
+    # В строку подписи добавляем закодированный чек и динамический current_pass1
+    signature_string = f"{ROBOX_LOGIN}:{out_sum}:{inv_id}:{receipt_url_encoded}:{current_pass1}:Shp_action={shp_action}:Shp_exp={shp_exp}:Shp_tgid={shp_tgid}"
     signature = hashlib.md5(signature_string.encode('utf-8')).hexdigest()
 
-    # Итоговая ссылка
+    # Итоговая ссылка (используем current_is_test)
     base_url = "https://auth.robokassa.ru/Merchant/Index.aspx"
     payment_url = (
         f"{base_url}?MerchantLogin={ROBOX_LOGIN}&OutSum={out_sum}&InvId={inv_id}"
         f"&Receipt={receipt_url_encoded}&Description={urllib.parse.quote(item_name)}"
-        f"&SignatureValue={signature}&IsTest={IS_TEST}"
+        f"&SignatureValue={signature}&IsTest={current_is_test}"
         f"&Shp_action={shp_action}&Shp_exp={shp_exp}&Shp_tgid={shp_tgid}"
     )
 
