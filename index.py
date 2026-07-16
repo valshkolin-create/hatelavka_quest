@@ -15905,7 +15905,7 @@ async def create_robokassa_link(
 
     # --- ЛОГИКА БЕЗОПАСНОГО ТЕСТИРОВАНИЯ ---
     # Проверяем, совершает ли покупку админ (вы)
-    is_admin_request = (tg_id == ADMIN_TG_ID)
+    is_admin_request = (str(tg_id) == str(ADMIN_TG_ID))
     
     # Динамически выбираем пароль и флаг IsTest
     current_pass1 = ROBOX_TEST_PASS1 if is_admin_request else ROBOX_PASS1
