@@ -4261,20 +4261,45 @@ window.initiateBuyExp = function(currency) {
         // Берем валюту, которую юзер выбрал на первом экране (по умолчанию rub)
         const currency = pendingExpCurrency || 'rub';
         
-        if (currency === 'rub') {
-            document.getElementById('buy-exp-modal').classList.remove('modal-active');
-            showCustomAlert("В разработке", "Оплата рублями в данный момент подключается! Используйте монеты или билеты.", "error");
-            return;
-        }
-
-        // Визуально крутим нужную кнопку (Монеты или Билеты) на ЭТАПЕ 1
-        const btn = document.getElementById(`btn-buy-exp-${currency}`);
+        // Определяем, какую кнопку крутить (для рублей это кнопка на ЭТАПЕ 2, для монет/билетов - на ЭТАПЕ 1)
+        const btnId = currency === 'rub' ? 'buy-exp-next-stage-btn' : `btn-buy-exp-${currency}`;
+        const btn = document.getElementById(btnId);
         const originalHtml = btn ? btn.innerHTML : '';
 
         if (btn) {
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
             btn.style.pointerEvents = 'none';
         }
+
+        // === НОВАЯ ЛОГИКА ДЛЯ РОБОКАССЫ (РУБЛИ) ===
+        if (currency === 'rub') {
+            try {
+                // Достаем рассчитанную сумму в рублях прямо из верстки
+                const priceRub = parseFloat(document.getElementById('price-rub').innerText);
+
+                // Запрашиваем ссылку у нашего платежного эндпоинта
+                const res = await window.makeApiRequest('/api/v1/payment/create', {
+                    action_type: 'exp',
+                    levels: levelsToBuy,
+                    price: priceRub
+                });
+
+                // Прячем модалку и открываем Робокассу во встроенном браузере Телеграма
+                document.getElementById('buy-exp-modal').classList.remove('modal-active');
+                window.Telegram.WebApp.openLink(res.url, { try_browser: true });
+
+            } catch (e) {
+                tg.HapticFeedback.notificationOccurred('error');
+                showCustomAlert('Ошибка', 'Не удалось создать платеж. Попробуйте позже.', 'error');
+            } finally {
+                if (btn) {
+                    btn.innerHTML = originalHtml;
+                    btn.style.pointerEvents = 'auto';
+                }
+            }
+            return; // Останавливаем выполнение, дальше код для внутренней валюты
+        }
+        // ==========================================
 
         try {
             const res = await window.makeApiRequest('/api/v1/checkpoint/buy_exp', {
