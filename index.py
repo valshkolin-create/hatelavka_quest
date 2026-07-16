@@ -15976,6 +15976,57 @@ async def robokassa_callback(
     # Робокасса ждет строго "OK<номер_заказа>" в ответ
     return PlainTextResponse(content=f"OK{InvId}", status_code=200)
 
+@app.get("/api/v1/admin/test-transaction")
+async def simulate_transaction(
+    tgid: str, 
+    action: str, 
+    levels: int = 0,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """
+    Симулятор боевой транзакции для проверки всех этапов.
+    Использование в браузере: 
+    /api/v1/admin/test-transaction?tgid=123456789&action=exp&levels=2
+    """
+    # Создаем наш чек-лист
+    checklist = {
+        "1_статус_входящих_данных": f"Получено: tgid={tgid}, action={action}, levels={levels}",
+        "2_связь_с_базой_данных": "ожидание...",
+        "3_выполнение_rpc_логики": "ожидание...",
+        "4_финальный_результат": "ожидание..."
+    }
+    
+    try:
+        # Этап 1: Пробуем дернуть RPC (имитируем успешный платеж)
+        rpc_resp = await supabase.post(
+            "/rpc/handle_robokassa_fulfillment",
+            json={
+                "p_telegram_id": str(tgid),
+                "p_action": str(action),
+                "p_levels": levels
+            }
+        )
+        checklist["2_связь_с_базой_данных"] = "УСПЕШНО (HTTP запрос прошел)"
+        
+        # Этап 2: Проверяем, что ответила сама база
+        if rpc_resp.is_success:
+            checklist["3_выполнение_rpc_логики"] = "УСПЕШНО (Ошибок SQL нет)"
+            result_data = rpc_resp.json()
+            
+            # Этап 3: Проверяем бизнес-логику (нашел ли юзера, выдал ли товар)
+            if result_data.get("status") == "success":
+                checklist["4_финальный_результат"] = f"✅ ТРАНЗАКЦИЯ ИДЕАЛЬНА! База ответила: {result_data}"
+            else:
+                checklist["4_финальный_результат"] = f"❌ ОШИБКА ЛОГИКИ: {result_data.get('message')} (Возможно, юзера нет в базе)"
+        else:
+            checklist["3_выполнение_rpc_логики"] = f"❌ ОШИБКА SUPABASE: HTTP {rpc_resp.status_code}"
+            checklist["4_финальный_результат"] = rpc_resp.text
+            
+    except Exception as e:
+        checklist["2_связь_с_базой_данных"] = f"❌ КРИТИЧЕСКИЙ СБОЙ: {str(e)}"
+        
+    return checklist
+
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # ROBOKASSA  # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # РОБОКАССА  # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # РОБО - КАССА  # # # # # # # # # # # # # # # # # # # # # # # # # #
