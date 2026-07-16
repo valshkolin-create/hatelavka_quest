@@ -15833,7 +15833,7 @@ from fastapi.responses import PlainTextResponse
 ROBOX_LOGIN = os.getenv("ROBOX_LOGIN", "hatelavka_pay")
 ROBOX_PASS1 = os.getenv("ROBOX_PASS1", "")
 ROBOX_PASS2 = os.getenv("ROBOX_PASS2", "")
-IS_TEST = 1  # Поставь 0, когда будешь готов к реальным списаниям с карт
+IS_TEST = 0  # Поставь 0, когда будешь готов к реальным списаниям с карт
 
 class PaymentCreateRequest(BaseModel):
     initData: str
@@ -15909,56 +15909,71 @@ async def robokassa_callback(
     OutSum: str = Form(...),
     InvId: str = Form(...),
     SignatureValue: str = Form(...),
-    Shp_action: str = Form(...),
-    Shp_levels: str = Form(...),
-    Shp_tgid: str = Form(...),
+    Shp_action: Optional[str] = Form(None),
+    Shp_levels: Optional[str] = Form(None),
+    Shp_tgid: Optional[str] = Form(None),
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """Webhook от Робокассы. Срабатывает скрыто, когда деньги реально поступили."""
-    # 1. Проверяем подпись от кассы с Паролем #2 (Внимание: Receipt тут не участвует!)
-    signature_string = f"{OutSum}:{InvId}:{ROBOX_PASS2}:Shp_action={Shp_action}:Shp_levels={Shp_levels}:Shp_tgid={Shp_tgid}"
+    """
+    Безопасный вебхук для Робокассы.
+    """
+    # 1. Собираем только те Shp-параметры, которые РЕАЛЬНО пришли
+    shp_params = {}
+    if Shp_action is not None:
+        shp_params["Shp_action"] = Shp_action
+    if Shp_levels is not None:
+        shp_params["Shp_levels"] = Shp_levels
+    if Shp_tgid is not None:
+        shp_params["Shp_tgid"] = Shp_tgid
+
+    # Робокасса требует сортировки Shp-параметров по алфавиту
+    sorted_shp = sorted(shp_params.items())
+    
+    # Склеиваем их в строку вида Shp_action=premium:Shp_levels=0:Shp_tgid=123
+    shp_string = ":".join(f"{k}={v}" for k, v in sorted_shp)
+
+    # 2. Формируем строку для проверки подписи
+    # База всегда одна: OutSum:InvId:Пароль2
+    signature_string = f"{OutSum}:{InvId}:{ROBOX_PASS2}"
+    
+    # Если дополнительные параметры есть, приклеиваем их в конец
+    if shp_string:
+        signature_string += f":{shp_string}"
+
+    # Считаем MD5
     my_signature = hashlib.md5(signature_string.encode('utf-8')).hexdigest().upper()
 
-    if my_signature != SignatureValue.upper():
-        logging.error(f"[ROBOKASSA] Неверная подпись! Заказ {InvId}")
+    if my_signature != str(SignatureValue).upper():
+        logging.error(f"[ROBOKASSA] Неверная подпись! Пришла: {SignatureValue}, Ожидалась: {my_signature}. Строка: {signature_string}")
         return PlainTextResponse(content="bad sign", status_code=400)
 
-    logging.info(f"[ROBOKASSA] Платеж {InvId} подтвержден. Выдаем {Shp_action} для {Shp_tgid}")
-
-    # 2. Выдаем товар
+    # 3. Логика выдачи товара
     try:
-        if Shp_action == "premium":
-            patch_res = await supabase.patch(
-                "/users", 
-                params={"telegram_id": f"eq.{Shp_tgid}"}, 
-                json={"has_cp_premium": True}
-            )
-            if not patch_res.is_success:
-                logging.error(f"[ROBOKASSA] Ошибка БД при выдаче Premium для {Shp_tgid}: {patch_res.text}")
+        # Если это тестовый платеж без параметров, просто отдаем OK
+        if not shp_params:
+            logging.info(f"[ROBOKASSA] Успешный тестовый платеж {InvId}")
+            return PlainTextResponse(content=f"OK{InvId}", status_code=200)
 
-        elif Shp_action == "exp":
-            # Высчитываем сколько опыта нужно дать (1 уровень = 10 EXP по твоей логике)
-            levels_bought = int(Shp_levels)
-            exp_to_add = levels_bought * 10.0
-            
-            # Получаем текущий опыт
-            user_resp = await supabase.get("/users", params={"telegram_id": f"eq.{Shp_tgid}", "select": "checkpoint_stars"})
+        # Вытаскиваем значения для удобства
+        action = shp_params.get("Shp_action")
+        tgid = shp_params.get("Shp_tgid")
+        levels = shp_params.get("Shp_levels")
+
+        if action == "premium" and tgid:
+            await supabase.patch("/users", params={"telegram_id": f"eq.{tgid}"}, json={"has_cp_premium": True})
+            logging.info(f"[ROBOKASSA] Premium выдан {tgid}")
+        
+        elif action == "exp" and tgid and levels:
+            exp_to_add = int(levels) * 10.0
+            user_resp = await supabase.get("/users", params={"telegram_id": f"eq.{tgid}", "select": "checkpoint_stars"})
             if user_resp.is_success and user_resp.json():
                 current_stars = float(user_resp.json()[0].get("checkpoint_stars") or 0)
-                
-                # Прибавляем опыт
-                await supabase.patch(
-                    "/users", 
-                    params={"telegram_id": f"eq.{Shp_tgid}"}, 
-                    json={"checkpoint_stars": current_stars + exp_to_add}
-                )
-            else:
-                logging.error(f"[ROBOKASSA] Не удалось получить профиль {Shp_tgid} для начисления EXP")
+                await supabase.patch("/users", params={"telegram_id": f"eq.{tgid}"}, json={"checkpoint_stars": current_stars + exp_to_add})
 
     except Exception as e:
-        logging.error(f"[ROBOKASSA] Критическая ошибка при обработке платежа {InvId}: {e}", exc_info=True)
+        logging.error(f"[ROBOKASSA] Ошибка выдачи товара: {e}", exc_info=True)
 
-    # 3. ВСЕГДА возвращаем OK[InvId], иначе касса заспамит сервер повторными запросами
+    # Робокасса ждет строго "OK<номер_заказа>" в ответ
     return PlainTextResponse(content=f"OK{InvId}", status_code=200)
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # ROBOKASSA  # # # # # # # # # # # # # # # # # # # # # # # # # # # #
