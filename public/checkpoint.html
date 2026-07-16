@@ -4271,7 +4271,7 @@ window.initiateBuyExp = function(currency) {
             btn.style.pointerEvents = 'none';
         }
 
-        // === НОВАЯ ЛОГИКА ДЛЯ РОБОКАССЫ (РУБЛИ) ===
+       // === НОВАЯ ЛОГИКА ДЛЯ РОБОКАССЫ (РУБЛИ) ===
         if (currency === 'rub') {
             try {
                 // Достаем рассчитанную сумму в рублях прямо из верстки
@@ -4280,7 +4280,7 @@ window.initiateBuyExp = function(currency) {
                 // Запрашиваем ссылку у нашего платежного эндпоинта
                 const res = await window.makeApiRequest('/api/v1/payment/create', {
                     action_type: 'exp',
-                    exp_amount: levelsToBuy, // <-- ИСПРАВЛЕНО ТУТ!
+                    exp_amount: currentNeededExp, // <-- МЕНЯЕМ levelsToBuy НА currentNeededExp
                     price: priceRub
                 });
 
