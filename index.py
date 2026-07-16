@@ -15896,10 +15896,10 @@ async def create_robokassa_link(
         ]
     }
     
-    # 1. Формируем СЫРОЙ JSON (используется для подписи)
+    # 1. Формируем СЫРОЙ JSON
     receipt_json = json.dumps(receipt, separators=(',', ':'))
     
-    # 2. URL-кодируем чек (используется ТОЛЬКО для ссылки)
+    # 2. URL-кодируем чек (теперь используется И для подписи, И для самой ссылки)
     receipt_url_encoded = urllib.parse.quote(receipt_json)
 
     # --- ЛОГИКА РАЗДЕЛЕНИЯ АДМИНОВ И ОБЫЧНЫХ ПОЛЬЗОВАТЕЛЕЙ ---
@@ -15913,8 +15913,8 @@ async def create_robokassa_link(
     current_is_test = 1 if is_admin_request else 0
     # --------------------------------------------------------
 
-    # ФОРМИРУЕМ ПОДПИСЬ ПРАВИЛЬНО: берем receipt_json (сырой) и current_pass1
-    signature_string = f"{ROBOX_LOGIN}:{out_sum}:{inv_id}:{receipt_json}:{current_pass1}:Shp_action={shp_action}:Shp_exp={shp_exp}:Shp_tgid={shp_tgid}"
+    # ФОРМИРУЕМ ПОДПИСЬ ПРАВИЛЬНО: берем ЗАКОДИРОВАННЫЙ чек (receipt_url_encoded) и current_pass1
+    signature_string = f"{ROBOX_LOGIN}:{out_sum}:{inv_id}:{receipt_url_encoded}:{current_pass1}:Shp_action={shp_action}:Shp_exp={shp_exp}:Shp_tgid={shp_tgid}"
     signature = hashlib.md5(signature_string.encode('utf-8')).hexdigest()
 
     # Итоговая ссылка (вставляем receipt_url_encoded и current_is_test)
@@ -15933,6 +15933,7 @@ async def robokassa_callback(
     OutSum: str = Form(...),
     InvId: str = Form(...),
     SignatureValue: str = Form(...),
+    IsTest: Optional[str] = Form(None),  # ДОБАВЛЕНО: Ловим флаг тестового платежа от Робокассы
     Shp_action: Optional[str] = Form(None),
     Shp_exp: Optional[str] = Form(None),
     Shp_tgid: Optional[str] = Form(None),
@@ -15956,9 +15957,15 @@ async def robokassa_callback(
     # Склеиваем их в строку вида Shp_action=premium:Shp_exp=665.0:Shp_tgid=123
     shp_string = ":".join(f"{k}={v}" for k, v in sorted_shp)
 
+    # --- ДОБАВЛЕНО: ЛОГИКА ВЫБОРА ПАРОЛЯ ---
+    # Если Робокасса присылает IsTest=1 (твой тестовый платеж), проверяем Тестовым Паролем #2.
+    # Если IsTest нет или он равен 0 (обычные юзеры), проверяем Боевым Паролем #2.
+    current_pass2 = ROBOX_TEST_PASS2 if IsTest == "1" else ROBOX_PASS2
+    # ---------------------------------------
+
     # 2. Формируем строку для проверки подписи
     # База всегда одна: OutSum:InvId:Пароль2
-    signature_string = f"{OutSum}:{InvId}:{ROBOX_PASS2}"
+    signature_string = f"{OutSum}:{InvId}:{current_pass2}"
     
     # Если дополнительные параметры есть, приклеиваем их в конец
     if shp_string:
