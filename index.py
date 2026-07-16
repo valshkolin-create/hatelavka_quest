@@ -15885,16 +15885,21 @@ async def create_robokassa_link(
                 "name": item_name,
                 "quantity": 1,
                 "sum": float(out_sum),
-                "tax": "none"
+                "tax": "none",
+                # Явно указываем признаки для цифровых товаров/услуг
+                "payment_method": "full_payment", 
+                "payment_object": "service" 
             }
         ]
     }
     
+    # Убираем пробелы для надежности
     receipt_json = json.dumps(receipt, separators=(',', ':'))
+    # URL-кодируем чек
     receipt_url_encoded = urllib.parse.quote(receipt_json)
 
-    # Подпись MD5 с Паролем #1 (Для генерации ссылки всегда используется первый пароль)
-    signature_string = f"{ROBOX_LOGIN}:{out_sum}:{inv_id}:{receipt_json}:{ROBOX_PASS1}:Shp_action={shp_action}:Shp_exp={shp_exp}:Shp_tgid={shp_tgid}"
+    # ИСПРАВЛЕНИЕ: В строку подписи добавляем именно закодированный чек (receipt_url_encoded), а не сырой JSON
+    signature_string = f"{ROBOX_LOGIN}:{out_sum}:{inv_id}:{receipt_url_encoded}:{ROBOX_PASS1}:Shp_action={shp_action}:Shp_exp={shp_exp}:Shp_tgid={shp_tgid}"
     signature = hashlib.md5(signature_string.encode('utf-8')).hexdigest()
 
     # Итоговая ссылка
