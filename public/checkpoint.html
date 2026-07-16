@@ -4280,7 +4280,7 @@ window.initiateBuyExp = function(currency) {
                 // Запрашиваем ссылку у нашего платежного эндпоинта
                 const res = await window.makeApiRequest('/api/v1/payment/create', {
                     action_type: 'exp',
-                    levels: levelsToBuy,
+                    exp_amount: levelsToBuy, // <-- ИСПРАВЛЕНО ТУТ!
                     price: priceRub
                 });
 
