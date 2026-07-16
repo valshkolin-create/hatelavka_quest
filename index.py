@@ -15862,7 +15862,7 @@ async def create_robokassa_link(
     
     tg_id = str(user_info["id"]) # Сразу переводим в строку для надежности
 
-    # Определяем детали заказа
+   # Определяем детали заказа
     if req.action_type == "premium":
         out_sum = "199.00"
         item_name = "Premium Статус Battle Pass"
@@ -15870,7 +15870,10 @@ async def create_robokassa_link(
         if not req.price or req.price <= 0:
             raise HTTPException(status_code=400, detail="Неверная цена")
         out_sum = f"{float(req.price):.2f}"
-        item_name = f"Опыт Battle Pass ({req.exp_amount} звезд)"
+        
+        # ПРАВКА 1: Округляем опыт до целого числа и убираем спецсимволы (скобки) для ФНС
+        exp_int = int(req.exp_amount) if req.exp_amount else 0
+        item_name = f"Опыт Battle Pass {exp_int} звезд"
     else:
         raise HTTPException(status_code=400, detail="Неизвестный тип покупки")
 
@@ -15881,9 +15884,8 @@ async def create_robokassa_link(
     shp_exp = str(req.exp_amount)
     shp_tgid = str(tg_id)
 
-    # Формируем чек для налоговой (без НДС)
+    # ПРАВКА 2: Убрали параметр "sno" из чека. Робокасса сама подтянет статус самозанятого.
     receipt = {
-        "sno": "npd", 
         "items": [
             {
                 "name": item_name,
@@ -15927,7 +15929,7 @@ async def create_robokassa_link(
     )
 
     return {"status": "success", "url": payment_url}
-
+    
 @app.post("/api/v1/payment/callback")
 async def robokassa_callback(
     OutSum: str = Form(...),
