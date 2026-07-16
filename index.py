@@ -15838,12 +15838,11 @@ import httpx
 ROBOX_LOGIN = os.getenv("ROBOX_LOGIN", "hatelavka_pay")
 ROBOX_PASS1 = os.getenv("ROBOX_PASS1", "")
 ROBOX_PASS2 = os.getenv("ROBOX_PASS2", "")
-IS_TEST = 0  # Поставь 0, когда будешь готов к реальным списаниям с карт
 
-# Добавляем к существующим переменным
+# Тестовые пароли и ID админов (читаем как строку, убрали int() чтобы не крашилось)
 ROBOX_TEST_PASS1 = os.getenv("ROBOX_TEST_PASS1", "ваш_тестовый_пароль_1")
 ROBOX_TEST_PASS2 = os.getenv("ROBOX_TEST_PASS2", "ваш_тестовый_пароль_2")
-ADMIN_TG_ID = int(os.getenv("ADMIN_TELEGRAM_IDS", "477521935")) # Замените на свой Telegram ID
+ADMIN_TELEGRAM_IDS = os.getenv("ADMIN_TELEGRAM_IDS", "477521935") # Можно писать несколько через запятую
 
 class PaymentCreateRequest(BaseModel):
     initData: str
@@ -15861,7 +15860,7 @@ async def create_robokassa_link(
     if not user_info:
         raise HTTPException(status_code=401, detail="Не авторизован")
     
-    tg_id = user_info["id"]
+    tg_id = str(user_info["id"]) # Сразу переводим в строку для надежности
 
     # Определяем детали заказа
     if req.action_type == "premium":
@@ -15891,32 +15890,34 @@ async def create_robokassa_link(
                 "quantity": 1,
                 "sum": float(out_sum),
                 "tax": "none",
-                # Явно указываем признаки для цифровых товаров/услуг
                 "payment_method": "full_payment", 
                 "payment_object": "service" 
             }
         ]
     }
     
-    # Убираем пробелы для надежности
+    # 1. Формируем СЫРОЙ JSON (используется для подписи)
     receipt_json = json.dumps(receipt, separators=(',', ':'))
-    # URL-кодируем чек
+    
+    # 2. URL-кодируем чек (используется ТОЛЬКО для ссылки)
     receipt_url_encoded = urllib.parse.quote(receipt_json)
 
-    # --- ЛОГИКА БЕЗОПАСНОГО ТЕСТИРОВАНИЯ ---
-    # Проверяем, совершает ли покупку админ (вы)
-    is_admin_request = (str(tg_id) == str(ADMIN_TELEGRAM_IDS))
+    # --- ЛОГИКА РАЗДЕЛЕНИЯ АДМИНОВ И ОБЫЧНЫХ ПОЛЬЗОВАТЕЛЕЙ ---
+    # Разбиваем список админов по запятой и проверяем, есть ли там текущий юзер
+    admin_ids_list = [i.strip() for i in ADMIN_TELEGRAM_IDS.split(",")]
+    is_admin_request = tg_id in admin_ids_list
     
-    # Динамически выбираем пароль и флаг IsTest
+    # Если админ -> даем тестовый пароль и ставим IsTest=1
+    # Если обычный юзер -> даем боевой пароль и ставим IsTest=0
     current_pass1 = ROBOX_TEST_PASS1 if is_admin_request else ROBOX_PASS1
     current_is_test = 1 if is_admin_request else 0
-    # ---------------------------------------
+    # --------------------------------------------------------
 
-    # В строку подписи добавляем закодированный чек и динамический current_pass1
-    signature_string = f"{ROBOX_LOGIN}:{out_sum}:{inv_id}:{receipt_url_encoded}:{current_pass1}:Shp_action={shp_action}:Shp_exp={shp_exp}:Shp_tgid={shp_tgid}"
+    # ФОРМИРУЕМ ПОДПИСЬ ПРАВИЛЬНО: берем receipt_json (сырой) и current_pass1
+    signature_string = f"{ROBOX_LOGIN}:{out_sum}:{inv_id}:{receipt_json}:{current_pass1}:Shp_action={shp_action}:Shp_exp={shp_exp}:Shp_tgid={shp_tgid}"
     signature = hashlib.md5(signature_string.encode('utf-8')).hexdigest()
 
-    # Итоговая ссылка (используем current_is_test)
+    # Итоговая ссылка (вставляем receipt_url_encoded и current_is_test)
     base_url = "https://auth.robokassa.ru/Merchant/Index.aspx"
     payment_url = (
         f"{base_url}?MerchantLogin={ROBOX_LOGIN}&OutSum={out_sum}&InvId={inv_id}"
