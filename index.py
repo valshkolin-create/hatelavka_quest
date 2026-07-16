@@ -3788,10 +3788,7 @@ async def get_bootstrap_data(
         }
         
         # 🔥 ОПТИМИЗАЦИЯ 3: Пакетное обновление словаря на уровне С (в разы быстрее)
-        
-        # 👇 ХИРУРГИЧЕСКАЯ ВСТАВКА: Считаем уровень БП (1 уровень = 10 EXP)
-        cp_stars = db_data.get('user_extra', {}).get('checkpoint_stars', 0)
-        calculated_cp_level = int(cp_stars // 10) if cp_stars else 0
+    
         # -----------------------------------------------------------------
 
         user_data.update({
