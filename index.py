@@ -15896,10 +15896,10 @@ async def create_robokassa_link(
         ]
     }
     
-    # 1. Формируем СЫРОЙ JSON
+    # 1. Формируем СЫРОЙ JSON (используется для подписи)
     receipt_json = json.dumps(receipt, separators=(',', ':'))
     
-    # 2. URL-кодируем чек (теперь используется И для подписи, И для самой ссылки)
+    # 2. URL-кодируем чек (используется ТОЛЬКО для самой ссылки)
     receipt_url_encoded = urllib.parse.quote(receipt_json)
 
     # --- ЛОГИКА РАЗДЕЛЕНИЯ АДМИНОВ И ОБЫЧНЫХ ПОЛЬЗОВАТЕЛЕЙ ---
@@ -15913,8 +15913,8 @@ async def create_robokassa_link(
     current_is_test = 1 if is_admin_request else 0
     # --------------------------------------------------------
 
-    # ФОРМИРУЕМ ПОДПИСЬ ПРАВИЛЬНО: берем ЗАКОДИРОВАННЫЙ чек (receipt_url_encoded) и current_pass1
-    signature_string = f"{ROBOX_LOGIN}:{out_sum}:{inv_id}:{receipt_url_encoded}:{current_pass1}:Shp_action={shp_action}:Shp_exp={shp_exp}:Shp_tgid={shp_tgid}"
+    # ФОРМИРУЕМ ПОДПИСЬ ПРАВИЛЬНО: берем СЫРОЙ чек (receipt_json) и current_pass1
+    signature_string = f"{ROBOX_LOGIN}:{out_sum}:{inv_id}:{receipt_json}:{current_pass1}:Shp_action={shp_action}:Shp_exp={shp_exp}:Shp_tgid={shp_tgid}"
     signature = hashlib.md5(signature_string.encode('utf-8')).hexdigest()
 
     # Итоговая ссылка (вставляем receipt_url_encoded и current_is_test)
