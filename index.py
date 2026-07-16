@@ -3802,9 +3802,9 @@ async def get_bootstrap_data(
             'active_trade_status': trade_status_map.get(db_data.get('trade_status'), "none"),
             'active_secret_code': db_data.get('secret_code'),
             
-            # 👇 ХИРУРГИЧЕСКАЯ ВСТАВКА: Прокидываем данные для JS
+            # 👇 Берем готовый и правильный уровень прямо из профиля БД
             'bp_quests': db_data.get('bp_quests', []), 
-            'checkpoint_level': calculated_cp_level,
+            'checkpoint_level': user_data.get('checkpoint_level', 0),
             # ---------------------------------------------------
 
             **db_data.get('user_extra', {}),
