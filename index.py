@@ -15826,8 +15826,13 @@ import hashlib
 import urllib.parse
 import time
 import os
-from fastapi import Form
+import json
+import logging
+from typing import Optional
+from fastapi import Form, Depends, HTTPException
 from fastapi.responses import PlainTextResponse
+from pydantic import BaseModel
+import httpx
 
 # Достаем ключи из переменных окружения Vercel
 ROBOX_LOGIN = os.getenv("ROBOX_LOGIN", "hatelavka_pay")
@@ -15888,7 +15893,7 @@ async def create_robokassa_link(
     receipt_json = json.dumps(receipt, separators=(',', ':'))
     receipt_url_encoded = urllib.parse.quote(receipt_json)
 
-    # Подпись MD5 с Паролем #1
+    # Подпись MD5 с Паролем #1 (Для генерации ссылки всегда используется первый пароль)
     signature_string = f"{ROBOX_LOGIN}:{out_sum}:{inv_id}:{receipt_json}:{ROBOX_PASS1}:Shp_action={shp_action}:Shp_levels={shp_levels}:Shp_tgid={shp_tgid}"
     signature = hashlib.md5(signature_string.encode('utf-8')).hexdigest()
 
@@ -15902,7 +15907,6 @@ async def create_robokassa_link(
     )
 
     return {"status": "success", "url": payment_url}
-
 
 @app.post("/api/v1/payment/callback")
 async def robokassa_callback(
@@ -15947,28 +15951,37 @@ async def robokassa_callback(
         logging.error(f"[ROBOKASSA] Неверная подпись! Пришла: {SignatureValue}, Ожидалась: {my_signature}. Строка: {signature_string}")
         return PlainTextResponse(content="bad sign", status_code=400)
 
-    # 3. Логика выдачи товара
+    # 3. Логика выдачи товара (переведена на RPC)
     try:
         # Если это тестовый платеж без параметров, просто отдаем OK
         if not shp_params:
             logging.info(f"[ROBOKASSA] Успешный тестовый платеж {InvId}")
             return PlainTextResponse(content=f"OK{InvId}", status_code=200)
 
-        # Вытаскиваем значения для удобства
+        # Вытаскиваем значения
         action = shp_params.get("Shp_action")
         tgid = shp_params.get("Shp_tgid")
-        levels = shp_params.get("Shp_levels")
+        levels_str = shp_params.get("Shp_levels")
+        levels = int(levels_str) if levels_str and levels_str.isdigit() else 0
 
-        if action == "premium" and tgid:
-            await supabase.patch("/users", params={"telegram_id": f"eq.{tgid}"}, json={"has_cp_premium": True})
-            logging.info(f"[ROBOKASSA] Premium выдан {tgid}")
+        # Вызываем созданную SQL-функцию через PostgREST API базы Supabase
+        rpc_resp = await supabase.post(
+            "/rpc/handle_robokassa_fulfillment",
+            json={
+                "p_telegram_id": str(tgid),
+                "p_action": str(action),
+                "p_levels": levels
+            }
+        )
         
-        elif action == "exp" and tgid and levels:
-            exp_to_add = int(levels) * 10.0
-            user_resp = await supabase.get("/users", params={"telegram_id": f"eq.{tgid}", "select": "checkpoint_stars"})
-            if user_resp.is_success and user_resp.json():
-                current_stars = float(user_resp.json()[0].get("checkpoint_stars") or 0)
-                await supabase.patch("/users", params={"telegram_id": f"eq.{tgid}"}, json={"checkpoint_stars": current_stars + exp_to_add})
+        if rpc_resp.is_success:
+            result_data = rpc_resp.json()
+            if result_data.get("status") == "success":
+                logging.info(f"[ROBOKASSA] Товар успешно выдан через RPC для {tgid}. Ответ: {result_data}")
+            else:
+                logging.error(f"[ROBOKASSA] Ошибка бизнес-логики в базе: {result_data.get('message')}")
+        else:
+            logging.error(f"[ROBOKASSA] Сбой HTTP-запроса к RPC Supabase: {rpc_resp.status_code} - {rpc_resp.text}")
 
     except Exception as e:
         logging.error(f"[ROBOKASSA] Ошибка выдачи товара: {e}", exc_info=True)
