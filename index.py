@@ -16152,16 +16152,20 @@ async def buy_checkpoint_premium(req: BuyPremiumRequest, supabase: httpx.AsyncCl
         raise HTTPException(status_code=500, detail="Сбой при проведении транзакции. Статус не выдан.")
 
     # 5. Сюда код дойдет ТОЛЬКО если монеты успешно испарились со счета.
-    # Теперь выдаем товар.
-    patch_res = await supabase.patch(
-        "/users", 
-        params={"telegram_id": f"eq.{tg_id}"}, 
-        json={"has_cp_premium": True}
+    # Теперь выдаем товар (ИСПРАВЛЕНО НА БЕЗОПАСНЫЙ RPC).
+    rpc_res = await supabase.post(
+        "/rpc/handle_robokassa_fulfillment",
+        json={
+            "p_telegram_id": str(tg_id),
+            "p_action": "premium",
+            "p_value": 0.0
+        }
     )
     
     # Крайний случай: монеты ушли, а база данных поперхнулась
-    if not patch_res.is_success:
-        logging.error(f"АЛАРМ! Монеты списаны, но Premium не выдан для {tg_id}. Ошибка БД: {patch_res.text}")
+    if not rpc_res.is_success or rpc_res.json().get("status") != "success":
+        error_details = rpc_res.text if not rpc_res.is_success else rpc_res.json().get('message')
+        logging.error(f"АЛАРМ! Монеты списаны, но Premium не выдан для {tg_id}. Ошибка БД: {error_details}")
         raise HTTPException(status_code=500, detail="Монеты списаны, но произошел сбой выдачи. Обратитесь к администратору.")
 
     return {"status": "success", "message": "Premium успешно активирован!"}
@@ -17829,16 +17833,20 @@ async def buy_checkpoint_exp(req: BuyExpRequest, supabase: httpx.AsyncClient = D
     else:
         raise HTTPException(status_code=400, detail="Неизвестный метод оплаты")
 
-    # 8. Начисление точного количества EXP
-    patch_res = await supabase.patch(
-        "/users", 
-        params={"telegram_id": f"eq.{tg_id}"}, 
-        json={"checkpoint_stars": current_stars + exp_to_add}
+    # 8. Начисление точного количества EXP (ИСПРАВЛЕНО НА БЕЗОПАСНЫЙ RPC)
+    rpc_res = await supabase.post(
+        "/rpc/handle_robokassa_fulfillment",
+        json={
+            "p_telegram_id": str(tg_id),
+            "p_action": "exp",
+            "p_value": exp_to_add
+        }
     )
     
-    if not patch_res.is_success:
+    if not rpc_res.is_success or rpc_res.json().get("status") != "success":
         import logging
-        logging.error(f"АЛАРМ! Ресурсы списаны, но EXP не выдан для {tg_id}.")
+        error_details = rpc_res.text if not rpc_res.is_success else rpc_res.json().get('message')
+        logging.error(f"АЛАРМ! Ресурсы списаны, но EXP не выдан для {tg_id}. Ошибка БД: {error_details}")
         raise HTTPException(status_code=500, detail="Ошибка выдачи EXP. Обратитесь к администратору.")
 
     return {"status": "success", "message": f"Прокачано до {target_level} уровня"}
