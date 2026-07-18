@@ -381,15 +381,20 @@ function getPlatformType() {
         
         const result = await response.json();
 
-       if (!response.ok) {
-           // 👇 ЛОВИМ БЛОКИРОВКУ ПО АКТИВУ 👇
+      if (!response.ok) {
+            // 👇 ЛОВИМ БЛОКИРОВКУ ПО АКТИВУ 👇
             if (result.detail && typeof result.detail === 'object' && result.detail.error_code === "ACTIVITY_LOCK") {
                 window.showActivityWallModal(result.detail.current_msgs, result.detail.required_msgs);
                 throw new Error("Activity Lock");
             }
             // 👆 КОНЕЦ ВСТАВКИ 👆
-            // Приводим ошибку к верхнему регистру для надежности (чтобы ловить BANNED, banned, BAN и т.д.)
-            const errorDetail = result.detail ? result.detail.toUpperCase() : (result.message ? result.message.toUpperCase() : "");
+            
+            // Защита от краша: если detail это массив (ошибка 422 от FastAPI) или объект, превращаем в строку
+            let rawError = result.detail || result.message || "";
+            if (typeof rawError !== 'string') {
+                rawError = JSON.stringify(rawError);
+            }
+            const errorDetail = rawError.toUpperCase();
 
             // 💀 1. ВЕЧНЫЙ ЭКРАН СМЕРТИ (403 BANNED)
             if (response.status === 403 && errorDetail.includes("BAN")) {
@@ -5118,7 +5123,7 @@ window.showActivityWallModal = function(currentMsgs, requiredMsgs) {
     overlay.id = 'activity-wall-modal';
     overlay.style.cssText = "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); z-index: 2147483647; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px); opacity: 0; transition: opacity 0.3s;";
 
-    // Расширенный список фактов
+    // Мега-список фактов, рофлов и сатиры про Твич, луркеров и HATElavka
     const facts = [
         "Факт: Шанс выбить нож выше, чем шанс увидеть твое сообщение в чате.",
         "Факт: Ниндзя позавидует твоей способности сидеть в тени стрима.",
@@ -5180,8 +5185,17 @@ window.showActivityWallModal = function(currentMsgs, requiredMsgs) {
             </div>
 
             <div style="display: flex; flex-direction: column; gap: 10px;">
-                <!-- Переписано под логику MAX с перенаправлением через промежуточный скрипт/переходник -->
-                <button onclick="window.location.href='/redirect?url=https://t.me/hatelove_ttv'" style="width: 100%; padding: 14px; background: #9146ff; color: #fff; border: none; border-radius: 12px; font-weight: 800; text-transform: uppercase; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px;"><i class="fa-brands fa-twitch"></i> Написать на Twitch</button>
+                
+                <!-- Блок с двумя кнопками (Twitch и Telegram) -->
+                <div style="display: flex; gap: 10px; width: 100%;">
+                    <button onclick="window.location.href='/redirect?url=https://twitch.tv/hatelove_ttv'" style="flex: 1; padding: 14px 10px; background: #9146ff; color: #fff; border: none; border-radius: 12px; font-weight: 800; font-size: 13px; text-transform: uppercase; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 6px;">
+                        <i class="fa-brands fa-twitch"></i> Twitch
+                    </button>
+                    
+                    <button onclick="window.location.href='/redirect?url=https://t.me/hatelovettv'" style="flex: 1; padding: 14px 10px; background: #2AABEE; color: #fff; border: none; border-radius: 12px; font-weight: 800; font-size: 13px; text-transform: uppercase; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 6px;">
+                        <i class="fa-brands fa-telegram"></i> Telegram
+                    </button>
+                </div>
                 
                 <button id="close-activity-wall-btn" style="width: 100%; padding: 14px; background: rgba(255,255,255,0.1); color: #fff; border: none; border-radius: 12px; font-weight: 700; text-transform: uppercase; cursor: pointer; transition: background 0.2s;">Понятно</button>
             </div>
