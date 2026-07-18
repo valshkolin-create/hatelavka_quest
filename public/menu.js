@@ -5112,19 +5112,43 @@ window.showActivityWallModal = function(currentMsgs, requiredMsgs) {
     if (window.hasShownActivityWall || document.getElementById('activity-wall-modal')) return;
     window.hasShownActivityWall = true;
 
-    lockAppScroll(); 
+    if (typeof lockAppScroll === 'function') lockAppScroll(); 
     
     const overlay = document.createElement('div');
     overlay.id = 'activity-wall-modal';
     overlay.style.cssText = "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); z-index: 2147483647; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px); opacity: 0; transition: opacity 0.3s;";
 
-    // Рофлы и факты (можешь добавлять свои)
+    // Расширенный список фактов
     const facts = [
         "Факт: Шанс выбить нож выше, чем шанс увидеть твое сообщение в чате.",
         "Факт: Ниндзя позавидует твоей способности сидеть в тени стрима.",
         "Факт: HATElavka работает на энергии чата, а не на солнечных батареях.",
         "Факт: Если ты сейчас моргнешь — напиши об этом в чат, это уже актив!",
-        "Факт: 50 сообщений пишутся быстрее, чем грузится катка в CS2."
+        "Факт: 50 сообщений пишутся быстрее, чем грузится катка в CS2.",
+        "Факт: Пока ты молчишь, где-то грустит один невыбитый тайного качества скин.",
+        "Факт: Самый дорогой лут падает тем, кто хотя бы здоровается в чате.",
+        "Факт: В HATElavka нет скрытых комиссий, но есть налог на молчание.",
+        "Факт: Стример питается твоими сообщениями. Не дай ему уйти в AFK!",
+        "Факт: Твой актив в чате работает лучше, чем танец с бубном перед открытием кейса.",
+        "Факт: Ученые выяснили, что луркеры на Твиче со временем эволюционируют в камни.",
+        "Факт: Твоя клавиатура скоро покроется паутиной. Спасай ее — напиши в чат!",
+        "Факт: Смайлики придумали специально для тех, кому лень писать слова. Пользуйся.",
+        "Факт: По статистике, 90% зрителей придумывают идеальную шутку, но так и не отправляют её.",
+        "Факт: Если бы за молчание на стриме давали сабки, ты бы уже был шейхом Твича.",
+        "Факт: Твой ник в списке зрителей выглядит одиноко. Познакомь его с чатом.",
+        "Факт: Чат летит так медленно, что можно успеть прочитать «Войну и мир». Исправляй.",
+        "Факт: Стример не умеет читать мысли на расстоянии. Придется использовать клавиатуру.",
+        "Факт: Если ты напишешь в чат, твой комп не взорвется. Мы проверяли.",
+        "Факт: Быть луркером — это искусство. Но сегодня HATElavka спонсирует только ремесленников.",
+        "Факт: Алгоритмы Твича начинают думать, что ты бот. Докажи обратное!",
+        "Факт: Twitch Prime не освобождает от налога на актив в HATElavka.",
+        "Факт: Легенда гласит, что за 10 000 сообщений можно получить модерку. (Спойлер: нет).",
+        "Факт: Каждый раз, когда ты молчишь на стриме, где-то грустит один Каппа.",
+        "Факт: Писать в чат полезно для мелкой моторики пальцев, особенно перед клатчем 1 в 3.",
+        "Факт: Халява любит смелых. А смелые не стесняются писать в чат!",
+        "Факт: Зрители делятся на два типа: те, кто делает контент в чате, и те, кто ждет халяву. Угадай, кто ты?",
+        "Факт: В чате нет режима «инкогнито». Мы знаем, что ты здесь, луркер.",
+        "Факт: Если написать «GG» в чат, твоя карма улучшится на 1%, а шанс дропа — на 0%. Но это не точно."
     ];
     const randomFact = facts[Math.floor(Math.random() * facts.length)];
 
@@ -5136,13 +5160,13 @@ window.showActivityWallModal = function(currentMsgs, requiredMsgs) {
             <i class="fa-solid fa-lock" style="font-size:44px; color:#ffcc00; margin-bottom:15px; filter: drop-shadow(0 0 15px rgba(255, 204, 0, 0.4));"></i>
             <h3 style="color: #fff; font-size: 18px; margin-bottom: 10px; font-weight: 900; text-transform: uppercase;">Проекту нужен твой актив!</h3>
             
-            <div style="font-size: 12px; color: #bbb; line-height: 1.4; text-align: left; margin-bottom: 20px;">
+            <div style="font-size: 13px; color: #bbb; line-height: 1.5; text-align: left; margin-bottom: 20px;">
                 Бюджет HATElavka не бесконечен. Сейчас покупки и выводы открыты <b>только для активного комьюнити</b>.<br><br>
-                Чтобы разблокировать кейсы, прояви себя на стримах или в Telegram чате! Залетай и общайся.
+                Чтобы разблокировать кейсы, прояви себя на стримах или в чате! Залетай и общайся.
             </div>
 
             <div style="background: rgba(0,0,0,0.4); padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 15px;">
-                <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 800; color: #fff; margin-bottom: 8px;">
+                <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 800; color: #fff; margin-bottom: 8px;">
                     <span style="color: #aaa;">Мой актив</span>
                     <span style="color: #ffcc00;">${currentMsgs} / ${requiredMsgs}</span>
                 </div>
@@ -5151,13 +5175,15 @@ window.showActivityWallModal = function(currentMsgs, requiredMsgs) {
                 </div>
             </div>
 
-            <div style="font-size: 10px; color: #8e8e93; font-style: italic; margin-bottom: 20px; background: rgba(255,255,255,0.03); padding: 10px; border-radius: 8px;">
-                ${randomFact}
+            <div style="font-size: 13px; color: #e5e5ea; font-weight: 500; text-align: left; margin-bottom: 20px; background: rgba(255,255,255,0.08); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
+                <span style="color: #ffcc00; font-weight: 800; margin-right: 4px;">💡</span> ${randomFact}
             </div>
 
             <div style="display: flex; flex-direction: column; gap: 10px;">
-                <button onclick="if(window.Telegram?.WebApp) { Telegram.WebApp.openTelegramLink('https://t.me/hatelove_ttv'); } else { window.open('https://t.me/hatelove_ttv', '_blank'); }" style="width: 100%; padding: 14px; background: #9146ff; color: #fff; border: none; border-radius: 12px; font-weight: 800; text-transform: uppercase; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px;"><i class="fa-brands fa-twitch"></i> Написать на Twitch</button>
-                <button id="close-activity-wall-btn" style="width: 100%; padding: 14px; background: rgba(255,255,255,0.05); color: #8e8e93; border: none; border-radius: 12px; font-weight: 700; text-transform: uppercase; cursor: pointer;">Понятно</button>
+                <!-- Переписано под логику MAX с перенаправлением через промежуточный скрипт/переходник -->
+                <button onclick="window.location.href='/redirect?url=https://t.me/hatelove_ttv'" style="width: 100%; padding: 14px; background: #9146ff; color: #fff; border: none; border-radius: 12px; font-weight: 800; text-transform: uppercase; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px;"><i class="fa-brands fa-twitch"></i> Написать на Twitch</button>
+                
+                <button id="close-activity-wall-btn" style="width: 100%; padding: 14px; background: rgba(255,255,255,0.1); color: #fff; border: none; border-radius: 12px; font-weight: 700; text-transform: uppercase; cursor: pointer; transition: background 0.2s;">Понятно</button>
             </div>
         </div>
     `;
@@ -5165,12 +5191,19 @@ window.showActivityWallModal = function(currentMsgs, requiredMsgs) {
     document.body.appendChild(overlay);
     requestAnimationFrame(() => overlay.style.opacity = '1');
 
-    overlay.querySelector('#close-activity-wall-btn').onclick = function() {
+    const closeBtn = overlay.querySelector('#close-activity-wall-btn');
+    
+    closeBtn.onmouseover = () => closeBtn.style.background = 'rgba(255,255,255,0.15)';
+    closeBtn.onmouseout = () => closeBtn.style.background = 'rgba(255,255,255,0.1)';
+
+    closeBtn.onclick = function(e) {
+        e.preventDefault();
+        e.stopPropagation(); 
         overlay.style.opacity = '0';
         setTimeout(() => {
             overlay.remove();
-            unlockAppScroll();
-            window.hasShownActivityWall = false; // Сбрасываем флаг, чтобы можно было открыть снова
+            if (typeof unlockAppScroll === 'function') unlockAppScroll();
+            window.hasShownActivityWall = false; 
         }, 300);
     };
 };
