@@ -3261,49 +3261,47 @@ async def run_mass_twitch_update():
     except Exception as e:
         logging.error(f"❌ Критическая ошибка в run_mass_twitch_update: {e}", exc_info=True)
 
-@app.get("/api/v1/cron/sync_market_balance")
-async def sync_market_balance_cron(
-    cron_secret: str = Query(None),
-    supabase: httpx.AsyncClient = Depends(get_supabase_client)
-):
-    # Защита, чтобы эндпоинт нельзя было дергать снаружи просто так
-    if cron_secret != os.getenv("CRON_SECRET"):
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    
+async def fetch_and_sync_balance(supabase: httpx.AsyncClient, market_key: str):
     try:
-        market_key = os.getenv("CSGO_MARKET_API_KEY")
-        if not market_key:
-            return {"success": False, "error": "CSGO_MARKET_API_KEY не задан"}
-
         market = MarketCSGO(api_key=market_key)
-        
-        # Получаем баланс (у CS2 Market v2 для этого используется 'get-money')
         response = await market._make_request("get-money") 
         
         if isinstance(response, dict) and "money" in response:
             balance = float(response["money"])
             
-            # Атомарный UPSERT в таблицу settings
             await supabase.post(
                 "/settings", 
-                json={
-                    "key": "market_balance", 
-                    "value": {"balance": balance}
-                },
+                json={"key": "market_balance", "value": {"balance": balance}},
                 headers={
                     "Prefer": "resolution=merge-duplicates",
                     "Content-Type": "application/json"
                 }
             )
-            logging.info(f"[CRON] Баланс маркета успешно синхронизирован: {balance} ₽")
-            return {"success": True, "balance": balance}
+            logging.info(f"[CRON] Баланс успешно синхронизирован: {balance} ₽")
         else:
             logging.error(f"[CRON] Ошибка ответа Маркета: {response}")
-            return {"success": False, "error": "Не удалось получить баланс"}
             
     except Exception as e:
         logging.error(f"[CRON] Сбой: {e}")
-        return {"success": False, "error": str(e)}
+
+@app.get("/api/v1/cron/sync_market_balance")
+async def sync_market_balance_cron(
+    background_tasks: BackgroundTasks,
+    cron_secret: str = Query(None),
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    if cron_secret != os.getenv("CRON_SECRET"):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    market_key = os.getenv("CSGO_MARKET_API_KEY")
+    if not market_key:
+        return {"success": False, "error": "CSGO_MARKET_API_KEY не задан"}
+
+    # Отправляем тяжелую задачу в фон
+    background_tasks.add_task(fetch_and_sync_balance, supabase, market_key)
+    
+    # Отвечаем моментально
+    return {"success": True, "message": "Синхронизация запущена в фоне"}
 
 @app.get("/api/cron/fill_dict_colors")
 async def fill_dict_colors(token: str, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
