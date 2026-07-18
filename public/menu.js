@@ -473,8 +473,8 @@ function getPlatformType() {
     } catch (e) {
         if (e.name === 'AbortError') e.message = "Превышено время ожидания ответа от сервера.";
         
-        // 🔥 ВАЖНО: Если это Бан, Блок или Ошибка Бота, НЕ показываем стандартный customAlert поверх нашего окна
-        const silentErrors = ['Cooldown active', 'Security Block', 'USER_BANNED', 'Bot Auth Required'];
+        // 🔥 ВАЖНО: Если это Бан, Блок, Ошибка Бота или Блокировка Актива, НЕ показываем стандартный customAlert
+        const silentErrors = ['Cooldown active', 'Security Block', 'USER_BANNED', 'Bot Auth Required', 'Activity Lock'];
         if (!silentErrors.includes(e.message) && !isSilent) {
              customAlert(`Ошибка: ${e.message}`);
         }
