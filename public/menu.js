@@ -5188,11 +5188,11 @@ window.showActivityWallModal = function(currentMsgs, requiredMsgs) {
                 
                 <!-- Блок с двумя кнопками (Twitch и Telegram) -->
                 <div style="display: flex; gap: 10px; width: 100%;">
-                    <button onclick="window.location.href='/redirect?url=https://twitch.tv/hatelove_ttv'" style="flex: 1; padding: 14px 10px; background: #9146ff; color: #fff; border: none; border-radius: 12px; font-weight: 800; font-size: 13px; text-transform: uppercase; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 6px;">
+                    <button onclick="if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.openLink) { window.Telegram.WebApp.openLink('https://twitch.tv/hatelove_ttv'); } else { window.open('https://twitch.tv/hatelove_ttv', '_blank'); }" style="flex: 1; padding: 14px 10px; background: #9146ff; color: #fff; border: none; border-radius: 12px; font-weight: 800; font-size: 13px; text-transform: uppercase; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 6px;">
                         <i class="fa-brands fa-twitch"></i> Twitch
                     </button>
                     
-                    <button onclick="window.location.href='/redirect?url=https://t.me/hatelovettv'" style="flex: 1; padding: 14px 10px; background: #2AABEE; color: #fff; border: none; border-radius: 12px; font-weight: 800; font-size: 13px; text-transform: uppercase; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 6px;">
+                    <button onclick="if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.openTelegramLink) { window.Telegram.WebApp.openTelegramLink('https://t.me/hatelovettv'); } else { window.open('https://t.me/hatelovettv', '_blank'); }" style="flex: 1; padding: 14px 10px; background: #2AABEE; color: #fff; border: none; border-radius: 12px; font-weight: 800; font-size: 13px; text-transform: uppercase; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 6px;">
                         <i class="fa-brands fa-telegram"></i> Telegram
                     </button>
                 </div>
