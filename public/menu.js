@@ -382,6 +382,12 @@ function getPlatformType() {
         const result = await response.json();
 
        if (!response.ok) {
+           // 👇 ЛОВИМ БЛОКИРОВКУ ПО АКТИВУ 👇
+            if (result.detail && typeof result.detail === 'object' && result.detail.error_code === "ACTIVITY_LOCK") {
+                window.showActivityWallModal(result.detail.current_msgs, result.detail.required_msgs);
+                throw new Error("Activity Lock");
+            }
+            // 👆 КОНЕЦ ВСТАВКИ 👆
             // Приводим ошибку к верхнему регистру для надежности (чтобы ловить BANNED, banned, BAN и т.д.)
             const errorDetail = result.detail ? result.detail.toUpperCase() : (result.message ? result.message.toUpperCase() : "");
 
@@ -5097,6 +5103,76 @@ window.claimTrustAmnesty = async function() {
             });
         }
     });
+};
+
+// Глобальный флаг, чтобы окно не спамилось дублями
+window.hasShownActivityWall = false;
+
+window.showActivityWallModal = function(currentMsgs, requiredMsgs) {
+    if (window.hasShownActivityWall || document.getElementById('activity-wall-modal')) return;
+    window.hasShownActivityWall = true;
+
+    lockAppScroll(); 
+    
+    const overlay = document.createElement('div');
+    overlay.id = 'activity-wall-modal';
+    overlay.style.cssText = "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); z-index: 2147483647; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px); opacity: 0; transition: opacity 0.3s;";
+
+    // Рофлы и факты (можешь добавлять свои)
+    const facts = [
+        "Факт: Шанс выбить нож выше, чем шанс увидеть твое сообщение в чате.",
+        "Факт: Ниндзя позавидует твоей способности сидеть в тени стрима.",
+        "Факт: HATElavka работает на энергии чата, а не на солнечных батареях.",
+        "Факт: Если ты сейчас моргнешь — напиши об этом в чат, это уже актив!",
+        "Факт: 50 сообщений пишутся быстрее, чем грузится катка в CS2."
+    ];
+    const randomFact = facts[Math.floor(Math.random() * facts.length)];
+
+    const percent = Math.min((currentMsgs / requiredMsgs) * 100, 100).toFixed(1);
+
+    overlay.innerHTML = `
+        <div class="custom-confirm-box" style="padding: 24px 20px; width: 90%; max-width: 350px; background: #1c1c1e; border-radius: 16px; border: 1px solid rgba(255, 215, 0, 0.3); text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.8);">
+            
+            <i class="fa-solid fa-lock" style="font-size:44px; color:#ffcc00; margin-bottom:15px; filter: drop-shadow(0 0 15px rgba(255, 204, 0, 0.4));"></i>
+            <h3 style="color: #fff; font-size: 18px; margin-bottom: 10px; font-weight: 900; text-transform: uppercase;">Проекту нужен твой актив!</h3>
+            
+            <div style="font-size: 12px; color: #bbb; line-height: 1.4; text-align: left; margin-bottom: 20px;">
+                Бюджет HATElavka не бесконечен. Сейчас покупки и выводы открыты <b>только для активного комьюнити</b>.<br><br>
+                Чтобы разблокировать кейсы, прояви себя на стримах или в Telegram чате! Залетай и общайся.
+            </div>
+
+            <div style="background: rgba(0,0,0,0.4); padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 15px;">
+                <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 800; color: #fff; margin-bottom: 8px;">
+                    <span style="color: #aaa;">Мой актив</span>
+                    <span style="color: #ffcc00;">${currentMsgs} / ${requiredMsgs}</span>
+                </div>
+                <div style="width: 100%; height: 8px; border-radius: 4px; background: rgba(0,0,0,0.6); overflow: hidden;">
+                    <div style="height: 100%; width: ${percent}%; background: linear-gradient(90deg, #ff3b30, #ffcc00); border-radius: 4px; box-shadow: 0 0 10px rgba(255, 204, 0, 0.5);"></div>
+                </div>
+            </div>
+
+            <div style="font-size: 10px; color: #8e8e93; font-style: italic; margin-bottom: 20px; background: rgba(255,255,255,0.03); padding: 10px; border-radius: 8px;">
+                ${randomFact}
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <button onclick="if(window.Telegram?.WebApp) { Telegram.WebApp.openTelegramLink('https://t.me/hatelove_ttv'); } else { window.open('https://t.me/hatelove_ttv', '_blank'); }" style="width: 100%; padding: 14px; background: #9146ff; color: #fff; border: none; border-radius: 12px; font-weight: 800; text-transform: uppercase; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px;"><i class="fa-brands fa-twitch"></i> Написать на Twitch</button>
+                <button id="close-activity-wall-btn" style="width: 100%; padding: 14px; background: rgba(255,255,255,0.05); color: #8e8e93; border: none; border-radius: 12px; font-weight: 700; text-transform: uppercase; cursor: pointer;">Понятно</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+    requestAnimationFrame(() => overlay.style.opacity = '1');
+
+    overlay.querySelector('#close-activity-wall-btn').onclick = function() {
+        overlay.style.opacity = '0';
+        setTimeout(() => {
+            overlay.remove();
+            unlockAppScroll();
+            window.hasShownActivityWall = false; // Сбрасываем флаг, чтобы можно было открыть снова
+        }, 300);
+    };
 };
 // ================================================================
 // ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ (УНИВЕРСАЛЬНАЯ БРОНЯ)
