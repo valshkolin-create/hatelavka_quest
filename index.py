@@ -90,47 +90,62 @@ _background_supabase_client: Optional[httpx.AsyncClient] = None
 # =========================================================================
 
 async def verify_activity_lock(user_record: dict, supabase: httpx.AsyncClient):
-    import logging
-    from fastapi import HTTPException
-    
-    # 1. Читаем актуальный баланс из нашей базы (без обращения к Маркету)
+    # 1. Читаем актуальный баланс из нашей базы
+    market_balance = 5000.0 # Дефолт
     try:
         settings_res = await supabase.get("/settings", params={"key": "eq.market_balance", "select": "value"})
-        settings_data = settings_res.json()
         
-        market_balance = 5000.0 # Дефолт, если крон еще не отработал
-        if settings_data and len(settings_data) > 0:
-            market_balance = float(settings_data[0].get("value", {}).get("balance", 5000.0))
+        # Проверяем, что запрос действительно успешен (статус 200-299)
+        if settings_res.status_code == 200:
+            settings_data = settings_res.json()
+            
+            # Убеждаемся, что пришел именно список (массив), а не объект с ошибкой
+            if isinstance(settings_data, list) and len(settings_data) > 0:
+                raw_value = settings_data[0].get("value", {})
+                
+                # Если в БД хранится как строка, парсим в dict
+                if isinstance(raw_value, str):
+                    try:
+                        raw_value = json.loads(raw_value)
+                    except json.JSONDecodeError:
+                        raw_value = {}
+                        
+                market_balance = float(raw_value.get("balance", 5000.0))
+        else:
+            logging.error(f"[ACTIVITY LOCK] Supabase вернул статус {settings_res.status_code}: {settings_res.text}")
+            
     except Exception as e:
         logging.error(f"[ACTIVITY LOCK] Ошибка чтения баланса из БД: {e}")
-        market_balance = 5000.0
 
-    # 2. Берем максимальный актив юзера (Твич или ТГ)
+    # 2. Берем максимальный актив юзера
     twitch_msgs = int(user_record.get("monthly_message_count") or 0)
     tg_msgs = int(user_record.get("telegram_monthly_message_count") or 0)
     user_max_msgs = max(twitch_msgs, tg_msgs)
 
-    # 3. Лестница порогов (настраивай балансы под свою экономику)
+    # 3. Лестница порогов
     if market_balance >= 5000:
-        required_msgs = 50    # Денег полно, открываем всем
+        required_msgs = 50
     elif market_balance >= 2000:
-        required_msgs = 100  # Баланс средний, просим немного актива
+        required_msgs = 100
     elif market_balance >= 500:
-        required_msgs = 200  # Денег мало, гайки закручиваются
+        required_msgs = 200
     else:
-        required_msgs = 500  # Режим выживания
+        required_msgs = 500
 
-    # 4. Проверка и Блокировка (Админов пропускаем всегда)
+    # 4. Проверка и Блокировка
     is_admin = user_record.get("is_admin", False)
     
     if user_max_msgs < required_msgs and not is_admin:
-        # Выкидываем кастомный JSON, который фронтенд поймает для отрисовки красивого окна
+        # Если хочешь, чтобы фронтенд получал плоский JSON без обертки "detail", 
+        # лучше выбрасывать HTTPException, но перехватывать его глобально, 
+        # либо кидать так (в FastAPI HTTPException стандартно требует detail):
         raise HTTPException(
             status_code=403, 
             detail={
                 "error_code": "ACTIVITY_LOCK",
                 "current_msgs": user_max_msgs,
-                "required_msgs": required_msgs
+                "required_msgs": required_msgs,
+                "market_balance": market_balance # Полезно отдать на фронт для дебага
             }
         )
 
