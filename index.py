@@ -20755,7 +20755,7 @@ async def buy_bott_item_proxy(
             "/users", 
             params={
                 "telegram_id": f"eq.{telegram_id}",
-                "select": "bot_t_coins,bott_internal_id,bott_secret_key,tickets,trade_link,is_banned,last_balance_sync,trust_level" 
+                "select": "bot_t_coins,bott_internal_id,bott_secret_key,tickets,trade_link,is_banned,last_balance_sync,trust_level,monthly_message_count,telegram_monthly_message_count,is_admin" 
             }
         )
         user_data_list = user_db_resp.json()
