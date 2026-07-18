@@ -5172,7 +5172,7 @@ window.showActivityWallModal = function(currentMsgs, requiredMsgs) {
 
             <div style="background: rgba(0,0,0,0.4); padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 15px;">
                 <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 800; color: #fff; margin-bottom: 8px;">
-                    <span style="color: #aaa;">Мой актив</span>
+                    <span style="color: #aaa;">Мой актив за месяц</span>
                     <span style="color: #ffcc00;">${currentMsgs} / ${requiredMsgs}</span>
                 </div>
                 <div style="width: 100%; height: 8px; border-radius: 4px; background: rgba(0,0,0,0.6); overflow: hidden;">
