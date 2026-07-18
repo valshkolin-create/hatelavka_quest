@@ -20750,6 +20750,7 @@ async def buy_bott_item_proxy(
     # =========================================================================
 
     # 1. Получаем данные юзера (ДОБАВИЛ last_balance_sync)
+    # 1. Получаем данные юзера (ДОБАВИЛ last_balance_sync)
     try:
         user_db_resp = await supabase.get(
             "/users", 
@@ -20759,11 +20760,20 @@ async def buy_bott_item_proxy(
             }
         )
         user_data_list = user_db_resp.json()
+        
+        # 🔥 ЗАЩИТА: Если Supabase вернул ошибку (словарь) вместо списка данных
+        if user_db_resp.status_code >= 400 or isinstance(user_data_list, dict):
+            logging.error(f"[SHOP] Supabase вернул ошибку при поиске юзера: {user_data_list}")
+            raise HTTPException(status_code=500, detail="Внутренняя ошибка БД: неверные колонки")
+
+    except HTTPException:
+        raise  # Прокидываем HTTPException дальше
     except Exception as e:
         logging.error(f"[SHOP] Ошибка БД: {e}")
         raise HTTPException(status_code=500, detail="Ошибка базы данных")
     
-    if not user_data_list:
+    # Защита от пустого списка
+    if not user_data_list or not isinstance(user_data_list, list) or len(user_data_list) == 0:
         raise HTTPException(status_code=404, detail="Пользователь не найден.")
         
     user_record = user_data_list[0]
