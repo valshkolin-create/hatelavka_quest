@@ -86,6 +86,55 @@ _background_supabase_client: Optional[httpx.AsyncClient] = None
 
 
 # =========================================================================
+# 🛠️ ГЛОБАЛЬНЫЕ УТИЛИТЫ CS MARKET БАЛАНС + ОГРАНИЧЕНИЕ
+# =========================================================================
+
+async def verify_activity_lock(user_record: dict, supabase: httpx.AsyncClient):
+    import logging
+    from fastapi import HTTPException
+    
+    # 1. Читаем актуальный баланс из нашей базы (без обращения к Маркету)
+    try:
+        settings_res = await supabase.get("/settings", params={"key": "eq.market_balance", "select": "value"})
+        settings_data = settings_res.json()
+        
+        market_balance = 5000.0 # Дефолт, если крон еще не отработал
+        if settings_data and len(settings_data) > 0:
+            market_balance = float(settings_data[0].get("value", {}).get("balance", 5000.0))
+    except Exception as e:
+        logging.error(f"[ACTIVITY LOCK] Ошибка чтения баланса из БД: {e}")
+        market_balance = 5000.0
+
+    # 2. Берем максимальный актив юзера (Твич или ТГ)
+    twitch_msgs = int(user_record.get("monthly_message_count") or 0)
+    tg_msgs = int(user_record.get("telegram_monthly_message_count") or 0)
+    user_max_msgs = max(twitch_msgs, tg_msgs)
+
+    # 3. Лестница порогов (настраивай балансы под свою экономику)
+    if market_balance >= 5000:
+        required_msgs = 50    # Денег полно, открываем всем
+    elif market_balance >= 2000:
+        required_msgs = 100  # Баланс средний, просим немного актива
+    elif market_balance >= 500:
+        required_msgs = 200  # Денег мало, гайки закручиваются
+    else:
+        required_msgs = 500  # Режим выживания
+
+    # 4. Проверка и Блокировка (Админов пропускаем всегда)
+    is_admin = user_record.get("is_admin", False)
+    
+    if user_max_msgs < required_msgs and not is_admin:
+        # Выкидываем кастомный JSON, который фронтенд поймает для отрисовки красивого окна
+        raise HTTPException(
+            status_code=403, 
+            detail={
+                "error_code": "ACTIVITY_LOCK",
+                "current_msgs": user_max_msgs,
+                "required_msgs": required_msgs
+            }
+        )
+
+# =========================================================================
 # 🛠️ ГЛОБАЛЬНЫЕ УТИЛИТЫ ДЛЯ БАЛАНСА И ПРОМОКОДОВ (BOT-T)
 # =========================================================================
 
@@ -3211,6 +3260,50 @@ async def run_mass_twitch_update():
         logging.info("✅ Пакетное обновление (30 юзеров) для всех каналов завершено МГНОВЕННО.")
     except Exception as e:
         logging.error(f"❌ Критическая ошибка в run_mass_twitch_update: {e}", exc_info=True)
+
+@app.get("/api/v1/cron/sync_market_balance")
+async def sync_market_balance_cron(
+    cron_secret: str = Query(None),
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    # Защита, чтобы эндпоинт нельзя было дергать снаружи просто так
+    if cron_secret != os.getenv("CRON_SECRET"):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    try:
+        market_key = os.getenv("CSGO_MARKET_API_KEY")
+        if not market_key:
+            return {"success": False, "error": "CSGO_MARKET_API_KEY не задан"}
+
+        market = MarketCSGO(api_key=market_key)
+        
+        # Получаем баланс (у CS2 Market v2 для этого используется 'get-money')
+        response = await market._make_request("get-money") 
+        
+        if isinstance(response, dict) and "money" in response:
+            balance = float(response["money"])
+            
+            # Атомарный UPSERT в таблицу settings
+            await supabase.post(
+                "/settings", 
+                json={
+                    "key": "market_balance", 
+                    "value": {"balance": balance}
+                },
+                headers={
+                    "Prefer": "resolution=merge-duplicates",
+                    "Content-Type": "application/json"
+                }
+            )
+            logging.info(f"[CRON] Баланс маркета успешно синхронизирован: {balance} ₽")
+            return {"success": True, "balance": balance}
+        else:
+            logging.error(f"[CRON] Ошибка ответа Маркета: {response}")
+            return {"success": False, "error": "Не удалось получить баланс"}
+            
+    except Exception as e:
+        logging.error(f"[CRON] Сбой: {e}")
+        return {"success": False, "error": str(e)}
 
 @app.get("/api/cron/fill_dict_colors")
 async def fill_dict_colors(token: str, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
@@ -20666,6 +20759,10 @@ async def buy_bott_item_proxy(
     if user_record.get("is_banned"):
         raise HTTPException(status_code=403, detail="Ваш аккаунт заблокирован за нарушение правил.")
 
+    # 👇 ВСТАВИТЬ ВОТ СЮДА (Жесткая проверка актива на всё, включая купоны) 👇
+    await verify_activity_lock(user_record, supabase)
+    # 👆 КОНЕЦ ВСТАВКИ 👆
+
     trade_link = user_record.get("trade_link")
     
     if not trade_link or "partner=" not in trade_link or "token=" not in trade_link:
@@ -28053,6 +28150,9 @@ async def withdraw_inventory_item(
         raise HTTPException(status_code=400, detail="User error")
     
     user_info = user_list[0]
+    # 👇 ВСТАВИТЬ ВОТ СЮДА (Проверка актива перед выводом) 👇
+    await verify_activity_lock(user_info, supabase)
+    # 👆 КОНЕЦ ВСТАВКИ 👆
     trade_link = user_info.get('trade_link')
     if not trade_link:
         raise HTTPException(status_code=400, detail="⚠️ Укажите Trade Link в профиле!")
@@ -28383,6 +28483,9 @@ async def confirm_replacement(
         raise HTTPException(status_code=400, detail="User error")
     
     user_info = u_list[0]
+
+    await verify_activity_lock(user_info, supabase)
+    
     trade_link = user_info.get('trade_link')
 
     if not trade_link:
