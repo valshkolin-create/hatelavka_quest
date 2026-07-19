@@ -2603,7 +2603,10 @@ window.withdrawItem = function(historyId, itemName) {
 
         } catch (e) {
             closeConfirm();
-            showCustomAlert("Ошибка: " + e.message, true);
+            // Показываем алерт только если это НЕ блокировка актива
+            if (e.message !== 'Activity Lock') {
+                showCustomAlert("Ошибка: " + e.message, true);
+            }
             if (btn) btn.innerHTML = originalText;
         } finally {
             if (btn) btn.classList.remove('btn-loading');
@@ -2629,7 +2632,10 @@ window.sellAllItems = function() {
             await loadData(true); // Мгновенное обновление инвентаря
             close();
         } catch (e) {
-            tg.showAlert(e.message || "Ошибка при массовой продаже");
+            // Показываем алерт только если это НЕ блокировка актива
+            if (e.message !== 'Activity Lock') {
+                tg.showAlert(e.message || "Ошибка при массовой продаже");
+            }
             close();
         } finally {
             hideLoader();
@@ -2653,7 +2659,10 @@ window.exchangeItem = function(historyId, amount) {
             await loadData(true); 
             close();
         } catch (e) {
-            tg.showAlert(e.message || "Ошибка обмена");
+            // Показываем алерт только если это НЕ блокировка актива
+            if (e.message !== 'Activity Lock') {
+                tg.showAlert(e.message || "Ошибка обмена");
+            }
             close();
         } finally {
             hideLoader();
@@ -3363,7 +3372,10 @@ window.initiateReplacementConfirm = function(historyId, assetid, itemName) {
                 showCustomAlert("❌ " + (res.message || "Ошибка замены"), true);
             }
         } catch (e) {
-            showCustomAlert("Ошибка: " + e.message, true);
+            // Показываем алерт только если это НЕ блокировка актива
+            if (e.message !== 'Activity Lock') {
+                showCustomAlert("Ошибка: " + e.message, true);
+            }
         } finally {
             hideLoader();
             isUpdating = false; // <--- НЕ ЗАБЫТЬ СНЯТЬ БЛОКИРОВКУ В FINALLY
