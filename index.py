@@ -30477,7 +30477,7 @@ async def admin_manage_status(
 # 🛠️ ADMIN PANEL / TWITCH RAFFLES DIRECT DELIVERY
 # =====================================================================
 
-@router.post("/api/raffles/twitch-direct/{raffle_id}/finalize")
+@app.post("/api/raffles/twitch-direct/{raffle_id}/finalize")
 async def finalize_twitch_direct_raffle(raffle_id: int, background_tasks: BackgroundTasks):
     client = await get_background_client()
     
