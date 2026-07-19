@@ -30473,6 +30473,108 @@ async def admin_manage_status(
         logging.error(f"Ошибка изменения статусов: {e}")
         raise HTTPException(status_code=500, detail="Ошибка базы данных.")
 
+# =====================================================================
+# 🛠️ ADMIN PANEL / TWITCH RAFFLES DIRECT DELIVERY
+# =====================================================================
+
+@router.post("/api/raffles/twitch-direct/{raffle_id}/finalize")
+async def finalize_twitch_direct_raffle(raffle_id: int, background_tasks: BackgroundTasks):
+    client = await get_background_client()
+    
+    # 1. Получаем данные розыгрыша
+    raffle_res = await client.get("/raffles", params={"id": f"eq.{raffle_id}"})
+    raffle_data = raffle_res.json()
+    if not raffle_data:
+        raise HTTPException(status_code=404, detail="Розыгрыш не найден")
+        
+    raffle = raffle_data[0]
+    if raffle.get("status") != "active":
+        return {"status": "already_completed"}
+        
+    settings = raffle.get("settings", {})
+    target_reward_id = settings.get("required_twitch_reward_id")
+    prize_name = settings.get("prize_name")
+    prize_price = settings.get("prize_price", 0) 
+    
+    start_time = raffle.get("start_time")
+    end_time = raffle.get("end_time")
+    
+    # 2. Ищем участников (тех, кто купил награду и указал ЧТО-ТО в тексте)
+    participants_res = await client.get("/twitch_reward_purchases", params={
+        "reward_id": f"eq.{target_reward_id}",
+        "created_at": f"gte.{start_time}",
+        "created_at": f"lte.{end_time}",
+        "trade_link": "not.is.null" # Берем тех, кто вставил трейд-ссылку на Твиче
+    })
+    participants = participants_res.json()
+    
+    if not participants:
+        await client.patch("/raffles", params={"id": f"eq.{raffle_id}"}, json={"status": "failed_no_participants"})
+        return {"status": "no_participants"}
+        
+    # 3. Выбираем победителя
+    winner = random.choice(participants)
+    trade_link = winner.get("trade_link")
+    purchase_id = winner.get("id") # ID покупки из twitch_reward_purchases
+    
+    # 4. Фиксируем победителя в базе розыгрыша
+    await client.patch("/raffles", params={"id": f"eq.{raffle_id}"}, json={
+        "status": "completed",
+        "winner_id": purchase_id # Сохраняем ID покупки, а не юзера
+    })
+    
+    # 5. Запускаем прямую покупку на Маркете в фоне
+    background_tasks.add_task(
+        direct_market_buy_for_newbie,
+        client=client,
+        trade_link=trade_link,
+        prize_name=prize_name,
+        prize_price=prize_price,
+        purchase_id=purchase_id
+    )
+    
+    return {"status": "success", "prize": prize_name}
+
+async def direct_market_buy_for_newbie(client, trade_link: str, prize_name: str, prize_price: float, purchase_id: int):
+    """
+    Прямая закупка скина на CSGO Market для зрителя без профиля в ТГ-боте.
+    Использует тот же принцип, что и process_newbies_cron.
+    """
+    logging.info(f"[NEWBIE-RAFFLE] Покупаем {prize_name} напрямую для покупки #{purchase_id}")
+    
+    TM_API_KEY = os.getenv("CSGO_MARKET_API_KEY") 
+    if not TM_API_KEY:
+        logging.error("Нет ключа CSGO_MARKET_API_KEY!")
+        await client.patch("/twitch_reward_purchases", params={"id": f"eq.{purchase_id}"}, json={"status": "Ошибка: Нет API ключа"})
+        return
+
+    # Используем твой класс MarketCSGO (он должен быть импортирован или доступен в основном боте)
+    market = MarketCSGO(api_key=TM_API_KEY)
+    unique_market_id = f"tw_raf_{purchase_id}_{int(time.time())}"
+    
+    # Сразу пытаемся купить и отправить
+    market_res = await market.buy_for_user(
+        hash_name=prize_name,
+        max_price_rub=prize_price,
+        trade_link=trade_link,
+        custom_id=unique_market_id
+    )
+    
+    if market_res.get("success"):
+        logging.info(f"[NEWBIE-RAFFLE] ✅ Успешно куплено на Маркете!")
+        await client.patch("/twitch_reward_purchases", params={"id": f"eq.{purchase_id}"}, json={
+            "status": "Выдан", 
+            "viewed_by_admin": True,
+            "viewed_by_admin_name": "Розыгрыш (Маркет)"
+        })
+    else:
+        err_msg = market_res.get("error", "Ошибка Маркета")
+        logging.error(f"[NEWBIE-RAFFLE] ❌ Ошибка Маркета: {err_msg}")
+        await client.patch("/twitch_reward_purchases", params={"id": f"eq.{purchase_id}"}, json={
+            "status": f"Ошибка: {err_msg}",
+            "viewed_by_admin": False
+        })
+
 
 # =========================================================================
 # 🏆 СИСТЕМА ТРАСТА (ФУНКЦИЯ ПЕРЕСЧЕТА И ЭНДПОИНТ ДЛЯ АДМИНА)
@@ -30795,3 +30897,5 @@ def fill_missing_quest_data(quests: List[Dict[str, Any]]) -> List[Dict[str, Any]
         updated_quests.append(updated_quest)
         
     return updated_quests
+
+
