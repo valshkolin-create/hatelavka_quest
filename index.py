@@ -30499,16 +30499,16 @@ async def finalize_twitch_direct_raffle(raffle_id: int, background_tasks: Backgr
     start_time = raffle.get("start_time")
     end_time = raffle.get("end_time")
     
-    # 2. Ищем участников (тех, кто купил награду и указал ЧТО-ТО в тексте)
-    participants_res = await client.get("/twitch_reward_purchases", params={
-        "reward_id": f"eq.{target_reward_id}",
-        "created_at": f"gte.{start_time}",
-        "created_at": f"lte.{end_time}",
-        "trade_link": "not.is.null" # Берем тех, кто вставил трейд-ссылку на Твиче
-    })
+    # 2. Ищем участников (используем список кортежей, чтобы передать два фильтра created_at)
+    participants_res = await client.get("/twitch_reward_purchases", params=[
+        ("reward_id", f"eq.{target_reward_id}"),
+        ("created_at", f"gte.{start_time}"),
+        ("created_at", f"lte.{end_time}"),
+        ("trade_link", "not.is.null") # Берем тех, кто вставил трейд-ссылку на Твиче
+    ])
     participants = participants_res.json()
     
-    if not participants:
+    if not participants or not isinstance(participants, list):
         await client.patch("/raffles", params={"id": f"eq.{raffle_id}"}, json={"status": "failed_no_participants"})
         return {"status": "no_participants"}
         
@@ -30517,10 +30517,15 @@ async def finalize_twitch_direct_raffle(raffle_id: int, background_tasks: Backgr
     trade_link = winner.get("trade_link")
     purchase_id = winner.get("id") # ID покупки из twitch_reward_purchases
     
-    # 4. Фиксируем победителя в базе розыгрыша
+    # 4. Фиксируем победителя в базе розыгрыша (прячем в settings, чтобы не сломать foreign key)
+    updated_settings = settings.copy()
+    updated_settings["winner_purchase_id"] = purchase_id
+    updated_settings["winner_trade_link"] = trade_link
+    
     await client.patch("/raffles", params={"id": f"eq.{raffle_id}"}, json={
         "status": "completed",
-        "winner_id": purchase_id # Сохраняем ID покупки, а не юзера
+        "settings": updated_settings
+        # winner_id специально не передаем, он остается null
     })
     
     # 5. Запускаем прямую покупку на Маркете в фоне
@@ -30548,7 +30553,7 @@ async def direct_market_buy_for_newbie(client, trade_link: str, prize_name: str,
         await client.patch("/twitch_reward_purchases", params={"id": f"eq.{purchase_id}"}, json={"status": "Ошибка: Нет API ключа"})
         return
 
-    # Используем твой класс MarketCSGO (он должен быть импортирован или доступен в основном боте)
+    # Используем твой класс MarketCSGO
     market = MarketCSGO(api_key=TM_API_KEY)
     unique_market_id = f"tw_raf_{purchase_id}_{int(time.time())}"
     
@@ -30574,7 +30579,6 @@ async def direct_market_buy_for_newbie(client, trade_link: str, prize_name: str,
             "status": f"Ошибка: {err_msg}",
             "viewed_by_admin": False
         })
-
 
 # =========================================================================
 # 🏆 СИСТЕМА ТРАСТА (ФУНКЦИЯ ПЕРЕСЧЕТА И ЭНДПОИНТ ДЛЯ АДМИНА)
