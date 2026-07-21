@@ -504,117 +504,155 @@ function render(data) {
     let completedRaffles = validData.filter(r => r.status === 'completed');
 
     // 🔥 3. СОРТИРОВКА АКТИВНЫХ (Те, что заканчиваются раньше - наверх)
-    activeRaffles.sort((a, b) => new Date(a.end_time) - new Date(b.end_time));
+    activeRaffles.sort((a, b) => new Date(a.end_time || 0) - new Date(b.end_time || 0));
 
     // 🔥 4. СОРТИРОВКА ЗАВЕРШЕННЫХ (Самые свежие прошедшие - наверх)
-    completedRaffles.sort((a, b) => new Date(b.end_time) - new Date(a.end_time));
+    completedRaffles.sort((a, b) => new Date(b.end_time || 0) - new Date(a.end_time || 0));
 
     // 🔥 5. ОБЪЕДИНЯЕМ И ЗАПУСКАЕМ ЦИКЛ
     const sortedData = [...activeRaffles, ...completedRaffles];
 
     sortedData.forEach(r => {
         const done = r.status === 'completed';
+        const isTwitch = r.type && r.type.includes('twitch'); // Проверка на Твич-розыгрыш
         const s = r.settings || {};
         
         if(done) completedCount++;
         else activeRendered++;
 
         // Приоритет картинки: card_image -> prize_image
-        const img = s.card_image || s.prize_image || '';
-                const rarityColor = s.rarity_color || '#2481cc'; 
-                const fullPrizeName = `${s.prize_name} ${s.skin_quality ? `(${s.skin_quality})` : ''}`;
+        const img = s.card_image || s.prize_image || r.image_url || '';
+        const rarityColor = s.rarity_color || (isTwitch ? '#9146FF' : '#2481cc'); 
+        
+        // Исправлено: Защита от undefined
+        const prizeName = s.prize_name || r.title || 'Приз';
+        const fullPrizeName = `${prizeName} ${s.skin_quality ? `(${s.skin_quality})` : ''}`;
 
-                let conditions = '';
-                if (!done) {
-                    if (s.requires_telegram_sub) conditions += `<div class="cond-row"><i class="fa-brands fa-telegram"></i> Канал</div>`;
-                    
-                    // --- НОВАЯ ЛОГИКА ПЕРИОДОВ ---
-                    const minMsgs = s.min_messages || s.min_daily_messages || 0;
-                    const msgPeriod = s.message_period || 'daily';
-                    const periodMap = {
-                        'daily': 'за стрим',
-                        'weekly': 'за неделю',
-                        'monthly': 'за месяц'
-                    };
-                    const periodStr = periodMap[msgPeriod] || 'за стрим';
+        let conditions = '';
+        if (!done) {
+            if (isTwitch) {
+                // Если это Твич-розыгрыш, выводим его условия
+                conditions += `<div class="cond-row"><i class="fa-brands fa-twitch" style="color:#9146FF;"></i> Участие на трансляции</div>`;
+                if (s.cost) conditions += `<div class="cond-row"><i class="fa-solid fa-coins" style="color:#ffd700;"></i> ${s.cost} баллов канала</div>`;
+                if (s.min_lifetime_msgs > 0) conditions += `<div class="cond-row"><i class="fa-solid fa-comment-dots" style="color:#9146FF;"></i> Мин. сообщений: ${s.min_lifetime_msgs}</div>`;
+                if (s.is_for_newbies) conditions += `<div class="cond-row"><i class="fa-solid fa-seedling" style="color:#34c759;"></i> Только для новых зрителей</div>`;
+            } else {
+                // Стандартные условия TG-розыгрышей
+                if (s.requires_telegram_sub) conditions += `<div class="cond-row"><i class="fa-brands fa-telegram"></i> Канал</div>`;
+                
+                // --- НОВАЯ ЛОГИКА ПЕРИОДОВ ---
+                const minMsgs = s.min_messages || s.min_daily_messages || 0;
+                const msgPeriod = s.message_period || 'daily';
+                const periodMap = {
+                    'daily': 'за стрим',
+                    'weekly': 'за неделю',
+                    'monthly': 'за месяц'
+                };
+                const periodStr = periodMap[msgPeriod] || 'за стрим';
 
-                    if (minMsgs > 0) {
-                        conditions += `<div class="cond-row"><i class="fa-brands fa-twitch"></i> Сообщений ${periodStr}: ${minMsgs}</div>`;
-                    }
-                    // -----------------------------
-                    
-                    if (s.min_participants > 0) conditions += `<div class="cond-row"><i class="fa-solid fa-users"></i> Мин. участников: ${s.min_participants}</div>`;
-                    if (s.min_bp_level > 0) conditions += `<div class="cond-row"><i class="fa-solid fa-star" style="color: #ffd700;"></i> БП Уровень: ${s.min_bp_level}</div>`;
+                if (minMsgs > 0) {
+                    conditions += `<div class="cond-row"><i class="fa-brands fa-twitch"></i> Сообщений ${periodStr}: ${minMsgs}</div>`;
                 }
+                // -----------------------------
+                
+                if (s.min_participants > 0) conditions += `<div class="cond-row"><i class="fa-solid fa-users"></i> Мин. участников: ${s.min_participants}</div>`;
+                if (s.min_bp_level > 0) conditions += `<div class="cond-row"><i class="fa-solid fa-star" style="color: #ffd700;"></i> БП Уровень: ${s.min_bp_level}</div>`;
+            }
+        }
 
+        // Логика кнопок
+        let btnHtml = "";
+        let ticketInfo = "";
+
+        if (!done) {
+            if (isTwitch) {
+                // 🔥 ТВИЧ КНОПКА
+                btnHtml = `<button class="btn-main" style="background: #9146FF; color: #fff; box-shadow: 0 4px 15px rgba(145, 70, 255, 0.3);" onclick="window.Telegram.WebApp.openLink('https://twitch.tv/hatelove_ttv')">
+                            <i class="fa-brands fa-twitch"></i> ПЕРЕЙТИ НА TWITCH
+                           </button>`;
+                ticketInfo = `<div class="user-tickets-info">Напишите <b style="color:#9146FF;">!розыгрыш</b> в чате стрима</div>`;
+            } else {
+                // Стандартная кнопка Telegram
                 let btnLabel = "УЧАСТВОВАТЬ";
-                let ticketInfo = "";
                 if (!r.is_joined && s.ticket_cost > 0) {
                     btnLabel = `ЗАПЛАТИТЬ ${s.ticket_cost} БИЛЕТОВ`;
                     ticketInfo = `<div class="user-tickets-info">У вас: <b>${userTickets}</b> билетов</div>`;
                 }
-
-                const pCount = r.participants_count || 0;
-                let pTextFinal = done ? 'Розыгрыш завершен' : `<b style="margin-right: 6px;">${pCount}</b>${getPlural(pCount, ['участник', 'участника', 'участников'])}`;
-
-                if (!done && pCount > 0) {
-                    const chanceVal = (100 / pCount).toFixed(2).replace('.00', '');
-                    pTextFinal += `<span class="chance-span" onclick="showChanceInfo(event)"> 🔥 Шанс: ${chanceVal}% <i class="fa-regular fa-circle-question"></i></span>`;
-                }
-                
-                // Блок победителя
-                let winnerBoxContent = '';
-                if (r.winner) {
-                    winnerBoxContent = `<div class="w-user">🏆 ${r.winner.full_name}</div>`;
-                } else {
-                    winnerBoxContent = `<div class="w-user">⏳ Выбор победителя...</div>`;
-                }
-
-                const cardHtml = `
-                <div class="card ${done ? 'done' : ''}">
-                    <div class="card_glow" style="background: radial-gradient(circle, ${rarityColor} 100%, transparent 75%);"></div>
-                    <div class="card_content">
-                        <div class="prize-img-wrapper"><img src="${img}" class="prize-img" onerror="this.style.display='none'"></div>
-                        <div class="r-label" style="color: ${rarityColor}">РОЗЫГРЫШ</div>
-                        <h3 class="r-title">${fullPrizeName}</h3>
-                        ${!done ? `<div class="conditions">${conditions}</div>` : ''}
-                        ${!done ? `
-                            <div class="timer_row timer-data" data-time="${r.end_time}">
-                                <div class="timer_item"><span class="timer_val d-v">0</span><span class="timer_lbl">дн</span></div>
-                                <div class="timer_item"><span class="timer_val h-v">0</span><span class="timer_lbl">час</span></div>
-                                <div class="timer_item"><span class="timer_val m-v">0</span><span class="timer_lbl">мин</span></div>
-                                <div class="timer_item"><span class="timer_val s-v">0</span><span class="timer_lbl">сек</span></div>
-                            </div>
-                        ` : ''}
-                        <div class="social_row">
-                            <div class="social_text">${pTextFinal}</div>
-                        </div>
-                        ${!done ? `
-                            <button class="btn-main ${r.is_joined ? 'joined' : ''}" onclick="handleJoin(${r.id}, ${s.ticket_cost || 0}, ${r.is_joined})">
-                                ${r.is_joined ? '<i class="fa-solid fa-check"></i> Вы участвуете' : btnLabel}
-                            </button>
-                            ${ticketInfo}
-                        ` : `
-                            <div class="winner_box">
-                                <div class="w-title" style="color:${rarityColor}">Итоги</div>
-                                ${winnerBoxContent}
-                            </div>
-                        `}
-                    </div>
-                </div>`;
-
-                if (done) historyList.innerHTML += cardHtml;
-                else list.innerHTML += cardHtml;
-            });
-
-            if (activeRendered === 0) { 
-                list.innerHTML = '<div style="text-align:center; margin-top:50px; color:var(--text-muted);">Активных розыгрышей нет 👻</div>'; 
+                btnHtml = `<button class="btn-main ${r.is_joined ? 'joined' : ''}" onclick="handleJoin(${r.id}, ${s.ticket_cost || 0}, ${r.is_joined})">
+                            ${r.is_joined ? '<i class="fa-solid fa-check"></i> Вы участвуете' : btnLabel}
+                           </button>`;
             }
-
-            document.getElementById('total-count').innerText = `Разыграно: ${completedCount}`;
-            list.innerHTML += '<div class="bottom-spacer"></div>';
-            historyList.innerHTML += '<div class="bottom-spacer"></div>';
         }
+
+        const pCount = r.participants_count || 0;
+        let pTextFinal = done ? 'Розыгрыш завершен' : `<b style="margin-right: 6px;">${pCount}</b>${getPlural(pCount, ['участник', 'участника', 'участников'])}`;
+
+        if (!done && pCount > 0) {
+            const chanceVal = (100 / pCount).toFixed(2).replace('.00', '');
+            pTextFinal += `<span class="chance-span" onclick="showChanceInfo(event)"> 🔥 Шанс: ${chanceVal}% <i class="fa-regular fa-circle-question"></i></span>`;
+        }
+        
+        // Блок победителя
+        let winnerBoxContent = '';
+        if (r.winner) {
+            winnerBoxContent = `<div class="w-user">🏆 ${r.winner.full_name || r.winner.twitch_login || 'Победитель'}</div>`;
+        } else {
+            winnerBoxContent = `<div class="w-user">⏳ Выбор победителя...</div>`;
+        }
+
+        // Исправлено: Защита от NaN в таймере
+        let timerBlock = '';
+        if (!done) {
+            if (r.end_time) {
+                timerBlock = `
+                    <div class="timer_row timer-data" data-time="${r.end_time}">
+                        <div class="timer_item"><span class="timer_val d-v">0</span><span class="timer_lbl">дн</span></div>
+                        <div class="timer_item"><span class="timer_val h-v">0</span><span class="timer_lbl">час</span></div>
+                        <div class="timer_item"><span class="timer_val m-v">0</span><span class="timer_lbl">мин</span></div>
+                        <div class="timer_item"><span class="timer_val s-v">0</span><span class="timer_lbl">сек</span></div>
+                    </div>`;
+            } else if (isTwitch) {
+                // Если таймера нет и это твич - выводим красивую плашку
+                timerBlock = `<div style="font-size:13px; font-weight:800; color:#9146FF; margin-bottom:15px; letter-spacing: 0.5px;"><i class="fa-solid fa-bolt"></i> ИТОГИ НА СТРИМЕ</div>`;
+            }
+        }
+
+        const cardHtml = `
+        <div class="card ${done ? 'done' : ''}">
+            <div class="card_glow" style="background: radial-gradient(circle, ${rarityColor} 100%, transparent 75%);"></div>
+            <div class="card_content">
+                <div class="prize-img-wrapper"><img src="${img}" class="prize-img" onerror="this.style.display='none'"></div>
+                <div class="r-label" style="color: ${rarityColor}">${isTwitch ? 'TWITCH РОЗЫГРЫШ' : 'РОЗЫГРЫШ'}</div>
+                <h3 class="r-title">${fullPrizeName}</h3>
+                ${!done ? `<div class="conditions">${conditions}</div>` : ''}
+                ${timerBlock}
+                <div class="social_row">
+                    <div class="social_text">${pTextFinal}</div>
+                </div>
+                ${!done ? `
+                    ${btnHtml}
+                    ${ticketInfo}
+                ` : `
+                    <div class="winner_box">
+                        <div class="w-title" style="color:${rarityColor}">Итоги</div>
+                        ${winnerBoxContent}
+                    </div>
+                `}
+            </div>
+        </div>`;
+
+        if (done) historyList.innerHTML += cardHtml;
+        else list.innerHTML += cardHtml;
+    });
+
+    if (activeRendered === 0) { 
+        list.innerHTML = '<div style="text-align:center; margin-top:50px; color:var(--text-muted);">Активных розыгрышей нет 👻</div>'; 
+    }
+
+    document.getElementById('total-count').innerText = `Разыграно: ${completedCount}`;
+    list.innerHTML += '<div class="bottom-spacer"></div>';
+    historyList.innerHTML += '<div class="bottom-spacer"></div>';
+}
         
         // Обработка нажатия на кнопку (проверка билетов)
         function handleJoin(id, cost, isJoined) {
