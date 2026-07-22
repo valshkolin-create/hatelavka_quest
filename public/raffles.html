@@ -516,6 +516,7 @@ function render(data) {
         const done = r.status === 'completed';
         const isTwitch = r.type && r.type.includes('twitch'); // Проверка на Твич-розыгрыш
         const s = r.settings || {};
+        const pCount = r.participants_count || 0; // Получаем участников раньше, чтобы использовать в условиях
         
         if(done) completedCount++;
         else activeRendered++;
@@ -558,6 +559,37 @@ function render(data) {
                 if (s.min_participants > 0) conditions += `<div class="cond-row"><i class="fa-solid fa-users"></i> Мин. участников: ${s.min_participants}</div>`;
                 if (s.min_bp_level > 0) conditions += `<div class="cond-row"><i class="fa-solid fa-star" style="color: #ffd700;"></i> БП Уровень: ${s.min_bp_level}</div>`;
             }
+
+            // 🔥 БЛОК СТУПЕНЕЙ (ДИНАМИЧЕСКИЙ АПГРЕЙД ПРИЗА)
+            if (s.steps && Array.isArray(s.steps) && s.steps.length > 0) {
+                const sortedSteps = [...s.steps].sort((a, b) => parseInt(a.participants_required) - parseInt(b.participants_required));
+                
+                conditions += `<div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed rgba(255,255,255,0.08); display: flex; flex-direction: column; gap: 4px;">`;
+                conditions += `<div style="font-size: 9px; color: ${rarityColor}; text-transform: uppercase; margin-bottom: 2px; font-weight: 800; letter-spacing: 0.5px;">Ступени (Апгрейд приза):</div>`;
+                
+                sortedSteps.forEach(step => {
+                    const req = parseInt(step.participants_required);
+                    const isUnlocked = pCount >= req;
+                    
+                    if (isUnlocked) {
+                        conditions += `
+                        <div class="cond-row" style="opacity: 1;">
+                            <i class="fa-solid fa-lock-open" style="color: var(--accent-green); font-size: 10px;"></i>
+                            <span style="color: #fff; font-weight: 600;">${req} чел <i class="fa-solid fa-arrow-right" style="font-size: 8px; margin: 0 4px; color: var(--text-muted); width: auto;"></i> ${step.prize_name}</span>
+                            <i class="fa-solid fa-check" style="color: var(--accent-green); font-size: 10px; margin-left: 2px; width: auto;"></i>
+                        </div>`;
+                    } else {
+                        // Вычисляем сколько осталось
+                        const left = req - pCount;
+                        conditions += `
+                        <div class="cond-row" style="opacity: 0.6;">
+                            <i class="fa-solid fa-lock" style="color: var(--text-muted); font-size: 10px;"></i>
+                            <span style="color: var(--text-muted);"><b>${req} чел</b> <i class="fa-solid fa-arrow-right" style="font-size: 8px; margin: 0 4px; color: var(--text-muted); width: auto;"></i> ${step.prize_name} <span style="font-size: 9px; color: var(--primary-blue); font-weight: 600; margin-left: 4px;">(ещё ${left})</span></span>
+                        </div>`;
+                    }
+                });
+                conditions += `</div>`;
+            }
         }
 
         // Логика кнопок
@@ -584,7 +616,6 @@ function render(data) {
             }
         }
 
-        const pCount = r.participants_count || 0;
         let pTextFinal = done ? 'Розыгрыш завершен' : `<b style="margin-right: 6px;">${pCount}</b>${getPlural(pCount, ['участник', 'участника', 'участников'])}`;
 
         if (!done && pCount > 0) {
