@@ -516,7 +516,7 @@ function render(data) {
         const done = r.status === 'completed';
         const isTwitch = r.type && r.type.includes('twitch'); // Проверка на Твич-розыгрыш
         const s = r.settings || {};
-        const pCount = r.participants_count || 0; // Получаем участников раньше, чтобы использовать в условиях
+        const pCount = r.participants_count || 0; // 🔥 Подняли счетчик сюда
         
         if(done) completedCount++;
         else activeRendered++;
@@ -579,7 +579,6 @@ function render(data) {
                             <i class="fa-solid fa-check" style="color: var(--accent-green); font-size: 10px; margin-left: 2px; width: auto;"></i>
                         </div>`;
                     } else {
-                        // Вычисляем сколько осталось
                         const left = req - pCount;
                         conditions += `
                         <div class="cond-row" style="opacity: 0.6;">
