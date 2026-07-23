@@ -5221,6 +5221,7 @@ async def process_twitch_notification_background(data: dict, message_id: str):
     
     twitch_login = event_data.get("user_login", "unknown").lower()
     user_input = event_data.get("user_input")
+    redemption_id = event_data.get("id") # 🔥 НОВОЕ: ДОСТАЕМ ID ТРАНЗАКЦИИ
 
     # 3. Получаем данные пользователя
     user_resp = await supabase.get(
@@ -5641,6 +5642,7 @@ async def process_twitch_notification_background(data: dict, message_id: str):
         purchase_payload = {
             "reward_id": reward_settings["id"], "user_id": user_id,
             "username": user_display_name, "twitch_login": twitch_login,
+            "twitch_redemption_id": redemption_id, # 🔥 НОВОЕ: ЗАПИСЫВАЕМ ЕГО В БАЗУ
             "trade_link": trade_link, # 🔥 Используем найденную
             "status": user_status,
             "user_input": user_input,
