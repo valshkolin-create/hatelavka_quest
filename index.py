@@ -9042,10 +9042,18 @@ async def twitch_oauth_callback(
             update_payload = {
                 "twitch_id": twitch_id, 
                 "twitch_login": twitch_login,
-                "twitch_access_token": user_access_token, 
-                "twitch_refresh_token": t_data.get("refresh_token"),
                 "twitch_status": new_status
             }
+
+            # 🔥 ФИКС РАССИНХРОНА 🔥
+            # Записываем токены только обычным юзерам. 
+            # Токены стримера с полными правами берем из админки, не затирая их тут.
+            if str(twitch_id) != BROADCASTER_ID:
+                update_payload["twitch_access_token"] = user_access_token
+                update_payload["twitch_refresh_token"] = t_data.get("refresh_token")
+            else:
+                update_payload["twitch_status"] = "broadcaster"
+                logging.info("👑 Стример привязал ТГ. Токены не перезаписываем, чтобы сохранить admin scopes.")
 
             patch_resp = await supabase.patch(
                 "/users",
