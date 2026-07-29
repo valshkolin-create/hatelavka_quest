@@ -2181,10 +2181,6 @@ window.openCase = async function(id, price, name, imageUrl, currency = 'coins') 
     // Итоговая цена для показа пользователю
     const displayPrice = price * trustMultiplier;
 
-    // 1. ПРОВЕРКА ЧЕРЕЗ ГЛОБАЛЬНЫЙ МАССИВ (СИНХРОНИЗАЦИЯ С БД)
-const safeTargetName = (name || "").trim().toLowerCase();
-let isFreeOpen = window.activeFreeCases.some(n => (n || "").trim().toLowerCase() === safeTargetName); // ✅ ЖЕЛЕЗОБЕТОННО
-    
     // Флаг для бэкенда, чтобы он понял: код вводить не надо, чекай базу по ID
     let activeCoupon = isFreeOpen ? "FREE_BY_ID" : null;
     
@@ -2247,12 +2243,11 @@ let isFreeOpen = window.activeFreeCases.some(n => (n || "").trim().toLowerCase()
              // 2. 🔥 БЕТОННОЕ СПИСАНИЕ ОДНОЙ ШТУКИ 🔥
             if (isFreeOpen) {
                 // Находим индекс ПЕРВОГО совпадения
-                // Находим индекс ПЕРВОГО совпадения
-const indexToRemove = window.activeFreeCases.findIndex(n => (n || "").trim().toLowerCase() === safeTargetName);
-if (indexToRemove > -1) {
-    // Вырезаем ровно 1 штуку из массива
-    window.activeFreeCases.splice(indexToRemove, 1);
-}
+                const indexToRemove = window.activeFreeCases.findIndex(n => (n || "").trim().toLowerCase() === safeTargetName);
+                if (indexToRemove > -1) {
+                    // Вырезаем ровно 1 штуку из массива
+                    window.activeFreeCases.splice(indexToRemove, 1);
+                }
                 
                 // Перерисовываем визуал магазина (счетчик обновится)
                 renderItems(itemsCache[currentCategoryId] || []); 
