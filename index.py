@@ -2393,7 +2393,7 @@ class MarketCSGO:
             if raw_partner:
                 partner = re.sub(r'\D', '', str(raw_partner))
                 
-            # В token оставляем ТОЛЬКО английские буквы, цифры, дефис и подчеркивание
+            # В token оставляем ТОЛЬКО английские буквы, цифры, дефис и подчеркивание 
             if raw_token:
                 token = re.sub(r'[^a-zA-Z0-9_-]', '', str(raw_token))
                 
