@@ -20559,19 +20559,21 @@ async def get_shop_smart_balance(
     # 3. Идем в Bot-t по Telegram ID
     url = "https://api.bot-t.com/v1/bot/user/view-by-telegram-id"
     
-    params = {
-        "botToken": BOTT_BOT_TOKEN,
-        "secretKey": BOTT_SECRET_KEY
-    }
+    # 🔥 УДАЛЯЕМ БЛОК params ВООБЩЕ 🔥
     
+    # Добавляем ключи прямо в тело запроса (payload), как в работающей функции
     payload = {
         "bot_id": int(BOTT_BOT_ID),
+        "botToken": BOTT_BOT_TOKEN,
+        "secretKey": BOTT_SECRET_KEY,
         "telegram_id": telegram_id 
     }
     
     try:
         client = global_shop_client if global_shop_client else httpx.AsyncClient(timeout=5.0)
-        resp = await client.post(url, params=params, json=payload)
+        
+        # 🔥 УБИРАЕМ params=params ОТСЮДА 🔥
+        resp = await client.post(url, json=payload)
         
         if resp.status_code == 200:
             res_json = resp.json()
