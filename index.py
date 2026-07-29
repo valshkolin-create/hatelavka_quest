@@ -20906,6 +20906,33 @@ async def buy_bott_item_proxy(
     # БЛОК ОПЛАТЫ (ОБХОДИМ, ЕСЛИ ЕСТЬ ВАЛИДНЫЙ КУПОН)
     # =========================================================================
     if not is_free_purchase:
+
+        # 🔥 БРОНЕБОЙНАЯ ПРОВЕРКА: ОТКЛЮЧЕНЫ ЛИ ПОКУПКИ ЗА МОНЕТЫ? 🔥
+        if currency == 'coins':
+            try:
+                # Ищем в таблице settings строку, где key == 'coins_purchases_enabled'
+                settings_res = await supabase.get(
+                    "/settings", 
+                    params={"key": "eq.coins_purchases_enabled", "select": "value"}
+                )
+                
+                if settings_res.status_code == 200:
+                    settings_data = settings_res.json()
+                    if settings_data and isinstance(settings_data, list) and len(settings_data) > 0:
+                        # Достаем значение из jsonb (True или False)
+                        is_enabled = settings_data[0].get("value", True)
+                        
+                        # Если в БД стоит false — рубим запрос!
+                        if is_enabled is False:
+                            raise HTTPException(
+                                status_code=403, 
+                                detail="🛠 Покупки за монеты в данный момент отключены разработчиком!"
+                            )
+            except HTTPException:
+                raise # Прокидываем 403 ошибку дальше
+            except Exception as e:
+                logging.error(f"[SHOP] Ошибка проверки coins_purchases_enabled: {e}")
+        # =======================================================
         
         # 🔥 НОВАЯ ПРОВЕРКА ДЛЯ ИВЕНТОВЫХ КЕЙСОВ 🔥
         if float(price) == 9999:
