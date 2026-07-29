@@ -3825,10 +3825,13 @@ async def get_bootstrap_data(
         
         # 🔥 НОВОЕ: Проверяем Матрицу
         matrix_task = supabase.get("/event_matrix_quest", params={"user_id": f"eq.{telegram_id}"})
+        
+        # 🔥 НОВОЕ: Запрашиваем глобальные настройки (Key-Value)
+        settings_task = supabase.get("/settings")
 
-        # Выполняем разом, экономя время
-        db_res, notifs_res, p2p_res, balance_res, auctions_res, matrix_res = await asyncio.gather(
-            rpc_task, notifs_task, p2p_task, balance_task, auctions_task, matrix_task, return_exceptions=True
+        # Выполняем разом, экономя время (ДОБАВИЛИ settings_task И settings_res)
+        db_res, notifs_res, p2p_res, balance_res, auctions_res, matrix_res, settings_res = await asyncio.gather(
+            rpc_task, notifs_task, p2p_task, balance_task, auctions_task, matrix_task, settings_task, return_exceptions=True
         )
         
         # Распаковываем Матрицу
@@ -3837,6 +3840,13 @@ async def get_bootstrap_data(
             m_data = matrix_res.json()
             if isinstance(m_data, list) and len(m_data) > 0:
                 matrix_state = m_data[0]
+                
+        # 🔥 Распаковываем глобальные настройки (Key-Value) 🔥
+        global_settings = {}
+        if not isinstance(settings_res, Exception) and settings_res.status_code == 200:
+            s_data = settings_res.json()
+            if isinstance(s_data, list):
+                global_settings = {item['key']: item['value'] for item in s_data}
         
         # Проверяем ответ основной функции
         if isinstance(db_res, Exception) or db_res.status_code != 200:
@@ -3849,7 +3859,14 @@ async def get_bootstrap_data(
             raise HTTPException(status_code=403, detail="BANNED")
 
         # 🔥 ОПТИМИЗАЦИЯ 2: Экономим проверки, сразу даем fallback
-        menu_content = db_data.get('admin_settings', {})
+        menu_content = db_data.get('admin_settings') or {}
+        if not isinstance(menu_content, dict):
+            menu_content = {}
+            
+        # 🔥 ВНЕДРЯЕМ НАШИ ФЛАГИ В MENU, ЧТОБЫ ФРОНТ ИХ УВИДЕЛ 🔥
+        menu_content["coins_purchases_enabled"] = global_settings.get("coins_purchases_enabled", True)
+        menu_content["grind_enabled"] = global_settings.get("grind_enabled", True)
+
         rpc_data = db_data.get('dashboard', {})
         user_data = rpc_data.get('profile')
         
@@ -20902,7 +20919,7 @@ async def buy_bott_item_proxy(
                 
             is_free_purchase = True
             
-    # =========================================================================
+   # =========================================================================
     # БЛОК ОПЛАТЫ (ОБХОДИМ, ЕСЛИ ЕСТЬ ВАЛИДНЫЙ КУПОН)
     # =========================================================================
     if not is_free_purchase:
@@ -20910,26 +20927,24 @@ async def buy_bott_item_proxy(
         # 🔥 БРОНЕБОЙНАЯ ПРОВЕРКА: ОТКЛЮЧЕНЫ ЛИ ПОКУПКИ ЗА МОНЕТЫ? 🔥
         if currency == 'coins':
             try:
-                # Ищем в таблице settings строку, где key == 'coins_purchases_enabled'
-                settings_res = await supabase.get(
-                    "/settings", 
-                    params={"key": "eq.coins_purchases_enabled", "select": "value"}
-                )
+                # Достаем JSON с настройками админки
+                settings_res = await supabase.get("/settings", params={"key": "eq.admin_controls", "select": "value"})
                 
                 if settings_res.status_code == 200:
                     settings_data = settings_res.json()
                     if settings_data and isinstance(settings_data, list) and len(settings_data) > 0:
-                        # Достаем значение из jsonb (True или False)
-                        is_enabled = settings_data[0].get("value", True)
+                        admin_controls = settings_data[0].get("value", {})
                         
-                        # Если в БД стоит false — рубим запрос!
+                        # Достаем наш флаг (по умолчанию True)
+                        is_enabled = admin_controls.get("coins_purchases_enabled", True)
+                        
                         if is_enabled is False:
                             raise HTTPException(
                                 status_code=403, 
                                 detail="🛠 Покупки за монеты в данный момент отключены разработчиком!"
                             )
             except HTTPException:
-                raise # Прокидываем 403 ошибку дальше
+                raise
             except Exception as e:
                 logging.error(f"[SHOP] Ошибка проверки coins_purchases_enabled: {e}")
         # =======================================================
