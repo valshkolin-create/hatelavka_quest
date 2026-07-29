@@ -110,6 +110,7 @@ const dom = {
 
 let userData = {};
 let allQuests = [];
+window.coinsPurchasesEnabled = true; // <-- ДОБАВИЛИ ФЛАГ
 let heartbeatInterval = null;
 let bonusGiftEnabled = false;
 let cachedP2PCases = [];
@@ -1603,6 +1604,11 @@ async function renderFullInterface(data) {
 
     if (menuContent) {
         if (menuContent.bonus_gift_enabled !== undefined) bonusGiftEnabled = menuContent.bonus_gift_enabled;
+        // --- ДОБАВЛЯЕМ СЮДА ---
+        if (menuContent.coins_purchases_enabled !== undefined) {
+            window.coinsPurchasesEnabled = menuContent.coins_purchases_enabled;
+        }
+        // ----------------------
         const setupSlide = (id, enabled, url, link) => {
             const slide = document.querySelector(`[data-event="${id}"]`);
             if (slide) {
@@ -2078,8 +2084,12 @@ function renderItems(items) {
                     <button class="action-btn" onclick="showCouponCaseInfo('${safeName}')" style="background: transparent; color: #9146FF; border: none; width: 100%; height: 100%; border-radius: 12px; font-weight: 900; font-size: 11px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-transform: uppercase; cursor: pointer; transition: 0.2s ease;"><i class="fa-solid fa-lock" style="font-size: 14px; margin-bottom: 2px;"></i>КУПОННЫЙ</button>
                 </div>`;
             } else {
+                const coinBtnHtml = window.coinsPurchasesEnabled 
+                    ? `<button class="action-btn btn-buy" onclick="openCase(${item.id}, ${originalPrice}, '${safeName}', '${safeImg}', 'coins')" style="position: relative; background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%); color: #000; box-shadow: 0 2px 10px rgba(255, 204, 0, 0.2); width: 100%; height: 32px; min-height: 32px; flex-shrink: 0; border: none; border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 2px; transition: transform 0.1s;"><span style="font-size: 13px; font-weight: 900; margin-top: 1px;">${displayPrice}</span><i class="fa-solid fa-coins" style="font-size: 11px; color: #000 !important; filter: drop-shadow(0 1px 1px rgba(255,255,255,0.3));"></i></button>`
+                    : `<button class="action-btn btn-disabled" onclick="customAlert('Покупки за монеты временно отключены 🛠')" style="position: relative; background: rgba(255, 255, 255, 0.05); color: rgba(255, 255, 255, 0.3); width: 100%; height: 32px; min-height: 32px; flex-shrink: 0; border: none; border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 4px;"><i class="fa-solid fa-lock" style="font-size: 11px;"></i><span style="font-size: 11px; font-weight: 900;">ОТКЛЮЧЕНО</span></button>`;
+
                 buttonHtml = `<div class="case-buttons-container" style="display:flex; flex-direction:column; gap:6px; width:100%;">
-                    <button class="action-btn btn-buy" onclick="openCase(${item.id}, ${originalPrice}, '${safeName}', '${safeImg}', 'coins')" style="position: relative; background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%); color: #000; box-shadow: 0 2px 10px rgba(255, 204, 0, 0.2); width: 100%; height: 32px; min-height: 32px; flex-shrink: 0; border: none; border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 2px; transition: transform 0.1s;"><span style="font-size: 13px; font-weight: 900; margin-top: 1px;">${displayPrice}</span><i class="fa-solid fa-coins" style="font-size: 11px; color: #000 !important; filter: drop-shadow(0 1px 1px rgba(255,255,255,0.3));"></i></button>
+                    ${coinBtnHtml}
                     <button class="action-btn btn-buy-tickets" onclick="openCase(${item.id}, ${originalPrice * 2}, '${safeName}', '${safeImg}', 'tickets')" style="position: relative; background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%); color: #fff; box-shadow: 0 2px 10px rgba(37, 117, 252, 0.2); width: 100%; height: 32px; min-height: 32px; flex-shrink: 0; border: none; border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 2px; transition: transform 0.1s;"><span style="font-size: 13px; font-weight: 900; margin-top: 1px;">${displayPriceTickets}</span><i class="fa-solid fa-ticket" style="font-size: 11px; color: #fff; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.3));"></i></button>
                 </div>`;
             }
@@ -2097,9 +2107,15 @@ function renderItems(items) {
             `;
         } else {
             let stockText = item.count === null ? '∞ шт.' : `${item.count} шт.`;
-            let btnHtml = item.count === 0 
-                ? `<button class="action-btn btn-disabled" disabled style="background: rgba(255, 255, 255, 0.05); color: rgba(255, 255, 255, 0.3); width: 100%; height: 32px; min-height: 32px; flex-shrink: 0; margin-top: auto; border: none; border-radius: 8px; font-weight: 600; font-size: 11px;">Раскуплено</button>`
-                : `<button class="action-btn btn-buy" onclick="buyItem(${item.id}, ${originalPrice}, '${safeName}', '${safeImg}')" style="position: relative; background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%); color: #000; box-shadow: 0 2px 10px rgba(255, 204, 0, 0.2); width: 100%; height: 32px; min-height: 32px; flex-shrink: 0; margin-top: auto; border: none; border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 2px; transition: transform 0.1s;"><span style="font-size: 13px; font-weight: 900; margin-top: 1px;">${displayPrice}</span><i class="fa-solid fa-coins" style="font-size: 11px; color: #000 !important; filter: drop-shadow(0 1px 1px rgba(255,255,255,0.3));"></i></button>`;
+            let btnHtml = '';
+
+            if (item.count === 0) {
+                btnHtml = `<button class="action-btn btn-disabled" disabled style="background: rgba(255, 255, 255, 0.05); color: rgba(255, 255, 255, 0.3); width: 100%; height: 32px; min-height: 32px; flex-shrink: 0; margin-top: auto; border: none; border-radius: 8px; font-weight: 600; font-size: 11px;">Раскуплено</button>`;
+            } else if (!window.coinsPurchasesEnabled) {
+                btnHtml = `<button class="action-btn btn-disabled" onclick="customAlert('Покупки за монеты временно отключены 🛠')" style="background: rgba(255, 255, 255, 0.05); color: rgba(255, 255, 255, 0.3); width: 100%; height: 32px; min-height: 32px; flex-shrink: 0; margin-top: auto; border: none; border-radius: 8px; font-weight: 900; font-size: 11px; display: flex; align-items: center; justify-content: center; gap: 4px;"><i class="fa-solid fa-lock"></i> ОТКЛЮЧЕНО</button>`;
+            } else {
+                btnHtml = `<button class="action-btn btn-buy" onclick="buyItem(${item.id}, ${originalPrice}, '${safeName}', '${safeImg}')" style="position: relative; background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%); color: #000; box-shadow: 0 2px 10px rgba(255, 204, 0, 0.2); width: 100%; height: 32px; min-height: 32px; flex-shrink: 0; margin-top: auto; border: none; border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 2px; transition: transform 0.1s;"><span style="font-size: 13px; font-weight: 900; margin-top: 1px;">${displayPrice}</span><i class="fa-solid fa-coins" style="font-size: 11px; color: #000 !important; filter: drop-shadow(0 1px 1px rgba(255,255,255,0.3));"></i></button>`;
+            }
             
             el.innerHTML = `
                 <div class="item-title" style="position: absolute; top: 4px; left: 50%; transform: translateX(-50%); width: max-content; font-size: 11px; font-weight: 600; color: #fff; text-align: center; white-space: nowrap; z-index: 10;">${formatItemName(cleanName)}</div>
@@ -2144,8 +2160,17 @@ async function validateUserTradeLink() {
 }
 
 window.openCase = async function(id, price, name, imageUrl, currency = 'coins') {
+    // --- ДОБАВЛЯЕМ ЖЕСТКУЮ БЛОКИРОВКУ (С ИСКЛЮЧЕНИЕМ ДЛЯ КУПОНОВ) ---
+    const safeTargetName = (name || "").trim().toLowerCase();
+    const isFreeOpen = window.activeFreeCases.some(n => (n || "").trim().toLowerCase() === safeTargetName);
+
+    if (currency === 'coins' && !window.coinsPurchasesEnabled && !isFreeOpen) {
+        return customAlert("🛠 Покупки за монеты в данный момент отключены!");
+    }
+    // -------------------------------------------------------------
+
     const isLinkValid = await validateUserTradeLink();
-    if (!isLinkValid) return; 
+    if (!isLinkValid) return;
 
     // 🔥 РАСЧЕТ НАЦЕНКИ ДЛЯ ДИАЛОГА И ВИЗУАЛЬНОГО СПИСАНИЯ 🔥
     const score = userData.trust_score !== undefined ? parseFloat(userData.trust_score) : 30.0;
