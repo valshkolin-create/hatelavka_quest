@@ -11445,8 +11445,9 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
         # ФАЗА 0: ЧИСТКА ФАНТОМНЫХ ПРЕДМЕТОВ
         # =========================================================
         try:
+            # 🔥 ИСПРАВЛЕНИЕ: Добавлен префикс /rest/v1/ для надежности запросов
             clean_res = await supabase.get(
-                "/cs_history", 
+                "/rest/v1/cs_history", 
                 params={
                     "status": "eq.pending",
                     "select": "id, item:cs_items(id)"
@@ -11458,7 +11459,7 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
                 for rec in potential_phantoms:
                     if not rec.get("item"):
                         p_id = rec.get("id")
-                        await supabase.delete("/cs_history", params={"id": f"eq.{p_id}"})
+                        await supabase.delete("/rest/v1/cs_history", params={"id": f"eq.{p_id}"})
                         msg = f"CLEANUP: Deleted phantom item #{p_id}"
                         print(msg)
                         results_log.append(msg)
@@ -11470,7 +11471,7 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
         # ФАЗА 1: ПРОВЕРКА ТРЕЙДОВ МАРКЕТА
         # =========================================================
         res = await supabase.get(
-            "/cs_history", 
+            "/rest/v1/cs_history", 
             params={
                 "status": "in.(exchanged,pending,waiting,processing,market_pending)", 
                 "select": "id, updated_at, status, tradeofferid",
@@ -11503,7 +11504,8 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
                 
                 market_custom_id = str(trade.get("tradeofferid") or "")
                 
-                if not market_custom_id.startswith(("wd_", "repl_")):
+                # 🔥 ИСПРАВЛЕНИЕ: Добавили префиксы raf_ и tw_raf_ для розыгрышей!
+                if not market_custom_id.startswith(("wd_", "repl_", "raf_", "tw_raf_")):
                     continue
                 
                 trade_time = parser.parse(updated_at_str) if updated_at_str else now
@@ -11512,7 +11514,7 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
                     
                 minutes_passed = (now - trade_time).total_seconds() / 60
 
-                # 🔥 Достаем реальный custom_id маркета (с префиксом wd_), иначе маркет ничего не найдет!
+                # 🔥 Достаем реальный custom_id маркета
                 custom_market_id = trade.get("tradeofferid") or str(trade_id)
 
                 try:
@@ -11531,9 +11533,9 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
                     
                     if not tm_data.get("success") or not trade_info:
                         if minutes_passed > 15:
-                            patch_res = await supabase.patch("/cs_history", 
+                            patch_res = await supabase.patch("/rest/v1/cs_history", 
                                 params={"id": f"eq.{trade_id}", "status": f"eq.{current_status}"}, 
-                                json={"status": "canceled", "updated_at": now_iso},
+                                json={"status": "available", "updated_at": now_iso}, # 🔥 ИСПРАВЛЕНИЕ: Возвращаем в available
                                 headers={"Prefer": "return=representation"}
                             )
                             if patch_res.status_code >= 400:
@@ -11549,7 +11551,7 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
                     settlement = int(trade_info.get("settlement") or 0)
 
                     if settlement > 0 or stage == "2":
-                        patch_res = await supabase.patch("/cs_history", 
+                        patch_res = await supabase.patch("/rest/v1/cs_history", 
                             params={"id": f"eq.{trade_id}", "status": f"eq.{current_status}"}, 
                             json={"status": "received", "updated_at": now_iso},
                             headers={"Prefer": "return=representation"}
@@ -11567,10 +11569,10 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
                             c_title = "Трейд отменен<br>продавцом!"
                             c_sub = "вы можете вывести скин снова"
 
-                        patch_res = await supabase.patch("/cs_history", 
+                        patch_res = await supabase.patch("/rest/v1/cs_history", 
                             params={"id": f"eq.{trade_id}", "status": f"eq.{current_status}"}, 
                             json={
-                                "status": "canceled", 
+                                "status": "available", # 🔥 ИСПРАВЛЕНИЕ: Ставим available, чтобы юзер мог сразу перевывести скин
                                 "details": f"{c_title}||{c_sub}",
                                 "updated_at": now_iso
                             },
@@ -11579,7 +11581,7 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
                         if patch_res.status_code >= 400:
                             msg = f"#{trade_id}: DB ERROR ON TM CANCEL -> {patch_res.text}"
                         else:
-                            msg = f"#{trade_id}: TM Canceled -> canceled"
+                            msg = f"#{trade_id}: TM Canceled -> available"
 
                     # =========================================================
                     # БЕЗОПАСНАЯ ЛОГИКА ОЖИДАНИЯ (БЕЗ АВТО-ОТМЕНЫ)
