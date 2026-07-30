@@ -11450,14 +11450,17 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
                 "/rest/v1/cs_history", 
                 params={
                     "status": "eq.pending",
-                    "select": "id, item:cs_items(id)"
+                    "select": "id, source, item:cs_items(id)" # 🔥 ХИРУРГИЧЕСКОЕ ВМЕШАТЕЛЬСТВО: Добавили чтение source
                 }
             )
             
             if clean_res.status_code == 200:
                 potential_phantoms = clean_res.json()
                 for rec in potential_phantoms:
-                    if not rec.get("item"):
+                    source = rec.get("source") # 🔥 ХИРУРГИЧЕСКОЕ ВМЕШАТЕЛЬСТВО: Получаем источник
+                    
+                    # 🔥 ХИРУРГИЧЕСКОЕ ВМЕШАТЕЛЬСТВО: Удаляем пустышку только если это НЕ розыгрыш/твич/аукцион
+                    if not rec.get("item") and source not in ["raffle", "twitch", "auction"]:
                         p_id = rec.get("id")
                         await supabase.delete("/rest/v1/cs_history", params={"id": f"eq.{p_id}"})
                         msg = f"CLEANUP: Deleted phantom item #{p_id}"
