@@ -21363,6 +21363,34 @@ async def buy_dynamic_promo_endpoint(
     if not user_info or "id" not in user_info:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
+    # =========================================================================
+    # 🔥 БРОНЕБОЙНАЯ ПРОВЕРКА: ОТКЛЮЧЕНЫ ЛИ ПОКУПКИ ЗА МОНЕТЫ? 🔥
+    # =========================================================================
+    try:
+        settings_res = await supabase.get(
+            "/settings", 
+            params={"key": "eq.admin_controls", "select": "value"}
+        )
+        
+        if settings_res.status_code == 200:
+            settings_data = settings_res.json()
+            if settings_data and isinstance(settings_data, list) and len(settings_data) > 0:
+                admin_controls = settings_data[0].get("value", {})
+                
+                # Достаем флаг (по умолчанию True)
+                is_enabled = admin_controls.get("coins_purchases_enabled", True)
+                
+                if is_enabled is False:
+                    raise HTTPException(
+                        status_code=403, 
+                        detail="🛠 Обмен на основные монеты временно отключен разработчиком!"
+                    )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"[GRIND] Ошибка проверки coins_purchases_enabled: {e}")
+    # =========================================================================
+
     try:
         response = await supabase.post(
             "/rpc/buy_dynamic_promo",
@@ -30775,6 +30803,51 @@ async def admin_swap_inventory_item(
     except Exception as e:
         logging.error(f"Ошибка замены предмета {req.history_id}: {e}")
         raise HTTPException(status_code=500, detail="Ошибка базы данных при замене предмета.")
+
+# Схема для валидации данных, которые прилетают с фронтенда
+class AdminManageGrindRequest(BaseModel):
+    initData: str
+    user_id: int
+    streak_days: int
+    coins: float
+    twitch_status: Optional[str] = None
+
+@app.post("/api/v1/admin/users/manage-grind")
+async def admin_manage_grind(
+    req: AdminManageGrindRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Изменение гринда: стрик, монеты, статус твича и защита от сброса."""
+    # Проверка прав администратора
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    try:
+        # Формируем тело запроса для Supabase
+        update_data = {
+            "streak_days": req.streak_days,
+            "coins": req.coins,
+            "twitch_status": req.twitch_status,
+            # ВАЖНО: Записываем текущее время UTC. 
+            # Это обновит last_grind_at, и система подумает, что юзер забрал награду прямо сейчас.
+            # Стрик не обнулится из-за "пропуска".
+            "last_grind_at": datetime.now(timezone.utc).isoformat()
+        }
+
+        # Отправляем PATCH-запрос в Supabase
+        resp = await supabase.patch(
+            "/users", 
+            params={"telegram_id": f"eq.{req.user_id}"}, 
+            json=update_data
+        )
+        resp.raise_for_status()
+
+        return {"message": "Гринд успешно сохранен и защищен от сброса!"}
+        
+    except Exception as e:
+        logging.error(f"Ошибка изменения гринда для {req.user_id}: {e}")
+        raise HTTPException(status_code=500, detail="Ошибка БД при сохранении гринда.")
 
 # --- HTML routes ---
 # @app.get('/favicon.ico', include_in_schema=False)
