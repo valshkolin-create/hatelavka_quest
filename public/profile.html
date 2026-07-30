@@ -2326,7 +2326,19 @@ function renderInventory(items, isSorting = false) {
         const rData = getRarityData(item.rarity); 
         const isSwapped = item.is_swapped === true;
         const isReplaced = !!item.replaced_name && !isSwapped; 
-        const displayName = (isReplaced || isSwapped) ? item.replaced_name : item.name;
+        
+        // 🔥 УМНЫЙ ПОИСК ИМЕНИ (Страховка для розыгрышей)
+        let displayName = (isReplaced || isSwapped) ? item.replaced_name : item.name;
+        if (!displayName && item.details && item.details.includes('Выигрыш:')) {
+            displayName = item.details.replace('Выигрыш:', '').split('||')[0].trim();
+        }
+        if (!displayName) displayName = "Секретный приз"; // Заглушка на крайний случай
+        
+        // 🔥 СТРАХОВКА КАРТИНКИ (Чтобы не было битых иконок)
+        let imageUrl = item.image_url;
+        if (!imageUrl || imageUrl.includes('null')) {
+            imageUrl = 'https://placehold.co/100x100/18181b/3f3f46?text=?';
+        }
         // Меняем запятые на точки и берем price_rub, если обычный price пуст
 let strPrice = String(item.price_rub || item.price || "0").replace(',', '.');
 let strReplaced = String(item.replaced_price || "0").replace(',', '.');
@@ -2345,7 +2357,7 @@ const ticketVal = parseFloat((rawPrice * 0.5).toFixed(2));
 
         const imageContentHtml = isReplaced 
             ? `<i class="fa-solid fa-right-left" style="font-size: 24px; color: #FFD700; text-shadow: 0 0 10px rgba(255, 215, 0, 0.4);"></i>`
-            : `<img src="${item.image_url}" loading="lazy" decoding="async">`;
+            : `<img src="${imageUrl}" loading="lazy" decoding="async">`;
 
         // КРАСИВЫЙ ВЫВОД ДАТЫ
         const timestamp = parseSafeDate(item.created_at || item.updated_at || item.date);
