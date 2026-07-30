@@ -25630,7 +25630,7 @@ async def check_trade_status_endpoint(
         return JSONResponse({"success": False, "message": "Auth failed"}, status_code=401)
 
     # 1. Достаем запись из истории
-    res = await supabase.get("/cs_history", params={
+    res = await supabase.get("/rest/v1/cs_history", params={
         "id": f"eq.{history_id}", 
         "user_id": f"eq.{user_data['id']}"
     })
@@ -25658,8 +25658,8 @@ async def check_trade_status_endpoint(
             "message": "Оффер отправлен напрямую от нашего бота! Пожалуйста, проверьте входящие обмены в Steam."
         }
         
-    # Защита от фантомных запросов: если ID не содержит префикс Маркета (wd_ или repl_)
-    if not custom_id.startswith(("wd_", "repl_")):
+    # 🔥 ИСПРАВЛЕНИЕ: Добавили префиксы raf_ и tw_raf_ для проверки розыгрышей!
+    if not custom_id.startswith(("wd_", "repl_", "raf_", "tw_raf_")):
         return {
             "success": False,
             "message": "Заказ формируется. Пожалуйста, подождите еще немного..."
@@ -25698,7 +25698,6 @@ async def check_trade_status_endpoint(
                 }
 
             tm_data = tm_res.json()
-            
             print(f"DEBUG TM FOR ITEM {custom_id}: {tm_data}")
 
             # =========================================================
@@ -25706,10 +25705,10 @@ async def check_trade_status_endpoint(
             # =========================================================
             if not tm_data.get("success"):
                 if tm_data.get("error") == "not found":
-                    # 🔥 Если прошло больше 15 минут (900 сек), а Маркет 
+                    # Если прошло больше 15 минут (900 сек), а Маркет 
                     # всё ещё не знает про ID — значит наша покупка сорвалась. Отменяем!
                     if db_seconds_passed > 900:
-                        patch_res = await supabase.patch("/cs_history", 
+                        patch_res = await supabase.patch("/rest/v1/cs_history", 
                             params={"id": f"eq.{history_id}", "status": f"eq.{current_status}"}, 
                             json={"status": "available", "details": "Сделка не была создана Маркетом", "updated_at": now_iso},
                             headers={"Prefer": "return=representation"}
@@ -25763,7 +25762,7 @@ async def check_trade_status_endpoint(
             if stage == "2" or is_settled:
                 update_payload = {"status": "received", "updated_at": now_iso}
                 
-                patch_res = await supabase.patch("/cs_history", 
+                patch_res = await supabase.patch("/rest/v1/cs_history", 
                     params={"id": f"eq.{history_id}", "status": f"eq.{current_status}"}, 
                     json=update_payload,
                     headers={"Prefer": "return=representation"}
@@ -25784,9 +25783,9 @@ async def check_trade_status_endpoint(
                 
             # 2. ОТМЕНА (Stage 4, 5 или таймаут)
             elif stage in ["4", "5"] or (seconds_passed > 2100 and stage == "1"):
-                patch_res = await supabase.patch("/cs_history", 
+                patch_res = await supabase.patch("/rest/v1/cs_history", 
                     params={"id": f"eq.{history_id}", "status": f"eq.{current_status}"}, 
-                    json={"status": "available", "updated_at": now_iso},
+                    json={"status": "available", "updated_at": now_iso}, # 🔥 ИСПРАВЛЕНИЕ: Возвращаем в available
                     headers={"Prefer": "return=representation"}
                 )
                 
@@ -25798,12 +25797,12 @@ async def check_trade_status_endpoint(
                     return {"success": False, "message": "Статус уже обновлен кроном."}
                 
                 if item.get("assetid"):
-                    await supabase.patch("/steam_inventory_cache", 
+                    await supabase.patch("/rest/v1/steam_inventory_cache", 
                         params={"assetid": f"eq.{item['assetid']}"}, 
                         json={"is_reserved": False}
                     )
                 
-                msg = "Трейд был отменен. Предмет снова доступен." if stage in ["4", "5"] else "Время ожидания истекло."
+                msg = "Трейд был отменен. Предмет снова доступен для вывода." if stage in ["4", "5"] else "Время ожидания истекло. Предмет снова доступен."
                 return {
                     "success": False, 
                     "message": msg, 
@@ -25820,7 +25819,7 @@ async def check_trade_status_endpoint(
                 # ЭТАП 2: ОФФЕР ОТПРАВЛЕН В STEAM (trade_id существует и не равен 0)
                 if trade_id_val != "0" and trade_id_val != "None":
                     if current_status != "offer_sent":
-                        await supabase.patch("/cs_history", 
+                        await supabase.patch("/rest/v1/cs_history", 
                             params={"id": f"eq.{history_id}"}, 
                             json={"status": "offer_sent", "updated_at": now_iso}
                         )
@@ -25833,7 +25832,7 @@ async def check_trade_status_endpoint(
                 # ЭТАП 1: СБОРКА И ЗАКУПКА (trade_id еще равен 0, идет подготовка на Маркете)
                 else:
                     if current_status != "market_pending":
-                        await supabase.patch("/cs_history", 
+                        await supabase.patch("/rest/v1/cs_history", 
                             params={"id": f"eq.{history_id}"}, 
                             json={"status": "market_pending", "updated_at": now_iso}
                         )
