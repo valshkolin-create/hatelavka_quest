@@ -4471,6 +4471,10 @@ async def cycle_restart_event(request: Request, supabase: httpx.AsyncClient = De
     return {"status": "success", "message": "Новый цикл запущен!"}
 
 
+# Определяем ID стримера. 
+# Он будет взят из переменных окружения, либо вы можете вписать его напрямую вместо "123456789"
+BROADCASTER_ID = os.getenv("BROADCASTER_ID")
+
 @app.post("/api/v1/admin/community_events/create")
 async def create_community_event(req: CommunityEventCreateRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     # 1. Проверка на админа
@@ -4478,7 +4482,7 @@ async def create_community_event(req: CommunityEventCreateRequest, supabase: htt
     if not user_info or user_info.get('id') not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
-    # 2. Достаем токен стримера
+    # 2. Достаем токен стримера (теперь BROADCASTER_ID определен)
     token_res = await supabase.get("/users", params={"twitch_id": f"eq.{BROADCASTER_ID}", "select": "twitch_access_token"})
     broadcaster_token = token_res.json()[0].get("twitch_access_token") if token_res.json() else None
 
@@ -4509,6 +4513,7 @@ async def create_community_event(req: CommunityEventCreateRequest, supabase: htt
     
     res = await supabase.post("/community_events", json=new_event, headers={"Prefer": "return=representation"})
     res_data = res.json()
+    
     return {"status": "success"}
 
 @app.post("/api/v1/admin/events/cauldron/participants")
