@@ -5581,8 +5581,8 @@ async def process_twitch_notification_background(data: dict, message_id: str):
         delivery_status_text = ""
         lower_title = reward_title.lower()
         
-        # Триггерим выдачу, если это предмет
-        if any(word in lower_title for word in ["наклейка", "ширп", "скин", "бокс", "кейс"]):
+        # Триггерим выдачу, если это предмет И ЭТО НЕ РОЗЫГРЫШ (розыгрыши обрабатывает КРОН)
+        if reward_type != "raffle" and any(word in lower_title for word in ["наклейка", "ширп", "скин", "бокс", "кейс"]):
             if trade_link:
                 try:
                     # --- ШАГ 1: СОЗДАЕМ ЗАПИСЬ В CS_HISTORY ---
