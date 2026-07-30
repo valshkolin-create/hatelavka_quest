@@ -4473,7 +4473,7 @@ async def cycle_restart_event(request: Request, supabase: httpx.AsyncClient = De
 
 # Определяем ID стримера. 
 # Он будет взят из переменных окружения, либо вы можете вписать его напрямую вместо "123456789"
-BROADCASTER_ID = os.getenv("BROADCASTER_ID")
+BROADCASTER_ID = os.getenv("BROADCASTER_ID", "123456789")
 
 @app.post("/api/v1/admin/community_events/create")
 async def create_community_event(req: CommunityEventCreateRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
@@ -4482,9 +4482,16 @@ async def create_community_event(req: CommunityEventCreateRequest, supabase: htt
     if not user_info or user_info.get('id') not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
-    # 2. Достаем токен стримера (теперь BROADCASTER_ID определен)
+    # 2. Достаем токен стримера
+    print(f"[ОТЛАДКА] Ищем токен для Twitch ID: {BROADCASTER_ID}")
     token_res = await supabase.get("/users", params={"twitch_id": f"eq.{BROADCASTER_ID}", "select": "twitch_access_token"})
-    broadcaster_token = token_res.json()[0].get("twitch_access_token") if token_res.json() else None
+    
+    # Сохраняем ответ, чтобы посмотреть, что реально вернула база
+    token_data = token_res.json()
+    print(f"[ОТЛАДКА] Ответ от БД при поиске токена: {token_data}")
+    
+    broadcaster_token = token_data[0].get("twitch_access_token") if token_data else None
+    print(f"[ОТЛАДКА] Найден ли токен: {bool(broadcaster_token)}")
 
     # 3. Закрываем старые активные сборы
     await supabase.patch("/community_events", params={"is_active": "eq.true"}, json={"is_active": False})
@@ -4493,12 +4500,17 @@ async def create_community_event(req: CommunityEventCreateRequest, supabase: htt
     reward_id = None
     if broadcaster_token:
         twitch_reward_title = f"Закрыть сбор: {req.title}"
+        print(f"[ОТЛАДКА] Пытаемся создать награду: '{twitch_reward_title}' с ценой {req.twitch_reward_cost}")
         try:
             reward_id = await create_twitch_reward(broadcaster_token, twitch_reward_title, req.twitch_reward_cost)
+            print(f"[ОТЛАДКА] Награда успешно создана, ID: {reward_id}")
         except Exception as e:
+            print(f"[ОТЛАДКА] ОШИБКА ТВИЧА при создании награды: {e}")
             logging.error(f"Не удалось создать награду Твича: {e}")
+    else:
+        print("[ОТЛАДКА] СОЗДАНИЕ НАГРАДЫ ПРОПУЩЕНО: Токен стримера равен None (не найден в БД)")
 
-    # 5. Сохраняем ивент в базу (ДОБАВЛЕН event_type и twitch_reward_gain)
+    # 5. Сохраняем ивент в базу
     new_event = {
         "title": req.title,
         "event_type": "guess", # Обязательное поле для БД!
@@ -4511,8 +4523,10 @@ async def create_community_event(req: CommunityEventCreateRequest, supabase: htt
         "is_active": True
     }
     
+    print(f"[ОТЛАДКА] Сохраняем ивент в базу: {new_event}")
     res = await supabase.post("/community_events", json=new_event, headers={"Prefer": "return=representation"})
     res_data = res.json()
+    print(f"[ОТЛАДКА] Ответ от БД после сохранения ивента: {res_data}")
     
     return {"status": "success"}
 
