@@ -5179,11 +5179,12 @@ async def process_twitch_notification_background(data: dict, message_id: str):
     if active_events and len(active_events) > 0:
         event = active_events[0]
         
-        # 🔥 ИСПРАВЛЕНИЕ: Превращаем строку из БД в список ID наград и проверяем вхождение
-        db_reward_ids = [r.strip() for r in event.get("twitch_reward_id", "").split(",") if r.strip()]
+        # 🔥 БЕЗОПАСНОЕ СРАВНЕНИЕ (поддерживает и список, и одиночный ID)
+        db_reward_val = event.get("twitch_reward_id", "")
+        db_reward_ids = [r.strip() for r in str(db_reward_val).split(",")] if db_reward_val else []
         
-        # Если ID купленной награды есть в нашем списке наград сбора:
-        if reward_id in db_reward_ids:
+        # Если ID купленной награды совпадает с ID в базе:
+        if reward_id and (str(reward_id) in db_reward_ids or str(reward_id) == str(db_reward_val)):
             gain = event.get("twitch_reward_gain", 20) # Сколько очков даем за 1 покупку
             new_points = event.get("current_points", 0) + gain
             is_finished = new_points >= event.get("target_points", 100)
