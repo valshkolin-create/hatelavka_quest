@@ -790,6 +790,19 @@ window.makeApiRequest = async function(url, data = {}, method = 'POST', silent =
     tg.ready();
     tg.expand();
 
+    // --- ЛОВИМ ФЛАГ ПОКУПОК ИЗ КЭША БУТСТРАПА ---
+    window.coinsPurchasesEnabled = true;
+    try {
+        const cachedBootstrap = JSON.parse(localStorage.getItem('cache_bootstrap') || '{}');
+        if (cachedBootstrap?.menu?.coins_purchases_enabled !== undefined) {
+            window.coinsPurchasesEnabled = cachedBootstrap.menu.coins_purchases_enabled;
+        }
+    } catch(e) {}
+    // --------------------------------------------
+
+  // ==========================================
+    // 🔙 ЛОГИКА КНОПКИ НАЗАД (1в1 ИЗ ПРОФИЛЯ)
+
   // ==========================================
     // 🔙 ЛОГИКА КНОПКИ НАЗАД (1в1 ИЗ ПРОФИЛЯ)
     // ==========================================
@@ -1302,6 +1315,11 @@ window.makeApiRequest = async function(url, data = {}, method = 'POST', silent =
     };
 
     window.buyItem = async (val) => {
+        // --- БРОНЯ ПРИ КЛИКЕ ---
+        if (!window.coinsPurchasesEnabled) {
+            return tg.showAlert("🛠 Обмен на основные монеты временно отключен разработчиком!");
+        }
+        // -----------------------
         tg.showConfirm(`Обменять гринд-монеты на ${val} основных монет?`, async (ok) => {
             if(ok) {
                 try {
@@ -1370,14 +1388,25 @@ window.makeApiRequest = async function(url, data = {}, method = 'POST', silent =
             const btnClick = item.type === 'ticket' ? `exchangeCoins(${item.cost}, ${item.reward})` : `buyItem(${item.reward})`;
             let extra = item.quantity ? `<span style="opacity:0.5; font-size:9px;">(Ост: ${item.quantity})</span>` : '';
 
+            // --- НОВАЯ ЛОГИКА КНОПКИ (С ЗАМКОМ ДЛЯ МОНЕТ) ---
+            let buttonHtml = '';
+            if (item.type === 'promo' && !window.coinsPurchasesEnabled) {
+                buttonHtml = `<button class="mini-btn" disabled style="border-color: var(--border-color); color: var(--text-secondary); opacity: 0.5;">
+                    <i class="fa-solid fa-lock" style="font-size: 8px;"></i> ОТКЛЮЧЕНО
+                </button>`;
+            } else {
+                buttonHtml = `<button class="mini-btn" onclick="${btnClick}" ${isAffordable?'':'disabled'} style="${isAffordable?'background:var(--accent-primary);color:#000':''}">
+                    ${isAffordable ? 'Купить' : 'Мало монет'}
+                </button>`;
+            }
+            // ------------------------------------------------
+
             div.innerHTML = `
                 <div class="exchange-details">
                     <div class="exchange-title">${item.title}</div>
                     <div class="exchange-cost">Цена: ${item.cost} монет ${extra}</div>
                 </div>
-                <button class="mini-btn" onclick="${btnClick}" ${isAffordable?'':'disabled'} style="${isAffordable?'background:var(--accent-primary);color:#000':''}">
-                    ${isAffordable ? 'Купить' : 'Мало монет'}
-                </button>`;
+                ${buttonHtml}`;
             dom.shopContainer.appendChild(div);
         });
     }
