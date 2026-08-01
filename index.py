@@ -11464,12 +11464,11 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
         # ФАЗА 0: ЧИСТКА ФАНТОМНЫХ ПРЕДМЕТОВ
         # =========================================================
         try:
-            # ИСПОЛЬЗУЕМ ПРАВИЛЬНЫЙ ПУТЬ: /cs_history
             clean_res = await supabase.get(
                 "/cs_history", 
                 params={
                     "status": "eq.pending",
-                    "select": "id, source, item:cs_items(id)" # Оставили защиту розыгрышей
+                    "select": "id, source, item:cs_items(id)"
                 }
             )
             
@@ -11491,19 +11490,19 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
         # =========================================================
         # ФАЗА 1: ПРОВЕРКА ТРЕЙДОВ МАРКЕТА
         # =========================================================
-        # УБРАЛИ СТАТУС 'exchanged', ЧТОБЫ ИЗБЕЖАТЬ ВЕЧНОЙ ПРОБКИ ИЗ СТАРЫХ ЗАПИСЕЙ
+        # 🔥 ИСПРАВЛЕНИЕ 1: СОРТИРОВКА DESC! Сначала проверяем самые НОВЫЕ жалобы
         res = await supabase.get(
             "/cs_history", 
             params={
                 "status": "in.(pending,waiting,processing,market_pending,offer_sent)", 
                 "select": "id, updated_at, status, tradeofferid",
-                "order": "updated_at.asc",
+                "order": "updated_at.desc", # <--- ВОТ ТУТ DESC (НОВЫЕ ПЕРВЫМИ)
                 "limit": "25" 
             }
         )
         
         if res.status_code >= 400:
-            err_msg = f"CRON FATAL: Ошибка при запросе списка трейдов из БД: {res.text}"
+            err_msg = f"CRON FATAL: БД Ошибка: {res.text}"
             print(err_msg)
             return {"status": "error", "message": err_msg}
             
@@ -11526,7 +11525,6 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
                 
                 market_custom_id = str(trade.get("tradeofferid") or "")
                 
-                # ВЕРНУЛИ ПРЕФИКСЫ РОЗЫГРЫШЕЙ
                 if not market_custom_id.startswith(("wd_", "repl_", "raf_", "tw_raf_")):
                     continue
                 
@@ -11535,6 +11533,8 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
                     trade_time = trade_time.replace(tzinfo=timezone.utc)
                     
                 minutes_passed = (now - trade_time).total_seconds() / 60
+                hours_passed = minutes_passed / 60 # Считаем часы
+                
                 custom_market_id = trade.get("tradeofferid") or str(trade_id)
 
                 try:
@@ -11553,15 +11553,28 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
                     
                     if not tm_data.get("success") or not trade_info:
                         if minutes_passed > 15:
+                            
+                            # 🔥 ИСПРАВЛЕНИЕ 2: ЗАЩИТА БЮДЖЕТА. Если трейду больше 24 часов, ставим failed, а не available!
+                            if hours_passed > 24:
+                                target_status = "failed"
+                                target_details = "Фатальная ошибка||Трейд устарел, обратитесь к админу"
+                            else:
+                                target_status = "available"
+                                target_details = None
+
+                            patch_data = {"status": target_status, "updated_at": now_iso}
+                            if target_details:
+                                patch_data["details"] = target_details
+
                             patch_res = await supabase.patch("/cs_history", 
                                 params={"id": f"eq.{trade_id}", "status": f"eq.{current_status}"}, 
-                                json={"status": "available", "updated_at": now_iso},
+                                json=patch_data,
                                 headers={"Prefer": "return=representation"}
                             )
                             if patch_res.status_code >= 400:
                                 msg = f"#{trade_id}: DB ERROR ON CANCEL -> {patch_res.text}"
                             else:
-                                msg = f"#{trade_id}: Not found on TM 15m -> available"
+                                msg = f"#{trade_id}: Not found on TM 15m -> {target_status}"
                             
                             print(f"CRON LOG: {msg}")
                             results_log.append(msg)
@@ -11569,7 +11582,6 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
 
                     stage = str(trade_info.get("stage"))
                     
-                    # БЕЗОПАСНАЯ ПРОВЕРКА SETTLEMENT
                     settlement_val = trade_info.get("settlement")
                     is_settled = False
                     if settlement_val:
@@ -11579,7 +11591,7 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
                         except (ValueError, TypeError):
                             pass
 
-                    # УСПЕХ: Если settlement > 0 ИЛИ stage == 2
+                    # УСПЕХ
                     if is_settled or stage == "2":
                         patch_res = await supabase.patch("/cs_history", 
                             params={"id": f"eq.{trade_id}", "status": f"eq.{current_status}"}, 
@@ -11591,6 +11603,7 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
                         else:
                             msg = f"#{trade_id}: Success -> received (Settled: {is_settled})"
 
+                    # ОТМЕНА ПРОДАВЦОМ / НЕ ПРИНЯЛ ТРЕЙД
                     elif stage in ["4", "5"]:
                         if stage == "5":
                             c_title = "Вы не приняли<br>трейд!"
