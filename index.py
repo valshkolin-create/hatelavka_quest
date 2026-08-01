@@ -11491,11 +11491,11 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
         # =========================================================
         # ФАЗА 1: ПРОВЕРКА ТРЕЙДОВ МАРКЕТА
         # =========================================================
-        # ДОБАВЛЕН СТАТУС 'offer_sent', ЧТОБЫ ВЫТАЩИТЬ ЗАВИСШИЕ СКИНЫ
+        # УБРАЛИ СТАТУС 'exchanged', ЧТОБЫ ИЗБЕЖАТЬ ВЕЧНОЙ ПРОБКИ ИЗ СТАРЫХ ЗАПИСЕЙ
         res = await supabase.get(
             "/cs_history", 
             params={
-                "status": "in.(exchanged,pending,waiting,processing,market_pending,offer_sent)", 
+                "status": "in.(pending,waiting,processing,market_pending,offer_sent)", 
                 "select": "id, updated_at, status, tradeofferid",
                 "order": "updated_at.asc",
                 "limit": "25" 
