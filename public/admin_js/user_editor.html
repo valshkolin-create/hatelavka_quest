@@ -423,11 +423,12 @@
                 <h3 style="margin:0; font-size: 16px; font-weight: 800;">Детали предмета</h3>
                 <button class="back-btn" onclick="closeModal('itemDetailsModal')"><i class="fa-solid fa-xmark" style="font-size: 20px;"></i></button>
             </div>
-            <div id="itemDetailsContent" style="background: var(--card-bg); padding: 15px; border-radius: 12px; border: 1px solid var(--card-border); font-size: 13px;">
+            <!-- Добавлен max-height, overflow-y и margin-bottom для поднятия окна над баром -->
+            <div id="itemDetailsContent" style="background: var(--card-bg); padding: 15px; border-radius: 12px; border: 1px solid var(--card-border); font-size: 13px; max-height: 60vh; overflow-y: auto; margin-bottom: 60px;">
                 </div>
         </div>
     </div>
-
+    
     <div id="modal-library" class="modal-overlay" onclick="if(event.target===this) closeModal('modal-library')">
         <div class="bottom-sheet" style="height: 85vh;">
             <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -492,6 +493,24 @@
 
         let currentUser = null;
         let searchTimeout = null;
+
+        // Словарь для красивых русских статусов
+        const statusTranslations = {
+            'available': 'В инвентаре (Доступен)',
+            'pending': 'В процессе вывода',
+            'received': 'Успешно выведен',
+            'sold': 'Продан за баланс',
+            'failed': 'Заморожен / Ошибка',
+            'waiting': 'Ожидает (Market)',
+            'processing': 'Обработка (Market)',
+            'market_pending': 'Создание заявки',
+            'offer_sent': 'Оффер отправлен'
+        };
+        function getStatusRu(status) {
+            return statusTranslations[status] || status;
+        }
+
+        // Глобальная функция для совместимости с внешними скриптами (top_nav.js и др.)
 
         // Глобальная функция для совместимости с внешними скриптами (top_nav.js и др.)
 window.makeApiRequest = async function(endpoint, arg2 = 'GET', arg3 = null) {
@@ -1045,10 +1064,13 @@ async function submitCoins() {
                     const rarityColor = mapRarityToColor(item.is_swapped ? item.replaced_rarity : item.item_rarity);
                     
                     let statusHtml = '';
-                    if (item.status === 'pending') statusHtml = '<span style="color: var(--primary);">В инвентаре</span>';
-                    else if (item.status === 'received') statusHtml = '<span style="color: var(--accent);">Выведен</span>';
-                    else if (item.status === 'sold') statusHtml = '<span style="color: var(--text-sec);">Продан</span>';
-                    else statusHtml = `<span style="color: var(--text-sec);">${item.status}</span>`;
+                    const ruStatus = getStatusRu(item.status);
+                    
+                    if (item.status === 'pending' || item.status === 'available') statusHtml = `<span style="color: var(--primary);" title="Оригинальный статус: ${item.status}">${ruStatus}</span>`;
+                    else if (item.status === 'received') statusHtml = `<span style="color: var(--accent);" title="Оригинальный статус: ${item.status}">${ruStatus}</span>`;
+                    else if (item.status === 'sold') statusHtml = `<span style="color: var(--text-sec);" title="Оригинальный статус: ${item.status}">${ruStatus}</span>`;
+                    else if (item.status === 'failed') statusHtml = `<span style="color: var(--danger);" title="Оригинальный статус: ${item.status}">${ruStatus}</span>`;
+                    else statusHtml = `<span style="color: var(--text-sec);" title="Оригинальный статус: ${item.status}">${ruStatus}</span>`;
 
                     const dateStr = new Date(item.created_at).toLocaleDateString('ru-RU');
 
@@ -1093,6 +1115,7 @@ async function submitCoins() {
             
             const originName = item.item_name || 'Неизвестно';
             const price = item.is_swapped ? item.replaced_price : item.item_price;
+            const ruStatus = getStatusRu(item.status);
             
             let html = `
                 <div style="margin-bottom: 10px;"><strong>ID Записи (History):</strong> ${item.id}</div>
@@ -1101,7 +1124,15 @@ async function submitCoins() {
                 <div style="margin-bottom: 10px;"><strong>Изначальный предмет:</strong> ${escapeHTML(originName)}</div>
                 <div style="margin-bottom: 10px;"><strong>Цена на момент выдачи:</strong> ${price ? price + ' ₽' : '---'}</div>
                 <div style="margin-bottom: 10px;"><strong>Код (если был):</strong> ${escapeHTML(item.code_used || '---')}</div>
-                <div style="margin-bottom: 10px;"><strong>Текущий статус:</strong> <span style="color:var(--primary); font-weight:bold;">${escapeHTML(item.status)}</span></div>
+                
+                <div style="margin-bottom: 10px;" title="Оригинальный системный статус: ${escapeHTML(item.status)}">
+                    <strong>Текущий статус:</strong> 
+                    <span style="color:var(--primary); font-weight:bold; cursor: help; border-bottom: 1px dashed var(--text-sec); padding-bottom: 2px;">
+                        ${escapeHTML(ruStatus)}
+                    </span> 
+                    <i class="fa-solid fa-circle-info" style="color: var(--text-sec); font-size: 11px; margin-left: 4px;"></i>
+                </div>
+                
                 <div style="margin-bottom: 10px;"><strong>Детали лога:</strong> <br><span style="color:var(--text-sec);">${escapeHTML(item.details || 'Пусто')}</span></div>
             `;
 
@@ -1114,20 +1145,20 @@ async function submitCoins() {
                 `;
             }
 
-            // ДОБАВЛЯЕМ БЛОК УПРАВЛЕНИЯ СТАТУСОМ
+            // Обернули в .admin-form, чтобы применились темные стили к select и убрали инлайн-стили, перебивающие фон
             html += `
                 <hr style="border-color: rgba(255,255,255,0.1); margin: 15px 0;">
                 <div style="font-weight: 800; margin-bottom: 10px; color: var(--danger);"><i class="fa-solid fa-wand-magic-sparkles"></i> Админ-управление</div>
-                <div style="display: flex; gap: 8px; margin-bottom: 5px;">
-                    <select id="newStatusSelect_${item.id}" style="flex: 1; background: rgba(255,255,255,0.05); border: 1px solid var(--card-border); color: var(--text); padding: 10px; border-radius: 8px; outline: none; font-size: 13px;">
-                        <option value="available" ${item.status === 'available' ? 'selected' : ''}>Available (Доступен к выводу)</option>
-                        <option value="failed" ${item.status === 'failed' ? 'selected' : ''}>Failed (Заморозить/Отменить)</option>
-                        <option value="pending" ${item.status === 'pending' ? 'selected' : ''}>Pending (В процессе вывода)</option>
-                        <option value="received" ${item.status === 'received' ? 'selected' : ''}>Received (Успешно выдан)</option>
-                        <option value="sold" ${item.status === 'sold' ? 'selected' : ''}>Sold (Продан за баланс)</option>
+                <div class="admin-form" style="display: flex; gap: 8px; margin-bottom: 10px;">
+                    <select id="newStatusSelect_${item.id}" title="При наведении покажет оригинальные статусы" style="flex: 1; padding: 10px; font-size: 13px;">
+                        <option value="available" ${item.status === 'available' ? 'selected' : ''}>В инвентаре (available)</option>
+                        <option value="failed" ${item.status === 'failed' ? 'selected' : ''}>Заморозить/Ошибка (failed)</option>
+                        <option value="pending" ${item.status === 'pending' ? 'selected' : ''}>В процессе вывода (pending)</option>
+                        <option value="received" ${item.status === 'received' ? 'selected' : ''}>Успешно выдан (received)</option>
+                        <option value="sold" ${item.status === 'sold' ? 'selected' : ''}>Продан за баланс (sold)</option>
                     </select>
                 </div>
-                <button onclick="changeItemStatus(${item.id})" class="admin-action-btn" style="background: var(--danger); margin-top: 5px; padding: 10px;">Изменить статус</button>
+                <button onclick="changeItemStatus(${item.id})" class="admin-action-btn" style="background: var(--danger); margin-top: 5px; padding: 12px;">Изменить статус</button>
             `;
 
             content.innerHTML = html;
