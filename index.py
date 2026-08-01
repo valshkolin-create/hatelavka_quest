@@ -14673,6 +14673,56 @@ async def toggle_sleep_mode(request_data: SleepModeRequest, supabase: httpx.Asyn
     
     return {"message": message, "new_status": new_value}
 
+class ChangeItemStatusRequest(BaseModel):
+    initData: str
+    history_id: int
+    new_status: str
+
+@app.post("/api/v1/admin/users/inventory/status")
+async def admin_change_item_status(
+    req: ChangeItemStatusRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    import datetime
+    
+    # ТУТ ВСТАВЬ СВОЮ ПРОВЕРКУ НА АДМИНА
+    user_data = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_data: # Добавь проверку id админа, если она у тебя есть
+        return JSONResponse({"success": False, "detail": "Auth failed"}, status_code=401)
+
+    # 1. Получаем предмет
+    res = await supabase.get("/cs_history", params={"id": f"eq.{req.history_id}"})
+    if res.status_code != 200 or not res.json():
+        return JSONResponse({"success": False, "detail": "Предмет не найден"}, status_code=404)
+    
+    item = res.json()[0]
+    
+    now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    
+    # 2. Обновляем статус в истории
+    patch_res = await supabase.patch(
+        "/cs_history",
+        params={"id": f"eq.{req.history_id}"},
+        json={
+            "status": req.new_status,
+            "details": f"Статус принудительно изменен администратором на {req.new_status}",
+            "updated_at": now_iso
+        }
+    )
+
+    if patch_res.status_code >= 400:
+        return JSONResponse({"success": False, "detail": f"Ошибка БД: {patch_res.text}"}, status_code=400)
+
+    # 3. 🔥 ВАЖНО: Размораживаем предмет, если он был "в процессе", а мы его отменили или вернули
+    if req.new_status in ["available", "failed", "sold"] and item.get("assetid"):
+        await supabase.patch(
+            "/steam_inventory_cache",
+            params={"assetid": f"eq.{item['assetid']}"},
+            json={"is_reserved": False}
+        )
+
+    return {"success": True, "message": "Статус успешно изменен"}
+
 # --- НОВЫЙ ЭНДПОИНТ: Поиск пользователей для админки ---
 @app.post("/api/v1/admin/users/search")
 async def admin_search_users(
