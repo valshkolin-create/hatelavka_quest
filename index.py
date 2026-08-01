@@ -11490,13 +11490,12 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
         # =========================================================
         # ФАЗА 1: ПРОВЕРКА ТРЕЙДОВ МАРКЕТА
         # =========================================================
-        # 🔥 ИСПРАВЛЕНИЕ 1: СОРТИРОВКА DESC! Сначала проверяем самые НОВЫЕ жалобы
         res = await supabase.get(
             "/cs_history", 
             params={
                 "status": "in.(pending,waiting,processing,market_pending,offer_sent)", 
-                "select": "id, updated_at, status, tradeofferid",
-                "order": "updated_at.desc", # <--- ВОТ ТУТ DESC (НОВЫЕ ПЕРВЫМИ)
+                "select": "id, updated_at, status, tradeofferid, assetid",
+                "order": "updated_at.asc", # 🔥 СТРОГО ASC! Иначе старые заявки зависнут навсегда!
                 "limit": "10" 
             }
         )
@@ -11517,23 +11516,45 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
         now = datetime.now(timezone.utc)
         now_iso = now.isoformat()
 
-        async with httpx.AsyncClient(timeout=15.0) as client:
+        async with httpx.AsyncClient(timeout=7.0) as client:
             for trade in active_trades:
                 trade_id = trade["id"]
                 updated_at_str = trade.get("updated_at")
                 current_status = trade.get("status")
+                asset_id = trade.get("assetid") # Сохраняем для разлока
                 
                 market_custom_id = str(trade.get("tradeofferid") or "")
-                
-                if not market_custom_id.startswith(("wd_", "repl_", "raf_", "tw_raf_")):
-                    continue
                 
                 trade_time = parser.parse(updated_at_str) if updated_at_str else now
                 if trade_time.tzinfo is None:
                     trade_time = trade_time.replace(tzinfo=timezone.utc)
                     
                 minutes_passed = (now - trade_time).total_seconds() / 60
-                hours_passed = minutes_passed / 60 # Считаем часы
+                hours_passed = minutes_passed / 60 
+
+                # =========================================================
+                # 🔥 АВТО-ЛЕЧЕНИЕ: БЕЗОПАСНАЯ ОТМЕНА ЗАВИСШИХ NULL-ТРЕЙДОВ
+                # =========================================================
+                if not market_custom_id or market_custom_id == "None":
+                    if minutes_passed > 60: # Ждем час, чтобы точно убедиться, что это баг
+                        patch_res = await supabase.patch("/cs_history", 
+                            params={"id": f"eq.{trade_id}", "status": f"eq.{current_status}"}, 
+                            json={
+                                "status": "failed", 
+                                "details": "Сбой создания заявки||Обратитесь к админу для ручной проверки", 
+                                "updated_at": now_iso
+                            },
+                            headers={"Prefer": "return=representation"}
+                        )
+                        if patch_res.status_code < 400:
+                            msg = f"#{trade_id}: Fixed NULL ID (Stuck) -> failed"
+                            print(f"CRON LOG: {msg}")
+                            results_log.append(msg)
+                    continue
+                # =========================================================
+
+                if not market_custom_id.startswith(("wd_", "repl_", "raf_", "tw_raf_")):
+                    continue
                 
                 custom_market_id = trade.get("tradeofferid") or str(trade_id)
 
@@ -11554,13 +11575,12 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
                     if not tm_data.get("success") or not trade_info:
                         if minutes_passed > 15:
                             
-                            # 🔥 ИСПРАВЛЕНИЕ 2: ЗАЩИТА БЮДЖЕТА. Если трейду больше 24 часов, ставим failed, а не available!
                             if hours_passed > 24:
                                 target_status = "failed"
                                 target_details = "Фатальная ошибка||Трейд устарел, обратитесь к админу"
                             else:
                                 target_status = "available"
-                                target_details = None
+                                target_details = "Маркет не создал заявку, попробуйте еще раз"
 
                             patch_data = {"status": target_status, "updated_at": now_iso}
                             if target_details:
@@ -11571,10 +11591,16 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
                                 json=patch_data,
                                 headers={"Prefer": "return=representation"}
                             )
-                            if patch_res.status_code >= 400:
-                                msg = f"#{trade_id}: DB ERROR ON CANCEL -> {patch_res.text}"
-                            else:
+                            if patch_res.status_code < 400:
+                                # 🔥 ОБЯЗАТЕЛЬНО СНИМАЕМ ЛОК, ЕСЛИ ВЕРНУЛИ В AVAILABLE
+                                if target_status == "available" and asset_id:
+                                    await supabase.patch("/steam_inventory_cache", 
+                                        params={"assetid": f"eq.{asset_id}"}, 
+                                        json={"is_reserved": False}
+                                    )
                                 msg = f"#{trade_id}: Not found on TM 15m -> {target_status}"
+                            else:
+                                msg = f"#{trade_id}: DB ERROR ON CANCEL -> {patch_res.text}"
                             
                             print(f"CRON LOG: {msg}")
                             results_log.append(msg)
@@ -11621,10 +11647,16 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
                             },
                             headers={"Prefer": "return=representation"}
                         )
-                        if patch_res.status_code >= 400:
-                            msg = f"#{trade_id}: DB ERROR ON TM CANCEL -> {patch_res.text}"
-                        else:
+                        if patch_res.status_code < 400:
+                            # 🔥 ОБЯЗАТЕЛЬНО СНИМАЕМ ЛОК ПРИ ОТМЕНЕ ТРЕЙДА
+                            if asset_id:
+                                await supabase.patch("/steam_inventory_cache", 
+                                    params={"assetid": f"eq.{asset_id}"}, 
+                                    json={"is_reserved": False}
+                                )
                             msg = f"#{trade_id}: TM Canceled -> available"
+                        else:
+                            msg = f"#{trade_id}: DB ERROR ON TM CANCEL -> {patch_res.text}"
 
                     elif stage == "1":
                         msg = f"#{trade_id}: Stage 1 (Waiting) -> passed {int(minutes_passed)}m"
@@ -25717,7 +25749,8 @@ async def check_trade_status_endpoint(
     db_hours_passed = db_seconds_passed / 3600
 
     try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
+        # 🔥 ИСПРАВЛЕНИЕ 1: Таймаут 7 секунд, чтобы Vercel не убил процесс втихую
+        async with httpx.AsyncClient(timeout=7.0) as client:
             tm_res = await client.get(
                 "https://cs2.market/api/v2/get-buy-info-by-custom-id",
                 params={
@@ -25749,6 +25782,12 @@ async def check_trade_status_endpoint(
                             json={"status": "failed", "details": "Фатальная ошибка||Трейд устарел (>48ч), напишите в поддержку", "updated_at": now_iso},
                             headers={"Prefer": "return=representation"}
                         )
+                        # 🔥 ИСПРАВЛЕНИЕ 3: Размораживаем инвентарь при фатальной ошибке
+                        if patch_res.status_code < 400 and item.get("assetid"):
+                            await supabase.patch("/steam_inventory_cache", 
+                                params={"assetid": f"eq.{item['assetid']}"}, 
+                                json={"is_reserved": False}
+                            )
                         return {
                             "success": False,
                             "message": "❌ Трейд устарел и заморожен. Напишите в поддержку.",
@@ -25838,15 +25877,29 @@ async def check_trade_status_endpoint(
                         json={"status": "failed", "details": "Фатальная ошибка||Трейд устарел (>48ч), напишите в поддержку", "updated_at": now_iso},
                         headers={"Prefer": "return=representation"}
                     )
+                    # 🔥 Размораживаем инвентарь при фатальной ошибке
+                    if patch_res.status_code < 400 and item.get("assetid"):
+                        await supabase.patch("/steam_inventory_cache", 
+                            params={"assetid": f"eq.{item['assetid']}"}, 
+                            json={"is_reserved": False}
+                        )
                     return {
                         "success": False,
                         "message": "❌ Трейд устарел и заморожен. Напишите в поддержку.",
                         "new_status": "failed"
                     }
 
+                # 🔥 ИСПРАВЛЕНИЕ 2: Пишем details (причину отмены) в БД
+                c_title = "Вы не приняли<br>трейд!" if stage == "5" else "Трейд отменен<br>продавцом!"
+                c_sub = "старайтесь их принимать" if stage == "5" else "вы можете вывести скин снова"
+
                 patch_res = await supabase.patch("/cs_history", 
                     params={"id": f"eq.{history_id}", "status": f"eq.{current_status}"}, 
-                    json={"status": "available", "updated_at": now_iso},
+                    json={
+                        "status": "available", 
+                        "details": f"{c_title}||{c_sub}", 
+                        "updated_at": now_iso
+                    },
                     headers={"Prefer": "return=representation"}
                 )
                 
@@ -25891,6 +25944,9 @@ async def check_trade_status_endpoint(
                     "message": f"Статус: обрабатывается (Код {stage})."
                 }
                 
+    except httpx.TimeoutException:
+        # 🔥 Специальный обработчик для таймаута
+        return JSONResponse({"success": False, "message": "Сервер Маркета отвечает слишком долго. Попробуйте обновить статус через минуту."})
     except Exception as e:
         print(f"TM API ERROR: {e}")
         return JSONResponse({"success": False, "message": "Временная ошибка связи с Маркетом. Попробуйте позже."})
