@@ -1101,6 +1101,7 @@ async function submitCoins() {
                 <div style="margin-bottom: 10px;"><strong>Изначальный предмет:</strong> ${escapeHTML(originName)}</div>
                 <div style="margin-bottom: 10px;"><strong>Цена на момент выдачи:</strong> ${price ? price + ' ₽' : '---'}</div>
                 <div style="margin-bottom: 10px;"><strong>Код (если был):</strong> ${escapeHTML(item.code_used || '---')}</div>
+                <div style="margin-bottom: 10px;"><strong>Текущий статус:</strong> <span style="color:var(--primary); font-weight:bold;">${escapeHTML(item.status)}</span></div>
                 <div style="margin-bottom: 10px;"><strong>Детали лога:</strong> <br><span style="color:var(--text-sec);">${escapeHTML(item.details || 'Пусто')}</span></div>
             `;
 
@@ -1113,8 +1114,51 @@ async function submitCoins() {
                 `;
             }
 
+            // ДОБАВЛЯЕМ БЛОК УПРАВЛЕНИЯ СТАТУСОМ
+            html += `
+                <hr style="border-color: rgba(255,255,255,0.1); margin: 15px 0;">
+                <div style="font-weight: 800; margin-bottom: 10px; color: var(--danger);"><i class="fa-solid fa-wand-magic-sparkles"></i> Админ-управление</div>
+                <div style="display: flex; gap: 8px; margin-bottom: 5px;">
+                    <select id="newStatusSelect_${item.id}" style="flex: 1; background: rgba(255,255,255,0.05); border: 1px solid var(--card-border); color: var(--text); padding: 10px; border-radius: 8px; outline: none; font-size: 13px;">
+                        <option value="available" ${item.status === 'available' ? 'selected' : ''}>Available (Доступен к выводу)</option>
+                        <option value="failed" ${item.status === 'failed' ? 'selected' : ''}>Failed (Заморозить/Отменить)</option>
+                        <option value="pending" ${item.status === 'pending' ? 'selected' : ''}>Pending (В процессе вывода)</option>
+                        <option value="received" ${item.status === 'received' ? 'selected' : ''}>Received (Успешно выдан)</option>
+                        <option value="sold" ${item.status === 'sold' ? 'selected' : ''}>Sold (Продан за баланс)</option>
+                    </select>
+                </div>
+                <button onclick="changeItemStatus(${item.id})" class="admin-action-btn" style="background: var(--danger); margin-top: 5px; padding: 10px;">Изменить статус</button>
+            `;
+
             content.innerHTML = html;
             openModal('itemDetailsModal');
+        }
+
+        // НОВАЯ ФУНКЦИЯ ДЛЯ ОТПРАВКИ СТАТУСА НА БЕКЕНД
+        async function changeItemStatus(historyId) {
+            const select = document.getElementById(`newStatusSelect_${historyId}`);
+            const newStatus = select.value;
+            
+            if (!confirm(`Точно изменить статус на "${newStatus}"?`)) return;
+
+            tg.MainButton.showProgress();
+            try {
+                // Вызываем новый эндпоинт, который мы сейчас напишем
+                await fetchApi('/api/v1/admin/users/inventory/status', {
+                    history_id: historyId,
+                    new_status: newStatus
+                });
+                
+                if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                tg.showPopup({message: 'Статус предмета успешно изменен!'});
+                
+                closeModal('itemDetailsModal');
+                openInventory(); // Перезагружаем инвентарь, чтобы увидеть изменения
+            } catch (err) {
+                tg.showAlert(`Ошибка: ${err.message}`);
+            } finally {
+                tg.MainButton.hideProgress();
+            }
         }
 
         // --- ЛОГИКА СКЛАДА (КОПИЯ ИЗ РОЗЫГРЫШЕЙ) ---
