@@ -121,6 +121,17 @@
         .history-chip:active { transform: scale(0.95); background: rgba(255,255,255,0.1); border-color: var(--primary); }
         .history-chip img { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; background: #000; }
         .history-chip span { font-size: 11px; font-weight: 600; color: var(--text); white-space: nowrap; max-width: 80px; overflow: hidden; text-overflow: ellipsis; }
+        /* Отрываем окно деталей от самого низа */
+#itemDetailsModal {
+    padding-bottom: 90px; /* Высота твоего нижнего бара + небольшой отступ */
+}
+
+#itemDetailsModal .bottom-sheet {
+    border-radius: 24px !important; /* Скругляем все 4 угла, раз окно висит в воздухе */
+    border: 1px solid var(--card-border);
+    border-bottom: 1px solid var(--card-border); /* Возвращаем нижнюю рамку */
+    max-height: 75vh; 
+}
     </style>
 </head>
 <body>
@@ -489,6 +500,31 @@
         </div>
     </div>
 
+    <!-- Кастомный Confirm (Да / Нет) -->
+<div id="customConfirmModal" class="modal-overlay" style="z-index: 2000; align-items: center; justify-content: center;">
+    <div style="background: var(--bg); border: 1px solid var(--card-border); border-radius: 20px; padding: 20px; width: 85%; max-width: 320px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+        <h3 id="confirmTitle" style="margin-top: 0; font-size: 16px; color: var(--text);">Подтверждение</h3>
+        <p id="confirmMessage" style="font-size: 13px; color: var(--text-sec); margin-bottom: 20px;"></p>
+        <div style="display: flex; gap: 10px;">
+            <button id="confirmBtnNo" class="inner-back-btn" style="flex: 1; justify-content: center; margin: 0;">Отмена</button>
+            <button id="confirmBtnYes" class="admin-action-btn danger" style="flex: 1; margin: 0; padding: 10px;">Да</button>
+        </div>
+    </div>
+</div>
+
+<!-- Кастомный Prompt (Ввод текста) -->
+<div id="customPromptModal" class="modal-overlay" style="z-index: 2000; align-items: center; justify-content: center;">
+    <div style="background: var(--bg); border: 1px solid var(--card-border); border-radius: 20px; padding: 20px; width: 85%; max-width: 320px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+        <h3 id="promptTitle" style="margin-top: 0; font-size: 16px; color: var(--text);">Ввод данных</h3>
+        <p id="promptMessage" style="font-size: 12px; color: var(--text-sec); margin-bottom: 15px; white-space: pre-wrap;"></p>
+        <input type="number" step="0.1" id="promptInput" style="width: 100%; box-sizing: border-box; background: rgba(255,255,255,0.05); border: 1px solid var(--card-border); color: #fff; padding: 12px; border-radius: 12px; margin-bottom: 15px; text-align: center; outline: none;" placeholder="Например: 2">
+        <div style="display: flex; gap: 10px;">
+            <button id="promptBtnCancel" class="inner-back-btn" style="flex: 1; justify-content: center; margin: 0;">Отмена</button>
+            <button id="promptBtnOk" class="admin-action-btn" style="flex: 1; margin: 0; padding: 10px; background: #64b5ef; color: #000;">OK</button>
+        </div>
+    </div>
+</div>
+
 
     <script>
         const tg = window.Telegram.WebApp;
@@ -845,6 +881,51 @@ window.makeApiRequest = async function(endpoint, arg2 = 'GET', arg3 = null) {
             console.log('[LOG] Клик: Вызван closeOnDim');
             if(e.target.classList.contains('modal-overlay')) e.target.classList.remove('modal-active'); 
         }
+
+        // Функция для подтверждения (вместо confirm)
+function customConfirm(message, title = "Подтверждение") {
+    return new Promise((resolve) => {
+        if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.impactOccurred('light');
+        const modal = document.getElementById('customConfirmModal');
+        document.getElementById('confirmTitle').textContent = title;
+        document.getElementById('confirmMessage').textContent = message;
+        modal.classList.add('modal-active');
+
+        document.getElementById('confirmBtnYes').onclick = () => {
+            modal.classList.remove('modal-active');
+            resolve(true);
+        };
+        document.getElementById('confirmBtnNo').onclick = () => {
+            modal.classList.remove('modal-active');
+            resolve(false);
+        };
+    });
+}
+
+// Функция для ввода (вместо prompt)
+function customPrompt(message, defaultValue = "", title = "Ввод данных") {
+    return new Promise((resolve) => {
+        if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.impactOccurred('light');
+        const modal = document.getElementById('customPromptModal');
+        document.getElementById('promptTitle').textContent = title;
+        document.getElementById('promptMessage').textContent = message;
+        const input = document.getElementById('promptInput');
+        input.value = defaultValue;
+        modal.classList.add('modal-active');
+        
+        // Автофокус для удобства
+        setTimeout(() => input.focus(), 100);
+
+        document.getElementById('promptBtnOk').onclick = () => {
+            modal.classList.remove('modal-active');
+            resolve(input.value);
+        };
+        document.getElementById('promptBtnCancel').onclick = () => {
+            modal.classList.remove('modal-active');
+            resolve(null); // Возвращаем null, если нажали Отмена
+        };
+    });
+}
 
 async function submitCoins() {
             const amount = parseFloat(document.getElementById('coinsAmount').value);
@@ -1247,65 +1328,67 @@ async function submitCoins() {
         }
 
         async function extendItemTime(historyId, source) {
-            // Вызываем окно для ввода часов
-            const input = prompt(
-                "Сколько часов дать пользователю на вывод этого предмета?\n\n(Оставь поле пустым, чтобы выдать полный стандартный срок — 3 или 14 дней)", 
-                "2" // По умолчанию предлагаем 2 часа
-            );
-            
-            if (input === null) return; // Если админ нажал "Отмена", ничего не делаем
-            
-            let hours = parseFloat(input);
-            if (isNaN(hours) && input.trim() !== "") {
-                return tg.showAlert("Пожалуйста, введи число (например: 2 или 1.5).");
-            }
+    // Используем НАШ кастомный prompt
+    const input = await customPrompt(
+        "Сколько часов дать пользователю на вывод этого предмета?\n\n(Оставь поле пустым, чтобы выдать полный стандартный срок)", 
+        "2", 
+        "Изменение таймера"
+    );
+    
+    if (input === null) return; // Нажали "Отмена"
+    
+    let hours = parseFloat(input);
+    if (isNaN(hours) && input.trim() !== "") {
+        return tg.showAlert("Пожалуйста, введи число (например: 2 или 1.5).");
+    }
 
-            tg.MainButton.showProgress();
-            try {
-                await fetchApi('/api/v1/admin/users/inventory/extend-time', { 
-                    history_id: historyId,
-                    source: source || 'shop',
-                    hours_to_add: isNaN(hours) ? null : hours // Если пусто, отправится null
-                });
-                
-                if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-                tg.showPopup({message: 'Таймер успешно изменен!'});
-                
-                closeModal('itemDetailsModal');
-                openInventory(); // Перезагружаем список инвентаря
-            } catch (err) {
-                tg.showAlert(`Ошибка: ${err.message}`);
-            } finally {
-                tg.MainButton.hideProgress();
-            }
-        }
+    tg.MainButton.showProgress();
+    try {
+        await fetchApi('/api/v1/admin/users/inventory/extend-time', { 
+            history_id: historyId,
+            source: source || 'shop',
+            hours_to_add: isNaN(hours) ? null : hours 
+        });
+        
+        if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+        tg.showPopup({message: 'Таймер успешно изменен!'});
+        
+        closeModal('itemDetailsModal');
+        openInventory();
+    } catch (err) {
+        tg.showAlert(`Ошибка: ${err.message}`);
+    } finally {
+        tg.MainButton.hideProgress();
+    }
+}
 
         // НОВАЯ ФУНКЦИЯ ДЛЯ ОТПРАВКИ СТАТУСА НА БЕКЕНД
         async function changeItemStatus(historyId) {
-            const select = document.getElementById(`newStatusSelect_${historyId}`);
-            const newStatus = select.value;
-            
-            if (!confirm(`Точно изменить статус на "${newStatus}"?`)) return;
+    const select = document.getElementById(`newStatusSelect_${historyId}`);
+    const newStatus = select.value;
+    
+    // Используем НАШ кастомный confirm
+    const isConfirmed = await customConfirm(`Точно изменить статус на "${newStatus}"?`, "Внимание");
+    if (!isConfirmed) return;
 
-            tg.MainButton.showProgress();
-            try {
-                // Вызываем новый эндпоинт, который мы сейчас напишем
-                await fetchApi('/api/v1/admin/users/inventory/status', {
-                    history_id: historyId,
-                    new_status: newStatus
-                });
-                
-                if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-                tg.showPopup({message: 'Статус предмета успешно изменен!'});
-                
-                closeModal('itemDetailsModal');
-                openInventory(); // Перезагружаем инвентарь, чтобы увидеть изменения
-            } catch (err) {
-                tg.showAlert(`Ошибка: ${err.message}`);
-            } finally {
-                tg.MainButton.hideProgress();
-            }
-        }
+    tg.MainButton.showProgress();
+    try {
+        await fetchApi('/api/v1/admin/users/inventory/status', {
+            history_id: historyId,
+            new_status: newStatus
+        });
+        
+        if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+        tg.showPopup({message: 'Статус предмета успешно изменен!'});
+        
+        closeModal('itemDetailsModal');
+        openInventory(); 
+    } catch (err) {
+        tg.showAlert(`Ошибка: ${err.message}`);
+    } finally {
+        tg.MainButton.hideProgress();
+    }
+}
 
         // --- ЛОГИКА СКЛАДА (КОПИЯ ИЗ РОЗЫГРЫШЕЙ) ---
         let currentSwapTargetId = null;
