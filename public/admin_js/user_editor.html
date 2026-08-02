@@ -549,7 +549,7 @@
             'available': 'В инвентаре (Доступен)',
             'pending': 'В процессе вывода',
             'received': 'Успешно выведен',
-            'sold': 'Продан за баланс',
+            'exchanged_swap': 'Объединен в свапе',
             'failed': 'Заморожен / Ошибка',
             'waiting': 'Ожидает (Market)',
             'processing': 'Обработка (Market)',
@@ -1324,8 +1324,8 @@ async function submitCoins() {
                         <option value="failed" ${item.status === 'failed' ? 'selected' : ''}>Заморозить/Ошибка (failed)</option>
                         <option value="pending" ${item.status === 'pending' ? 'selected' : ''}>В процессе вывода (pending)</option>
                         <option value="received" ${item.status === 'received' ? 'selected' : ''}>Успешно выдан (received)</option>
-                        <option value="sold" ${item.status === 'sold' ? 'selected' : ''}>Продан за баланс (sold)</option>
-                        <option value="exchanged" ${item.status === 'exchanged' ? 'selected' : ''}>Сгорел / Заменен (exchanged)</option>
+                        <option value="exchanged_swap" ${item.status === 'exchanged_swap' ? 'selected' : ''}>Объединен в свапе (swap)</option>
+                        <option value="exchanged" ${item.status === 'exchanged' ? 'selected' : ''}>Продан за баланс (exchanged)</option>
                     </select>
                 </div>
                 <button onclick="changeItemStatus(${item.id})" class="admin-action-btn" style="background: var(--danger); margin-top: 5px; margin-bottom: 20px; padding: 12px;">Изменить статус</button>
