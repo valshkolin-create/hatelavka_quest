@@ -495,6 +495,7 @@
         let searchTimeout = null;
 
         // Словарь для красивых русских статусов
+        // Словарь для красивых русских статусов
         const statusTranslations = {
             'available': 'В инвентаре (Доступен)',
             'pending': 'В процессе вывода',
@@ -504,7 +505,9 @@
             'waiting': 'Ожидает (Market)',
             'processing': 'Обработка (Market)',
             'market_pending': 'Создание заявки',
-            'offer_sent': 'Оффер отправлен'
+            'offer_sent': 'Оффер отправлен',
+            'exchanged': 'Продан',
+            'expired': 'Истек срок (Сгорел)'
         };
         function getStatusRu(status) {
             return statusTranslations[status] || status;
@@ -1063,14 +1066,15 @@ async function submitCoins() {
                     const img = item.is_swapped ? (item.replaced_image_url || 'https://placehold.co/50') : (item.item_image || 'https://placehold.co/50');
                     const rarityColor = mapRarityToColor(item.is_swapped ? item.replaced_rarity : item.item_rarity);
                     
-                    let statusHtml = '';
                     const ruStatus = getStatusRu(item.status);
-                    
-                    if (item.status === 'pending' || item.status === 'available') statusHtml = `<span style="color: var(--primary);" title="Оригинальный статус: ${item.status}">${ruStatus}</span>`;
-                    else if (item.status === 'received') statusHtml = `<span style="color: var(--accent);" title="Оригинальный статус: ${item.status}">${ruStatus}</span>`;
-                    else if (item.status === 'sold') statusHtml = `<span style="color: var(--text-sec);" title="Оригинальный статус: ${item.status}">${ruStatus}</span>`;
-                    else if (item.status === 'failed') statusHtml = `<span style="color: var(--danger);" title="Оригинальный статус: ${item.status}">${ruStatus}</span>`;
-                    else statusHtml = `<span style="color: var(--text-sec);" title="Оригинальный статус: ${item.status}">${ruStatus}</span>`;
+                    // На мобилках hover не работает, поэтому пишем оригинал сразу текстом:
+                    const displayStatus = `${ruStatus} <span style="font-size:9px; opacity:0.6;">(${item.status})</span>`;
+
+                    let statusHtml = '';
+                    if (item.status === 'pending' || item.status === 'available') statusHtml = `<span style="color: var(--primary);">${displayStatus}</span>`;
+                    else if (item.status === 'received') statusHtml = `<span style="color: var(--accent);">${displayStatus}</span>`;
+                    else if (item.status === 'failed') statusHtml = `<span style="color: var(--danger);">${displayStatus}</span>`;
+                    else statusHtml = `<span style="color: var(--text-sec);">${displayStatus}</span>`;
 
                     const dateStr = new Date(item.created_at).toLocaleDateString('ru-RU');
 
@@ -1125,10 +1129,10 @@ async function submitCoins() {
                 <div style="margin-bottom: 10px;"><strong>Цена на момент выдачи:</strong> ${price ? price + ' ₽' : '---'}</div>
                 <div style="margin-bottom: 10px;"><strong>Код (если был):</strong> ${escapeHTML(item.code_used || '---')}</div>
                 
-                <div style="margin-bottom: 10px;" title="Оригинальный системный статус: ${escapeHTML(item.status)}">
+                <div style="margin-bottom: 10px;" onclick="tg.showAlert('Оригинальный системный статус в базе данных:\\n\\n👉 ${escapeHTML(item.status)}')">
                     <strong>Текущий статус:</strong> 
-                    <span style="color:var(--primary); font-weight:bold; cursor: help; border-bottom: 1px dashed var(--text-sec); padding-bottom: 2px;">
-                        ${escapeHTML(ruStatus)}
+                    <span style="color:var(--primary); font-weight:bold; cursor: pointer; border-bottom: 1px dashed var(--text-sec); padding-bottom: 2px;">
+                        ${escapeHTML(ruStatus)} <span style="color: var(--text-sec); font-size: 11px; font-weight: normal;">(${escapeHTML(item.status)})</span>
                     </span> 
                     <i class="fa-solid fa-circle-info" style="color: var(--text-sec); font-size: 11px; margin-left: 4px;"></i>
                 </div>
@@ -1150,12 +1154,13 @@ async function submitCoins() {
                 <hr style="border-color: rgba(255,255,255,0.1); margin: 15px 0;">
                 <div style="font-weight: 800; margin-bottom: 10px; color: var(--danger);"><i class="fa-solid fa-wand-magic-sparkles"></i> Админ-управление</div>
                 <div class="admin-form" style="display: flex; gap: 8px; margin-bottom: 10px;">
-                    <select id="newStatusSelect_${item.id}" title="При наведении покажет оригинальные статусы" style="flex: 1; padding: 10px; font-size: 13px;">
+                    <select id="newStatusSelect_${item.id}" style="flex: 1; padding: 10px; font-size: 13px;">
                         <option value="available" ${item.status === 'available' ? 'selected' : ''}>В инвентаре (available)</option>
                         <option value="failed" ${item.status === 'failed' ? 'selected' : ''}>Заморозить/Ошибка (failed)</option>
                         <option value="pending" ${item.status === 'pending' ? 'selected' : ''}>В процессе вывода (pending)</option>
                         <option value="received" ${item.status === 'received' ? 'selected' : ''}>Успешно выдан (received)</option>
                         <option value="sold" ${item.status === 'sold' ? 'selected' : ''}>Продан за баланс (sold)</option>
+                        <option value="exchanged" ${item.status === 'exchanged' ? 'selected' : ''}>Продан / Заменен (exchanged)</option>
                     </select>
                 </div>
                 <button onclick="changeItemStatus(${item.id})" class="admin-action-btn" style="background: var(--danger); margin-top: 5px; padding: 12px;">Изменить статус</button>
