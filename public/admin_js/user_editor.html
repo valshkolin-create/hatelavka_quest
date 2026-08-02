@@ -423,9 +423,14 @@
                 <h3 style="margin:0; font-size: 16px; font-weight: 800;">Детали предмета</h3>
                 <button class="back-btn" onclick="closeModal('itemDetailsModal')"><i class="fa-solid fa-xmark" style="font-size: 20px;"></i></button>
             </div>
-            <!-- Добавлен max-height, overflow-y и margin-bottom для поднятия окна над баром -->
-            <div id="itemDetailsContent" style="background: var(--card-bg); padding: 15px; border-radius: 12px; border: 1px solid var(--card-border); font-size: 13px; max-height: 60vh; overflow-y: auto; margin-bottom: 60px;">
-                </div>
+            
+            <!-- Серый блок ТОЛЬКО для текстовой информации (без внутреннего скролла) -->
+            <div id="itemDetailsContent" style="background: var(--card-bg); padding: 15px; border-radius: 12px; border: 1px solid var(--card-border); font-size: 13px; margin-bottom: 15px;">
+            </div>
+
+            <!-- Блок для кнопок управления статусами (приподнят над нижним баром) -->
+            <div id="itemDetailsAdminWrapper" style="padding-bottom: 40px;">
+            </div>
         </div>
     </div>
     
@@ -1116,12 +1121,14 @@ async function submitCoins() {
             console.log('[LOG] Клик: Вызван showItemDetails');
             const item = typeof itemStr === 'string' ? JSON.parse(itemStr.replace(/&apos;/g, "'")) : itemStr;
             const content = document.getElementById('itemDetailsContent');
+            const adminWrapper = document.getElementById('itemDetailsAdminWrapper');
             
             const originName = item.item_name || 'Неизвестно';
             const price = item.is_swapped ? item.replaced_price : item.item_price;
             const ruStatus = getStatusRu(item.status);
             
-            let html = `
+            // 1. Формируем только текстовую инфу (без кнопок)
+            let infoHtml = `
                 <div style="margin-bottom: 10px;"><strong>ID Записи (History):</strong> ${item.id}</div>
                 <div style="margin-bottom: 10px;"><strong>Источник:</strong> ${escapeHTML(item.source || 'Не указан')}</div>
                 <div style="margin-bottom: 10px;"><strong>Кейс / Розыгрыш:</strong> ${escapeHTML(item.case_name || '---')}</div>
@@ -1137,21 +1144,23 @@ async function submitCoins() {
                     <i class="fa-solid fa-circle-info" style="color: var(--text-sec); font-size: 11px; margin-left: 4px;"></i>
                 </div>
                 
-                <div style="margin-bottom: 10px;"><strong>Детали лога:</strong> <br><span style="color:var(--text-sec);">${escapeHTML(item.details || 'Пусто')}</span></div>
+                <div style="margin-bottom: 0;"><strong>Детали лога:</strong> <br><span style="color:var(--text-sec);">${escapeHTML(item.details || 'Пусто')}</span></div>
             `;
 
             if (item.is_swapped) {
-                html += `
+                infoHtml += `
                     <hr style="border-color: rgba(255,255,255,0.1); margin: 15px 0;">
                     <div style="color: var(--primary); font-weight: bold; margin-bottom: 10px;"><i class="fa-solid fa-rotate"></i> Был заменен администратором</div>
                     <div style="margin-bottom: 10px;"><strong>Новое название:</strong> ${escapeHTML(item.replaced_name)}</div>
-                    <div style="margin-bottom: 10px;"><strong>Новая цена:</strong> ${item.replaced_price} ₽</div>
+                    <div style="margin-bottom: 0;"><strong>Новая цена:</strong> ${item.replaced_price} ₽</div>
                 `;
             }
+            
+            // Вставляем инфу в серый блок
+            content.innerHTML = infoHtml;
 
-            // Обернули в .admin-form, чтобы применились темные стили к select и убрали инлайн-стили, перебивающие фон
-            html += `
-                <hr style="border-color: rgba(255,255,255,0.1); margin: 15px 0;">
+            // 2. Формируем отдельно админские кнопки
+            let adminHtml = `
                 <div style="font-weight: 800; margin-bottom: 10px; color: var(--danger);"><i class="fa-solid fa-wand-magic-sparkles"></i> Админ-управление</div>
                 <div class="admin-form" style="display: flex; gap: 8px; margin-bottom: 10px;">
                     <select id="newStatusSelect_${item.id}" style="flex: 1; padding: 10px; font-size: 13px;">
@@ -1159,14 +1168,15 @@ async function submitCoins() {
                         <option value="failed" ${item.status === 'failed' ? 'selected' : ''}>Заморозить/Ошибка (failed)</option>
                         <option value="pending" ${item.status === 'pending' ? 'selected' : ''}>В процессе вывода (pending)</option>
                         <option value="received" ${item.status === 'received' ? 'selected' : ''}>Успешно выдан (received)</option>
-                        <option value="sold" ${item.status === 'sold' ? 'selected' : ''}>Продан за баланс (sold)</option>
-                        <option value="exchanged" ${item.status === 'exchanged' ? 'selected' : ''}>Продан / Заменен (exchanged)</option>
+                        <option value="exchanged" ${item.status === 'exchanged' ? 'selected' : ''}>Сгорел / Заменен (exchanged)</option>
                     </select>
                 </div>
                 <button onclick="changeItemStatus(${item.id})" class="admin-action-btn" style="background: var(--danger); margin-top: 5px; padding: 12px;">Изменить статус</button>
             `;
 
-            content.innerHTML = html;
+            // Вставляем кнопки под серым блоком
+            adminWrapper.innerHTML = adminHtml;
+            
             openModal('itemDetailsModal');
         }
 
