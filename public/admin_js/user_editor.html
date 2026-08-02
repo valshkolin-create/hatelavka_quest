@@ -132,6 +132,23 @@
     border-bottom: 1px solid var(--card-border); /* Возвращаем нижнюю рамку */
     max-height: 75vh; 
 }
+
+        /* Полностью переопределяем расположение окна деталей */
+#itemDetailsModal {
+    align-items: center; /* Центрируем по вертикали, а не прижимаем к низу */
+    padding-bottom: 0;
+}
+
+#itemDetailsModal .bottom-sheet {
+    width: 92%; 
+    max-width: 400px; /* Чтобы не растягивалось на весь экран на планшетах */
+    max-height: 85vh;
+    border-radius: 24px !important;
+    border: 1px solid var(--card-border);
+    margin: 0 auto; /* Держим строго по центру */
+    padding-bottom: 20px; /* Убираем глобальный огромный отступ для нижнего бара */
+}
+        
     </style>
 </head>
 <body>
@@ -439,9 +456,9 @@
             <div id="itemDetailsContent" style="background: var(--card-bg); padding: 15px; border-radius: 12px; border: 1px solid var(--card-border); font-size: 13px; margin-bottom: 15px;">
             </div>
 
-            <!-- Блок для кнопок управления статусами (приподнят над нижним баром) -->
-            <div id="itemDetailsAdminWrapper" style="padding-bottom: 120px;">
-            </div>
+            <!-- Блок для кнопок управления статусами -->
+<div id="itemDetailsAdminWrapper">
+</div>
         </div>
     </div>
     
@@ -1328,14 +1345,13 @@ async function submitCoins() {
         }
 
         async function extendItemTime(historyId, source) {
-    // Используем НАШ кастомный prompt
     const input = await customPrompt(
         "Сколько часов дать пользователю на вывод этого предмета?\n\n(Оставь поле пустым, чтобы выдать полный стандартный срок)", 
         "2", 
         "Изменение таймера"
     );
     
-    if (input === null) return; // Нажали "Отмена"
+    if (input === null) return;
     
     let hours = parseFloat(input);
     if (isNaN(hours) && input.trim() !== "") {
@@ -1353,21 +1369,26 @@ async function submitCoins() {
         if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
         tg.showPopup({message: 'Таймер успешно изменен!'});
         
-        closeModal('itemDetailsModal');
-        openInventory();
+        // ПОЛУЧАЕМ СВЕЖИЕ ДАННЫЕ И ПЕРЕРИСОВЫВАЕМ ОКНО (без закрытия)
+        const items = await fetchApi(`/api/v1/admin/users/${currentUser.telegram_id}/inventory`, null, 'GET');
+        const updatedItem = items.find(i => i.id === historyId);
+        
+        if (updatedItem) {
+            showItemDetails(updatedItem); // Обновляем инфу прям в текущем окне
+        }
+        
+        openInventory(); // Фоном обновляем список предметов сзади
     } catch (err) {
         tg.showAlert(`Ошибка: ${err.message}`);
     } finally {
         tg.MainButton.hideProgress();
     }
 }
-
         // НОВАЯ ФУНКЦИЯ ДЛЯ ОТПРАВКИ СТАТУСА НА БЕКЕНД
         async function changeItemStatus(historyId) {
     const select = document.getElementById(`newStatusSelect_${historyId}`);
     const newStatus = select.value;
     
-    // Используем НАШ кастомный confirm
     const isConfirmed = await customConfirm(`Точно изменить статус на "${newStatus}"?`, "Внимание");
     if (!isConfirmed) return;
 
@@ -1381,8 +1402,15 @@ async function submitCoins() {
         if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
         tg.showPopup({message: 'Статус предмета успешно изменен!'});
         
-        closeModal('itemDetailsModal');
-        openInventory(); 
+        // ПОЛУЧАЕМ СВЕЖИЕ ДАННЫЕ И ПЕРЕРИСОВЫВАЕМ ОКНО (без закрытия)
+        const items = await fetchApi(`/api/v1/admin/users/${currentUser.telegram_id}/inventory`, null, 'GET');
+        const updatedItem = items.find(i => i.id === historyId);
+        
+        if (updatedItem) {
+            showItemDetails(updatedItem); // Обновляем инфу прям в текущем окне
+        }
+        
+        openInventory(); // Фоном обновляем список предметов сзади
     } catch (err) {
         tg.showAlert(`Ошибка: ${err.message}`);
     } finally {
