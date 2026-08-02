@@ -1117,6 +1117,49 @@ async function submitCoins() {
             return 'transparent';
         }
 
+        // --- ЛОГИКА РАСЧЕТА СГОРАНИЯ ДЛЯ АДМИНКИ ---
+        function parseSafeDate(dateStr) {
+            if (!dateStr) return 0;
+            let s = dateStr.replace(' ', 'T');
+            if (!s.includes('Z') && !s.includes('+')) s += 'Z';
+            return new Date(s).getTime();
+        }
+
+        function calculateExpiration(item) {
+            const updateTimeMs = parseSafeDate(item.updated_at || item.created_at);
+            const source = item.source || 'shop';
+            const amnestyTimestamp = new Date('2026-07-14T21:00:00Z').getTime(); // 15 июля 00:00 МСК
+            
+            let expireTimeMs = 0;
+            if (updateTimeMs < amnestyTimestamp) {
+                expireTimeMs = amnestyTimestamp + (14 * 24 * 60 * 60 * 1000);
+            } else {
+                let daysToKeep = 14;
+                if (['raffle', 'auction', 'twitch'].includes(source)) {
+                    daysToKeep = 3;
+                }
+                expireTimeMs = updateTimeMs + (daysToKeep * 24 * 60 * 60 * 1000);
+            }
+            
+            const now = Date.now();
+            return {
+                expireMs: expireTimeMs,
+                isExpired: now > expireTimeMs,
+                diffMs: expireTimeMs - now,
+                dateStr: new Date(expireTimeMs).toLocaleString('ru-RU', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'})
+            };
+        }
+
+        function formatTimeDiff(ms) {
+            if (ms <= 0) return "Время вышло";
+            const d = Math.floor(ms / (1000 * 60 * 60 * 24));
+            const h = Math.floor((ms / (1000 * 60 * 60)) % 24);
+            const m = Math.floor((ms / 1000 / 60) % 60);
+            if (d > 0) return `${d} дн. ${h} ч.`;
+            if (h > 0) return `${h} ч. ${m} мин.`;
+            return `${m} мин.`;
+        }
+
         function showItemDetails(itemStr) {
             console.log('[LOG] Клик: Вызван showItemDetails');
             const item = typeof itemStr === 'string' ? JSON.parse(itemStr.replace(/&apos;/g, "'")) : itemStr;
@@ -1127,21 +1170,43 @@ async function submitCoins() {
             const price = item.is_swapped ? item.replaced_price : item.item_price;
             const ruStatus = getStatusRu(item.status);
             
-            // 1. Формируем только текстовую инфу (без кнопок)
+            // Расчет сгорания
+            const expInfo = calculateExpiration(item);
+            let expireHtml = '';
+            let extendButtonHtml = '';
+
+            // Показываем таймер только для предметов, которые могут сгореть
+            if (['available', 'pending', 'failed'].includes(item.status)) {
+                if (expInfo.isExpired) {
+                    expireHtml = `<div style="margin-bottom: 10px;"><strong>Сгорание:</strong> <span style="color: var(--danger); font-weight: bold;"><i class="fa-solid fa-fire"></i> СГОРЕЛ (${expInfo.dateStr})</span></div>`;
+                } else {
+                    expireHtml = `<div style="margin-bottom: 10px;"><strong>Сгорание:</strong> <span style="color: var(--primary); font-weight: bold;"><i class="fa-solid fa-hourglass-half"></i> Через ${formatTimeDiff(expInfo.diffMs)}</span> <span style="color:var(--text-sec); font-size:11px;">(${expInfo.dateStr})</span></div>`;
+                }
+                
+                // Генерируем кнопку продления
+                extendButtonHtml = `
+                    <button onclick="extendItemTime(${item.id})" class="inner-back-btn" style="width: 100%; justify-content: center; margin-bottom: 10px; color: #64b5ef; border-color: rgba(100,181,239,0.3);">
+                        <i class="fa-solid fa-clock-rotate-left"></i> Дать еще время (Сбросить таймер)
+                    </button>
+                `;
+            } else {
+                expireHtml = `<div style="margin-bottom: 10px;"><strong>Сгорание:</strong> <span style="color: var(--text-sec);">Неактуально (уже ${ruStatus})</span></div>`;
+            }
+
+            // 1. Формируем текстовую инфу
             let infoHtml = `
                 <div style="margin-bottom: 10px;"><strong>ID Записи (History):</strong> ${item.id}</div>
+                ${expireHtml}
                 <div style="margin-bottom: 10px;"><strong>Источник:</strong> ${escapeHTML(item.source || 'Не указан')}</div>
                 <div style="margin-bottom: 10px;"><strong>Кейс / Розыгрыш:</strong> ${escapeHTML(item.case_name || '---')}</div>
                 <div style="margin-bottom: 10px;"><strong>Изначальный предмет:</strong> ${escapeHTML(originName)}</div>
                 <div style="margin-bottom: 10px;"><strong>Цена на момент выдачи:</strong> ${price ? price + ' ₽' : '---'}</div>
-                <div style="margin-bottom: 10px;"><strong>Код (если был):</strong> ${escapeHTML(item.code_used || '---')}</div>
                 
                 <div style="margin-bottom: 10px;" onclick="tg.showAlert('Оригинальный системный статус в базе данных:\\n\\n👉 ${escapeHTML(item.status)}')">
                     <strong>Текущий статус:</strong> 
                     <span style="color:var(--primary); font-weight:bold; cursor: pointer; border-bottom: 1px dashed var(--text-sec); padding-bottom: 2px;">
                         ${escapeHTML(ruStatus)} <span style="color: var(--text-sec); font-size: 11px; font-weight: normal;">(${escapeHTML(item.status)})</span>
                     </span> 
-                    <i class="fa-solid fa-circle-info" style="color: var(--text-sec); font-size: 11px; margin-left: 4px;"></i>
                 </div>
                 
                 <div style="margin-bottom: 0;"><strong>Детали лога:</strong> <br><span style="color:var(--text-sec);">${escapeHTML(item.details || 'Пусто')}</span></div>
@@ -1156,28 +1221,48 @@ async function submitCoins() {
                 `;
             }
             
-            // Вставляем инфу в серый блок
             content.innerHTML = infoHtml;
 
-            // 2. Формируем отдельно админские кнопки
+            // 2. Формируем админские кнопки
             let adminHtml = `
                 <div style="font-weight: 800; margin-bottom: 10px; color: var(--danger);"><i class="fa-solid fa-wand-magic-sparkles"></i> Админ-управление</div>
+                
+                ${extendButtonHtml}
+                
                 <div class="admin-form" style="display: flex; gap: 8px; margin-bottom: 10px;">
                     <select id="newStatusSelect_${item.id}" style="flex: 1; padding: 10px; font-size: 13px;">
                         <option value="available" ${item.status === 'available' ? 'selected' : ''}>В инвентаре (available)</option>
                         <option value="failed" ${item.status === 'failed' ? 'selected' : ''}>Заморозить/Ошибка (failed)</option>
                         <option value="pending" ${item.status === 'pending' ? 'selected' : ''}>В процессе вывода (pending)</option>
                         <option value="received" ${item.status === 'received' ? 'selected' : ''}>Успешно выдан (received)</option>
+                        <option value="sold" ${item.status === 'sold' ? 'selected' : ''}>Продан за баланс (sold)</option>
                         <option value="exchanged" ${item.status === 'exchanged' ? 'selected' : ''}>Сгорел / Заменен (exchanged)</option>
                     </select>
                 </div>
                 <button onclick="changeItemStatus(${item.id})" class="admin-action-btn" style="background: var(--danger); margin-top: 5px; padding: 12px;">Изменить статус</button>
             `;
 
-            // Вставляем кнопки под серым блоком
             adminWrapper.innerHTML = adminHtml;
-            
             openModal('itemDetailsModal');
+        }
+
+        async function extendItemTime(historyId) {
+            if (!confirm("Это обновит дату предмета на текущую, и у пользователя начнется новый отсчет (свежие 3 или 14 дней). Продолжить?")) return;
+            
+            tg.MainButton.showProgress();
+            try {
+                await fetchApi('/api/v1/admin/users/inventory/extend-time', { history_id: historyId });
+                
+                if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                tg.showPopup({message: 'Таймер успешно сброшен!'});
+                
+                closeModal('itemDetailsModal');
+                openInventory(); // Обновляем список инвентаря
+            } catch (err) {
+                tg.showAlert(`Ошибка: ${err.message}`);
+            } finally {
+                tg.MainButton.hideProgress();
+            }
         }
 
         // НОВАЯ ФУНКЦИЯ ДЛЯ ОТПРАВКИ СТАТУСА НА БЕКЕНД
