@@ -14825,56 +14825,6 @@ async def create_challenge(request_data: ChallengeAdminCreateRequest, supabase: 
 
     return {"message": "Челлендж успешно создан."}
 
-class ExtendTimerRequest(BaseModel):
-    initData: str
-    history_id: int
-    source: str = 'shop'  # Принимаем источник, чтобы знать какое правило применять
-    hours_to_add: float = None  # Принимаем часы (если пусто — даем фулл время)
-
-@app.post("/api/v1/admin/users/inventory/extend-time")
-async def admin_extend_item_time(
-    req: ExtendTimerRequest,
-    supabase: httpx.AsyncClient = Depends(get_supabase_client)
-):
-    """(Админ) Устанавливает точное время до сгорания предмета."""
-    
-    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
-    if not user_info or user_info.get("id") not in ADMIN_IDS:
-        raise HTTPException(status_code=403, detail="Доступ запрещен.")
-
-    now = datetime.datetime.now(datetime.timezone.utc)
-    
-    # МАГИЯ ВРЕМЕНИ: Если админ передал точные часы
-    if req.hours_to_add is not None:
-        # Узнаем, какое правило применяется к предмету
-        rule_days = 3 if req.source in ['raffle', 'auction', 'twitch'] else 14
-        
-        # Считаем целевое время сгорания (сейчас + X часов)
-        target_expire = now + datetime.timedelta(hours=req.hours_to_add)
-        
-        # Подменяем updated_at так, чтобы формула фронтенда выдала target_expire
-        new_updated_at = target_expire - datetime.timedelta(days=rule_days)
-        details_text = f"Таймер сгорания принудительно установлен на {req.hours_to_add} ч."
-    else:
-        # Если часы не передали, просто даем полный новый срок (3 или 14 дней от сейчас)
-        new_updated_at = now
-        details_text = "Таймер сгорания полностью сброшен администратором"
-
-    patch_res = await supabase.patch(
-        "/cs_history",
-        params={"id": f"eq.{req.history_id}"},
-        json={
-            "updated_at": new_updated_at.isoformat(),
-            "details": details_text
-        }
-    )
-
-    if patch_res.status_code >= 400:
-        logging.error(f"Ошибка продления таймера (history_id={req.history_id}): {patch_res.text}")
-        raise HTTPException(status_code=400, detail=f"Ошибка БД: {patch_res.text}")
-
-    return {"success": True, "message": "Таймер успешно обновлен"}
-
 class TwitchInventoryIssueReq(BaseModel):
     search_query: str
     count: int
@@ -30937,6 +30887,57 @@ class AdminSwapItemRequest(BaseModel):
 # =========================================================================
 # УПРАВЛЕНИЕ ИНВЕНТАРЕМ ПОЛЬЗОВАТЕЛЯ
 # =========================================================================
+
+from datetime import datetime, timezone, timedelta
+from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException
+import httpx
+import logging
+
+class ExtendTimerRequest(BaseModel):
+    initData: str
+    history_id: int
+    source: str = 'shop'
+    hours_to_add: float = None
+
+@app.post("/api/v1/admin/users/inventory/extend-time")
+async def admin_extend_item_time(
+    req: ExtendTimerRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Устанавливает точное время до сгорания предмета."""
+    
+    # Проверка прав администратора (MAX система)
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    # ИСПРАВЛЕННАЯ СТРОКА: правильный вызов datetime
+    now = datetime.now(timezone.utc)
+    
+    if req.hours_to_add is not None:
+        rule_days = 3 if req.source in ['raffle', 'auction', 'twitch'] else 14
+        target_expire = now + timedelta(hours=req.hours_to_add)
+        new_updated_at = target_expire - timedelta(days=rule_days)
+        details_text = f"Таймер сгорания принудительно установлен на {req.hours_to_add} ч."
+    else:
+        new_updated_at = now
+        details_text = "Таймер сгорания полностью сброшен администратором"
+
+    patch_res = await supabase.patch(
+        "/cs_history",
+        params={"id": f"eq.{req.history_id}"},
+        json={
+            "updated_at": new_updated_at.isoformat(),
+            "details": details_text
+        }
+    )
+
+    if patch_res.status_code >= 400:
+        logging.error(f"Ошибка продления таймера (history_id={req.history_id}): {patch_res.text}")
+        raise HTTPException(status_code=400, detail=f"Ошибка БД: {patch_res.text}")
+
+    return {"success": True, "message": "Таймер успешно обновлен"}
 
 @app.get("/api/v1/admin/users/{user_id}/inventory")
 async def admin_get_user_inventory(
