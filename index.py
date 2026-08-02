@@ -14828,38 +14828,51 @@ async def create_challenge(request_data: ChallengeAdminCreateRequest, supabase: 
 class ExtendTimerRequest(BaseModel):
     initData: str
     history_id: int
+    source: str = 'shop'  # Принимаем источник, чтобы знать какое правило применять
+    hours_to_add: float = None  # Принимаем часы (если пусто — даем фулл время)
 
 @app.post("/api/v1/admin/users/inventory/extend-time")
 async def admin_extend_item_time(
     req: ExtendTimerRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
 ):
-    """(Админ) Сбрасывает таймер сгорания предмета на текущее время."""
+    """(Админ) Устанавливает точное время до сгорания предмета."""
     
-    # 1. Проверка на админа (в точности как в твоих других роутах)
     user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
     if not user_info or user_info.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
-    # 2. Получаем текущее время в формате ISO (UTC)
-    now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    now = datetime.datetime.now(datetime.timezone.utc)
     
-    # 3. Обновляем поле updated_at у конкретной записи в cs_history
+    # МАГИЯ ВРЕМЕНИ: Если админ передал точные часы
+    if req.hours_to_add is not None:
+        # Узнаем, какое правило применяется к предмету
+        rule_days = 3 if req.source in ['raffle', 'auction', 'twitch'] else 14
+        
+        # Считаем целевое время сгорания (сейчас + X часов)
+        target_expire = now + datetime.timedelta(hours=req.hours_to_add)
+        
+        # Подменяем updated_at так, чтобы формула фронтенда выдала target_expire
+        new_updated_at = target_expire - datetime.timedelta(days=rule_days)
+        details_text = f"Таймер сгорания принудительно установлен на {req.hours_to_add} ч."
+    else:
+        # Если часы не передали, просто даем полный новый срок (3 или 14 дней от сейчас)
+        new_updated_at = now
+        details_text = "Таймер сгорания полностью сброшен администратором"
+
     patch_res = await supabase.patch(
         "/cs_history",
         params={"id": f"eq.{req.history_id}"},
         json={
-            "updated_at": now_iso,
-            "details": "Таймер сгорания сброшен администратором" # Дополнительно оставляем лог в details
+            "updated_at": new_updated_at.isoformat(),
+            "details": details_text
         }
     )
 
-    # 4. Обработка возможных ошибок от Supabase
     if patch_res.status_code >= 400:
         logging.error(f"Ошибка продления таймера (history_id={req.history_id}): {patch_res.text}")
         raise HTTPException(status_code=400, detail=f"Ошибка БД: {patch_res.text}")
 
-    # 5. Успешный ответ для фронтенда
     return {"success": True, "message": "Таймер успешно обновлен"}
 
 class TwitchInventoryIssueReq(BaseModel):
