@@ -1329,7 +1329,7 @@ async function submitCoins() {
                         <option value="exchanged" ${item.status === 'exchanged' ? 'selected' : ''}>Сгорел / Заменен (exchanged)</option>
                     </select>
                 </div>
-                <button onclick="changeItemStatus(${item.id})" class="admin-action-btn" style="background: var(--danger); margin-top: 5px; padding: 12px;">Изменить статус</button>
+                <button onclick="changeItemStatus(${item.id})" class="admin-action-btn" style="background: var(--danger); margin-top: 5px; margin-bottom: 20px; padding: 12px;">Изменить статус</button>
             `;
 
             adminWrapper.innerHTML = adminHtml;
