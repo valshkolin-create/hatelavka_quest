@@ -429,7 +429,7 @@
             </div>
 
             <!-- Блок для кнопок управления статусами (приподнят над нижним баром) -->
-            <div id="itemDetailsAdminWrapper" style="padding-bottom: 40px;">
+            <div id="itemDetailsAdminWrapper" style="padding-bottom: 120px;">
             </div>
         </div>
     </div>
@@ -1185,8 +1185,8 @@ async function submitCoins() {
                 
                 // Генерируем кнопку продления
                 extendButtonHtml = `
-                    <button onclick="extendItemTime(${item.id})" class="inner-back-btn" style="width: 100%; justify-content: center; margin-bottom: 10px; color: #64b5ef; border-color: rgba(100,181,239,0.3);">
-                        <i class="fa-solid fa-clock-rotate-left"></i> Дать еще время (Сбросить таймер)
+                    <button onclick="extendItemTime(${item.id}, '${item.source || 'shop'}')" class="inner-back-btn" style="width: 100%; justify-content: center; margin-bottom: 10px; color: #64b5ef; border-color: rgba(100,181,239,0.3);">
+                        <i class="fa-solid fa-clock-rotate-left"></i> Изменить время сгорания
                     </button>
                 `;
             } else {
@@ -1246,18 +1246,33 @@ async function submitCoins() {
             openModal('itemDetailsModal');
         }
 
-        async function extendItemTime(historyId) {
-            if (!confirm("Это обновит дату предмета на текущую, и у пользователя начнется новый отсчет (свежие 3 или 14 дней). Продолжить?")) return;
+        async function extendItemTime(historyId, source) {
+            // Вызываем окно для ввода часов
+            const input = prompt(
+                "Сколько часов дать пользователю на вывод этого предмета?\n\n(Оставь поле пустым, чтобы выдать полный стандартный срок — 3 или 14 дней)", 
+                "2" // По умолчанию предлагаем 2 часа
+            );
             
+            if (input === null) return; // Если админ нажал "Отмена", ничего не делаем
+            
+            let hours = parseFloat(input);
+            if (isNaN(hours) && input.trim() !== "") {
+                return tg.showAlert("Пожалуйста, введи число (например: 2 или 1.5).");
+            }
+
             tg.MainButton.showProgress();
             try {
-                await fetchApi('/api/v1/admin/users/inventory/extend-time', { history_id: historyId });
+                await fetchApi('/api/v1/admin/users/inventory/extend-time', { 
+                    history_id: historyId,
+                    source: source || 'shop',
+                    hours_to_add: isNaN(hours) ? null : hours // Если пусто, отправится null
+                });
                 
                 if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-                tg.showPopup({message: 'Таймер успешно сброшен!'});
+                tg.showPopup({message: 'Таймер успешно изменен!'});
                 
                 closeModal('itemDetailsModal');
-                openInventory(); // Обновляем список инвентаря
+                openInventory(); // Перезагружаем список инвентаря
             } catch (err) {
                 tg.showAlert(`Ошибка: ${err.message}`);
             } finally {
