@@ -14825,6 +14825,43 @@ async def create_challenge(request_data: ChallengeAdminCreateRequest, supabase: 
 
     return {"message": "Челлендж успешно создан."}
 
+class ExtendTimerRequest(BaseModel):
+    initData: str
+    history_id: int
+
+@app.post("/api/v1/admin/users/inventory/extend-time")
+async def admin_extend_item_time(
+    req: ExtendTimerRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Сбрасывает таймер сгорания предмета на текущее время."""
+    
+    # 1. Проверка на админа (в точности как в твоих других роутах)
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    # 2. Получаем текущее время в формате ISO (UTC)
+    now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    
+    # 3. Обновляем поле updated_at у конкретной записи в cs_history
+    patch_res = await supabase.patch(
+        "/cs_history",
+        params={"id": f"eq.{req.history_id}"},
+        json={
+            "updated_at": now_iso,
+            "details": "Таймер сгорания сброшен администратором" # Дополнительно оставляем лог в details
+        }
+    )
+
+    # 4. Обработка возможных ошибок от Supabase
+    if patch_res.status_code >= 400:
+        logging.error(f"Ошибка продления таймера (history_id={req.history_id}): {patch_res.text}")
+        raise HTTPException(status_code=400, detail=f"Ошибка БД: {patch_res.text}")
+
+    # 5. Успешный ответ для фронтенда
+    return {"success": True, "message": "Таймер успешно обновлен"}
+
 class TwitchInventoryIssueReq(BaseModel):
     search_query: str
     count: int
