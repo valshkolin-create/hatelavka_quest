@@ -683,8 +683,7 @@
             el.dataset.intervalId = setInterval(updateTimer, 1000);
         }
 
-        // --- ГЛОБАЛЬНЫЕ UI ПЕРЕКЛЮЧАТЕЛИ ---
-        // --- ДЕТАЛЬНАЯ ИНФОРМАЦИЯ И ПОДДЕРЖКА (ЗАМЕНА toggleTechInfo) ---
+        // --- ДЕТАЛЬНАЯ ИНФОРМАЦИЯ И ПОДДЕРЖКА ---
         window.openSupportModal = function(historyId, event) {
             if (event) event.stopPropagation();
             if (typeof tg !== 'undefined' && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
@@ -693,7 +692,6 @@
             const item = window.currentInventoryItems.find(i => (i.id || i.history_id) == historyId);
             if (!item) return;
 
-            // Формируем данные скина
             const isSwapped = item.is_swapped === true;
             const isReplaced = !!item.replaced_name && !isSwapped;
             let displayName = (isReplaced || isSwapped) ? item.replaced_name : item.name;
@@ -702,15 +700,11 @@
             }
             if (!displayName) displayName = "Секретный приз";
 
-            // 1. Вытаскиваем качество скина (все, что в скобках в конце названия)
-            const conditionMatch = displayName.match(/\(([^)]+)\)$/);
-            const skinCondition = conditionMatch ? conditionMatch[1] : null;
+            // 1. ЛОГИКА КАЧЕСТВА: Берем напрямую из объекта, как в твоем старом коде
+            const skinCondition = item.condition || '';
 
-            // 2. Чистим название от приписки с качеством, чтобы было аккуратно
+            // 2. ЧИСТИМ ИМЯ (оставляем только правую часть после |)
             let cleanName = displayName.includes('|') ? displayName.split('|').slice(1).join('|').trim() : displayName;
-            if (conditionMatch) {
-                cleanName = cleanName.replace(/\s*\([^)]+\)$/, '').trim(); 
-            }
 
             const rData = getRarityData(item.rarity);
             
@@ -747,7 +741,6 @@
             if (sourceText === 'twitch') sourceText = 'Twitch Дроп';
             if (item.case_name) sourceText += ` (${item.case_name})`;
 
-            // Формируем сообщение для админа
             const tgUser = (typeof tg !== 'undefined' && tg.initDataUnsafe?.user) ? tg.initDataUnsafe.user : {};
             const usernameStr = tgUser.username ? `@${tgUser.username}` : 'Без юзернейма';
             const userIdStr = tgUser.id || 'Неизвестен';
@@ -766,12 +759,10 @@
             const encodedText = encodeURIComponent(supportText);
             const adminLink = `https://t.me/hatelove_twitch?text=${encodedText}`;
 
-            // Создаем модальное окно
             const overlay = document.createElement('div'); 
             overlay.className = 'modal-overlay visible'; 
             overlay.style.cssText = `align-items: flex-end; justify-content: center; background-color: transparent; transition: background-color 0.3s ease; padding: 0; z-index: 9999;`;
             
-            // Логика плавного закрытия
             const closeSupport = () => {
                 overlay.style.backgroundColor = 'transparent';
                 box.style.transform = 'translateY(100%)';
@@ -782,9 +773,9 @@
             box.style.cssText = `position: relative; background: var(--glass-bg, rgba(20,20,22,0.95)); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border-top: 1px solid rgba(255,255,255,0.1); border-radius: 24px 24px 0 0; padding: 30px 20px 35px 20px; width: 100%; box-sizing: border-box; color: white; box-shadow: 0 -10px 40px rgba(0,0,0,0.8); transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); display: flex; flex-direction: column; gap: 15px;`;
             
             box.innerHTML = `
-                <!-- Круглый крестик закрытия вместо палочки -->
-                <div id="close-modal-btn-${historyId}" style="position:absolute; top:12px; right:15px; width:28px; height:28px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.1); border-radius:50%; display:flex; justify-content:center; align-items:center; cursor:pointer; transition:0.2s;">
-                    <i class="fa-solid fa-xmark" style="color:rgba(255,255,255,0.6); font-size:14px;"></i>
+                <!-- Меньший крестик -->
+                <div id="close-modal-btn-${historyId}" style="position:absolute; top:12px; right:15px; width:22px; height:22px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.1); border-radius:50%; display:flex; justify-content:center; align-items:center; cursor:pointer; transition:0.2s;">
+                    <i class="fa-solid fa-xmark" style="color:rgba(255,255,255,0.6); font-size:11px;"></i>
                 </div>
                 
                 <div style="display:flex; align-items:center; gap: 15px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); padding: 12px; border-radius: 16px;">
@@ -833,7 +824,6 @@
             overlay.appendChild(box); 
             document.body.appendChild(overlay);
             
-            // Назначаем закрытие на наш новый крестик
             document.getElementById(`close-modal-btn-${historyId}`).onclick = closeSupport;
 
             setTimeout(() => {
@@ -841,7 +831,6 @@
                 box.style.transform = 'translateY(0)';
             }, 10);
 
-            // Закрытие при клике мимо окна
             overlay.onclick = (e) => {
                 if (e.target === overlay) closeSupport();
             };
