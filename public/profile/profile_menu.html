@@ -1150,7 +1150,7 @@
                 // Карточка-квадрат
                 el.style.cssText = `position: relative; aspect-ratio: 1 / 1; display: flex; flex-direction: column; border-radius: 12px; border: ${cardBorder}; background: ${cardBgColor}; box-shadow: ${cardShadow}; overflow: hidden; transition: all 0.3s ease; box-sizing: border-box;`;
                 
-                el.innerHTML = `
+               el.innerHTML = `
                     <!-- Выезжающее меню "Действие" -->
                     ${panelContent ? `
                     <div id="action-panel-${historyId}" style="position:absolute; bottom:-100%; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); backdrop-filter:blur(10px); z-index:40; opacity:0; pointer-events:none; transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1); display:flex; flex-direction:column; justify-content:flex-end; padding:4px; box-sizing:border-box;">
@@ -1169,12 +1169,26 @@
                         ${centerOverlay}
                     </div>
 
-                    <!-- ПЛАШКА С ТЕКСТОМ (РАМОЧКА СТРОГО ПО РАЗМЕРУ ТЕКСТА) -->
-                    <div style="position:absolute; bottom: 24px; left: 4px; z-index:10; background:rgba(0,0,0,0.5); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); border:1px solid rgba(255,255,255,0.05); padding: 4px 6px; border-radius: 6px; display:inline-flex; flex-direction:column; gap:2px; pointer-events:none;">
-                        <div style="font-size:9px; font-weight:900; color:#fff; white-space:nowrap;">${cleanName}</div>
+                    <!-- РАЗДЕЛЬНЫЕ ПЛАШКИ С ТЕКСТОМ -->
+                    <div style="position:absolute; bottom: 24px; left: 4px; z-index:10; display:flex; flex-direction:column; gap:3px; align-items:flex-start; pointer-events:none;">
+                        
+                        <!-- Плашка названия -->
+                        <div style="background:rgba(0,0,0,0.5); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); border:1px solid rgba(255,255,255,0.05); padding: 2px 5px; border-radius: 4px; font-size:9px; font-weight:900; color:#fff; white-space:nowrap;">
+                            ${cleanName}
+                        </div>
+                        
                         ${!isArchived ? `
-                            <div style="font-size:9px; font-weight:900; color:#ffd700;">${rawPrice} ₽</div>
-                            ${expirationHtml}
+                            <!-- Плашка цены -->
+                            <div style="background:rgba(0,0,0,0.5); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); border:1px solid rgba(255,255,255,0.05); padding: 2px 5px; border-radius: 4px; font-size:9px; font-weight:900; color:#ffd700;">
+                                ${rawPrice} ₽
+                            </div>
+                            
+                            <!-- Плашка таймера (оборачиваем, только если таймер есть, чтобы не было пустых квадратов) -->
+                            ${expirationHtml ? `
+                            <div style="background:rgba(0,0,0,0.5); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); border:1px solid rgba(255,255,255,0.05); padding: 2px 5px; border-radius: 4px; display:flex; align-items:center;">
+                                ${expirationHtml}
+                            </div>
+                            ` : ''}
                         ` : ''}
                     </div>
                     
