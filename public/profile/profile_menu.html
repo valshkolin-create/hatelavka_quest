@@ -1157,14 +1157,14 @@
                         <!-- Невидимый фон для закрытия по клику мимо -->
                         <div onclick="toggleActionPanel('${historyId}', false, event)" style="position:absolute; top:0; left:0; width:100%; height:100%; z-index:-1; cursor:pointer;"></div>
                         
-                        <!-- 1. Кнопка ЗАКРЫТЬ (Круглый крестик в правом верхнем углу) -->
+                        <!-- 1. Кнопка ЗАКРЫТЬ (Круглый крестик, отцентрованный и уменьшенный) -->
                         <div onclick="toggleActionPanel('${historyId}', false, event)" style="position:absolute; top:4px; right:4px; width:20px; height:20px; background:rgba(255,255,255,0.1); border-radius:50%; display:flex; justify-content:center; align-items:center; cursor:pointer; z-index:10;">
-                            <i class="fa-solid fa-xmark" style="color:rgba(255,255,255,0.7); font-size:11px;"></i>
+                            <i class="fa-solid fa-xmark" style="color:rgba(255,255,255,0.7); font-size:8px; line-height:1; display:flex; margin-top:0.5px;"></i>
                         </div>
                         
-                        <!-- 2. Название скина строго в 1 ряд (с троеточием, если длинное) -->
-                        <div style="text-align:center; margin-bottom:8px; padding:0 20px;">
-                            <div style="font-size:10px; font-weight:800; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.2;">
+                        <!-- 2. Название скина строго в 1 ряд (Текст меньше) -->
+                        <div style="text-align:center; margin-bottom:8px; padding:0 24px;">
+                            <div style="font-size:8.5px; font-weight:800; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.2;">
                                 ${cleanName}
                             </div>
                         </div>
@@ -1184,7 +1184,7 @@
                     </div>
 
                     <!-- ПЛАШКА ЦЕНЫ (На законном месте сбоку над Действием) -->
-                    <div style="position:absolute; bottom: ${isArchived ? '8px' : '26px'}; left:4px; z-index:10; display:flex; flex-direction:column; gap:0; pointer-events:none;">
+                    <div style="position:absolute; bottom: ${isArchived ? '8px' : '32px'}; left:4px; z-index:10; display:flex; flex-direction:column; gap:0; pointer-events:none;">
                         ${!isArchived ? `
                             <div style="background:rgba(0,0,0,0.5); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); border:1px solid rgba(255,255,255,0.05); padding: 2px 5px; border-radius: 4px; font-size:9px; font-weight:900; color:#ffd700;">
                                 ${rawPrice} ₽
