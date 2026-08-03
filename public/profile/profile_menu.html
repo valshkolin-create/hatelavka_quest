@@ -1039,10 +1039,6 @@
                 let isArchived = ['received', 'exchanged', 'exchanged_swap', 'failed'].includes(status);
                 let centerOverlay = '';
                 
-                // Базовый размер для оружия
-                let imgTransform = 'scale(1.3) translateX(15%) translateY(0%)'; 
-
-                // Уменьшаем размер и ставим по центру для музыки, наклеек, агентов и т.д.
                 // Расширенная проверка: ищем "Music Kit" и другие мелкие предметы
                 const nameCheck = displayName.toLowerCase();
                 const isSmallItem = nameCheck.includes('music kit') || nameCheck.includes('музык') || nameCheck.includes('наклейка') || nameCheck.includes('агент') || nameCheck.includes('нашивка') || nameCheck.includes('значок') || nameCheck.includes('граффити');
