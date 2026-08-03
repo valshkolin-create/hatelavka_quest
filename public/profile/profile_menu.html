@@ -22,13 +22,13 @@
             --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
             --glass-blur: blur(25px);
             
-            /* Опустили шапку ниже, чтобы обойти системные элементы */
-            --safe-top-gap: max(env(safe-area-inset-top, 24px) + 35px, 55px);
+            /* Опустили шапку ниже, чтобы обойти системные элементы (увеличено для адаптации) */
+            --safe-top-gap: max(env(safe-area-inset-top, 24px) + 55px, 75px);
         }
 
         html, body {
             margin: 0; padding: 0; width: 100%; height: 100%;
-            background-color: var(--bg-color); /* СТРОГО ЧЕРНЫЙ ФОН ИЗ ТЗ */
+            background-color: var(--bg-color);
             color: var(--text-color);
             font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Arial, sans-serif;
             overflow: hidden; 
@@ -39,22 +39,27 @@
             display: flex;
             flex-direction: column;
             height: 100vh;
-            position: relative; /* Для позиционирования кнопки наверх */
+            position: relative;
         }
 
-        /* --- LIQUID GLASS HEADER --- */
-        .profile-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between; /* Раскидываем инфо и историю */
-            padding: var(--safe-top-gap) 15px 20px 15px;
-            gap: 15px;
+        /* ЕДИНЫЙ КОНТЕЙНЕР ДЛЯ ШАПКИ И НАВИГАЦИИ (ЖИДКОЕ СТЕКЛО БЕЗ ЛИНИЙ) */
+        .header-nav-wrapper {
             background: var(--glass-bg);
             backdrop-filter: var(--glass-blur);
             -webkit-backdrop-filter: var(--glass-blur);
             border-bottom: 1px solid var(--glass-border);
             box-shadow: var(--glass-shadow);
             z-index: 10;
+            padding-top: var(--safe-top-gap);
+        }
+
+        /* --- HEADER (ТЕПЕРЬ БЕЗ ФОНА И ОТСТУПОВ СВЕРХУ) --- */
+        .profile-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 15px 10px 15px; /* Уменьшенные отступы снизу */
+            gap: 15px;
         }
 
         .avatar-container {
@@ -98,7 +103,7 @@
         .user-icons i:active { transform: scale(0.8); }
 
         .nickname {
-            color: var(--danger-color); /* КРАСНЫЙ НИК КАК НА СКРИНШОТЕ */
+            color: var(--danger-color);
             font-size: 18px;
             font-weight: 800;
             letter-spacing: 0.5px;
@@ -128,7 +133,6 @@
         }
         .settings-btn:active { transform: scale(0.95); background: #2c2c2e; }
 
-        /* ВЕРНУЛИ ИСТОРИЮ КАК НА СКРИНШОТЕ */
         .history-block {
             display: flex;
             flex-direction: column;
@@ -156,17 +160,12 @@
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
-        /* --- LIQUID GLASS NAV --- */
+        /* --- NAV BAR (ТЕПЕРЬ БЕЗ ФОНА И ЛИНИЙ, ВНУТРИ ВРАППЕРА) --- */
         .nav-bar {
             display: flex;
-            background: rgba(15, 15, 15, 0.6);
-            backdrop-filter: blur(30px);
-            -webkit-backdrop-filter: blur(30px);
-            padding: 5px 10px;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
-            z-index: 5;
+            padding: 0 10px 5px 10px;
         }
 
         .nav-item {
@@ -188,7 +187,7 @@
         }
 
         .nav-item.active {
-            color: var(--danger-color); /* Красный цвет активной вкладки */
+            color: var(--danger-color);
             font-weight: 800;
             text-shadow: 0 0 10px rgba(255,69,58,0.3);
         }
@@ -280,7 +279,7 @@
         }
         #global-loader.active { display: flex; }
 
-        /* Fullscreen Weapon Modal (Абсолютно поверх всего) */
+        /* Fullscreen Weapon Modal */
         #fullscreen-weapon-modal {
             position: fixed; inset: 0; background: rgba(0,0,0,0.92); z-index: 999999;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -289,7 +288,8 @@
         #fullscreen-weapon-modal.visible { opacity: 1; pointer-events: auto; }
         #fullscreen-weapon-img { max-width: 90%; max-height: 60%; object-fit: contain; filter: drop-shadow(0 10px 25px rgba(0,0,0,0.8)); transform: scale(1.15); }
         #fullscreen-weapon-name { color: #fff; font-size: 18px; font-weight: 800; margin-top: 20px; text-transform: uppercase; text-shadow: 0 2px 10px rgba(0,0,0,0.5); text-align: center; padding: 0 20px; }
-        #fullscreen-weapon-close { position: absolute; top: max(env(safe-area-inset-top, 24px), 20px); right: 20px; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.2); color: #fff; width: 36px; height: 36px; border-radius: 50%; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        /* Крестик перемещен влево, чтобы не перекрывать 3 точки ТГ */
+        #fullscreen-weapon-close { position: absolute; top: max(env(safe-area-inset-top, 24px), 30px); left: 20px; right: auto; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.2); color: #fff; width: 36px; height: 36px; border-radius: 50%; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 
         /* Кнопка скролла наверх */
         #scroll-to-top {
@@ -315,43 +315,45 @@
 
     <div class="profile-skeleton">
         
-        <!-- LIQUID GLASS HEADER -->
-        <header class="profile-header">
-            <div style="display: flex; gap: 15px;">
-                <div class="avatar-container">
-                    <img id="user-avatar" src="https://placehold.co/150x150/1c1c1e/ffffff?text=..." alt="Avatar">
-                </div>
-                
-                <div class="user-info">
-                    <div class="user-icons">
-                        <i id="icon-steam" class="fa-brands fa-steam" style="color: var(--danger-color);" onclick="openSettings()"></i>
-                        <i id="icon-twitch" class="fa-brands fa-twitch" style="color: var(--danger-color);" onclick="openSettings()"></i>
+        <!-- ЕДИНЫЙ БЛОК ШАПКИ И МЕНЮ В ЖИДКОМ СТЕКЛЕ -->
+        <div class="header-nav-wrapper">
+            <!-- HEADER -->
+            <header class="profile-header">
+                <div style="display: flex; gap: 15px;">
+                    <div class="avatar-container">
+                        <img id="user-avatar" src="https://placehold.co/150x150/1c1c1e/ffffff?text=..." alt="Avatar">
                     </div>
-                    <div class="nickname" id="user-nickname">Загрузка...</div>
-                    <div class="user-id" id="user-id">ID -----</div>
-                    <button class="settings-btn" onclick="openSettings()">настройки</button>
+                    
+                    <div class="user-info">
+                        <div class="user-icons">
+                            <i id="icon-steam" class="fa-brands fa-steam" style="color: var(--danger-color);" onclick="openSettings()"></i>
+                            <i id="icon-twitch" class="fa-brands fa-twitch" style="color: var(--danger-color);" onclick="openSettings()"></i>
+                        </div>
+                        <div class="nickname" id="user-nickname">Загрузка...</div>
+                        <div class="user-id" id="user-id">ID -----</div>
+                        <button class="settings-btn" onclick="openSettings()">настройки</button>
+                    </div>
                 </div>
-            </div>
 
-            <!-- ИСТОРИЯ СПРАВА -->
-            <div class="history-block">
-                <div class="history-title">ИСТОРИЯ</div>
-                <div class="history-slots">
-                    <div class="h-slot"></div>
-                    <div class="h-slot"></div>
-                    <div class="h-slot"></div>
+                <!-- ИСТОРИЯ СПРАВА -->
+                <div class="history-block">
+                    <div class="history-title">ИСТОРИЯ</div>
+                    <div class="history-slots">
+                        <div class="h-slot"></div>
+                        <div class="h-slot"></div>
+                        <div class="h-slot"></div>
+                    </div>
                 </div>
-            </div>
-        </header>
+            </header>
 
-        <!-- LIQUID GLASS NAV -->
-        <nav class="nav-bar">
-            <!-- Кнопки по ТЗ -->
-            <div class="nav-item active" data-target="inventory">ИНВЕНТАРЬ</div>
-            <div class="nav-item" data-target="events">СОБЫТИЯ</div>
-            <div class="nav-item" data-target="promocodes">ПРОМОКОДЫ</div>
-            <div class="nav-item" data-target="referral">РЕФЕРАЛЬНЫЙ<br>КАБИНЕТ</div>
-        </nav>
+            <!-- NAV -->
+            <nav class="nav-bar">
+                <div class="nav-item active" data-target="inventory">ИНВЕНТАРЬ</div>
+                <div class="nav-item" data-target="events">СОБЫТИЯ</div>
+                <div class="nav-item" data-target="promocodes">ПРОМОКОДЫ</div>
+                <div class="nav-item" data-target="referral">РЕФЕРАЛЬНЫЙ<br>КАБИНЕТ</div>
+            </nav>
+        </div>
 
         <!-- DYNAMIC CONTENT AREA -->
         <main id="content-area">
@@ -369,6 +371,20 @@
             <div class="sheet-header">
                 <h3 class="sheet-title">Настройки аккаунта</h3>
                 <button class="sheet-close" onclick="closeSettings()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <!-- Блок Сетки Инвентаря (Новый функционал) -->
+            <div class="settings-card">
+                <div class="settings-card-row">
+                    <div class="settings-icon-title">
+                        <i class="fa-solid fa-table-cells" style="color: #34c759; font-size: 20px;"></i>
+                        Сетка инвентаря
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="ios-btn" id="grid-size-2" onclick="setGridSize(2)" style="background: rgba(255,255,255,0.1); color: #fff;">2 в ряд</button>
+                        <button class="ios-btn" id="grid-size-3" onclick="setGridSize(3)" style="background: rgba(255,255,255,0.1); color: #fff;">3 в ряд</button>
+                    </div>
+                </div>
             </div>
 
             <!-- Блок Twitch -->
@@ -411,6 +427,25 @@
         tg.expand();
 
         let currentUserData = null; 
+        
+        // Логика настройки сетки инвентаря (2 или 3)
+        let currentGridSize = localStorage.getItem('inventory_grid_size') || '3';
+        function setGridSize(size) {
+            currentGridSize = size.toString();
+            localStorage.setItem('inventory_grid_size', currentGridSize);
+            updateGridButtons();
+            if(window.currentInventoryItems && window.currentInventoryItems.length > 0) {
+                renderInventory(window.currentInventoryItems, true);
+            }
+            if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+        }
+        function updateGridButtons() {
+            const b2 = document.getElementById('grid-size-2');
+            const b3 = document.getElementById('grid-size-3');
+            if(b2) b2.style.background = currentGridSize === '2' ? 'var(--action-color)' : 'rgba(255,255,255,0.1)';
+            if(b3) b3.style.background = currentGridSize === '3' ? 'var(--action-color)' : 'rgba(255,255,255,0.1)';
+        }
+        updateGridButtons(); // инициализация цветов кнопок при загрузке
 
         // Слушатель скролла для кнопки наверх
         const contentAreaNode = document.getElementById('content-area');
@@ -591,7 +626,7 @@
             }
         }
 
-// --- ЛОГИКА БЕСШОВНОЙ ПОДГРУЗКИ (SPA РОУТЕР) ---
+        // --- ЛОГИКА БЕСШОВНОЙ ПОДГРУЗКИ (SPA РОУТЕР) ---
         const navItems = document.querySelectorAll('.nav-item');
         const contentArea = document.getElementById('content-area');
 
@@ -613,9 +648,13 @@
 
                 // 2. ЕСЛИ ЗАГРУЗИЛСЯ ИНВЕНТАРЬ - ДОСТАЕМ СКИНЫ ИЗ БАЗЫ!
                 if (tabName === 'inventory') {
+                    // Скрываем сортировку до момента, когда отрендерим скины, чтобы не мозолила глаза
+                    const sortSelect = document.getElementById('inventory-sort-select');
+                    if (sortSelect) sortSelect.style.opacity = '0';
+                    
                     const invContainer = document.getElementById('inventory-list-container');
                     if (invContainer) {
-                        invContainer.innerHTML = '<div style="text-align: center; color: rgba(255,255,255,0.5); margin-top: 50px;"><i class="fa-solid fa-circle-notch fa-spin" style="margin-bottom: 10px; font-size: 32px; color: #0a84ff;"></i><br>Связь с базой данных...</div>';
+                        invContainer.innerHTML = '<div style="height: 50vh; display: flex; flex-direction: column; justify-content: center; align-items: center; color: rgba(255,255,255,0.5);"><i class="fa-solid fa-circle-notch fa-spin" style="margin-bottom: 15px; font-size: 32px; color: #0a84ff;"></i><br>Связь с базой данных...</div>';
                     }
                     
                     try {
@@ -649,8 +688,8 @@
             loadTab('inventory');
         });
 
-// =========================================================
-        // ЛОГИКА ИНВЕНТАРЯ (NEW DARK PREMIUM - 3 COLUMNS SQUARES)
+        // =========================================================
+        // ЛОГИКА ИНВЕНТАРЯ (NEW DARK PREMIUM - DYNAMIC COLUMNS SQUARES)
         // =========================================================
 
         let isUpdating = false;
@@ -733,7 +772,7 @@
             el.dataset.intervalId = setInterval(updateTimer, 1000);
         }
 
-// --- ДЕТАЛЬНАЯ ИНФОРМАЦИЯ И ПОДДЕРЖКА ---
+        // --- ДЕТАЛЬНАЯ ИНФОРМАЦИЯ И ПОДДЕРЖКА ---
         window.openSupportModal = function(historyId, event) {
             if (event) event.stopPropagation();
             if (typeof tg !== 'undefined' && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
@@ -923,9 +962,9 @@
             if (!isSorting) window.currentInventoryItems = items || [];
             const itemsToRender = [...window.currentInventoryItems];
 
-            // Принудительно 3 в ряд
+            // Динамическая колоночная структура 
             container.style.display = 'grid';
-            container.style.gridTemplateColumns = 'repeat(3, 1fr)';
+            container.style.gridTemplateColumns = `repeat(${currentGridSize}, 1fr)`;
             container.style.gap = '8px';
             container.style.width = '100%';
             
@@ -944,6 +983,12 @@
                 sortSelect.style.height = '24px';
                 sortSelect.style.maxWidth = '115px';
                 sortSelect.dataset.minified = 'true';
+            }
+            
+            // Показываем сортировку только если есть скины и она загружена
+            if (sortSelect) {
+                sortSelect.style.transition = 'opacity 0.3s ease';
+                sortSelect.style.opacity = itemsToRender.length > 0 ? '1' : '0';
             }
 
             container.innerHTML = '';
@@ -1043,13 +1088,11 @@
                 const nameCheck = displayName.toLowerCase();
                 const isSmallItem = nameCheck.includes('music kit') || nameCheck.includes('музык') || nameCheck.includes('наклейка') || nameCheck.includes('агент') || nameCheck.includes('нашивка') || nameCheck.includes('значок') || nameCheck.includes('граффити');
 
-                // Базовый размер для оружия
-                let imgTransform = 'scale(1.3) translateX(15%) translateY(0%)'; 
+                // Базовый размер для оружия с учетом сетки (2 или 3 колонки)
+                let imgTransform = currentGridSize === '2' ? 'scale(1.2) translateX(10%) translateY(0%)' : 'scale(1.3) translateX(15%) translateY(0%)'; 
 
                 if (isSmallItem) {
-                    // scale(0.9) - чуть увеличили размер
-                    // translateX(20%) - сдвинули вправо за границу карточки
-                    imgTransform = 'scale(0.9) translateX(20%) translateY(0%) !important'; 
+                    imgTransform = currentGridSize === '2' ? 'scale(0.8) translateX(15%) translateY(0%) !important' : 'scale(0.9) translateX(20%) translateY(0%) !important'; 
                 }
 
                 let imageStyles = `width:90%; height:90%; object-fit:contain; filter:drop-shadow(0 8px 15px rgba(0,0,0,0.6)) brightness(1.2); transition: all 0.4s ease; transform: ${imgTransform};`;
@@ -1057,18 +1100,22 @@
                 // Статусные изменения (Архив и Ошибки)
                 if (isArchived) {
                     imageStyles += ` opacity: 0.15; filter: blur(2px) grayscale(100%); transform: scale(1);`;
+                    
+                    // Плашка с названием скина в самом низу карточки
+                    const lowerSkinName = `<div style="position:absolute; bottom: 8px; left: 0; width: 100%; text-align: center; font-size: 8.5px; font-weight: 800; color: rgba(255,255,255,0.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 4px; box-sizing: border-box; z-index: 6;">${cleanName}</div>`;
+
                     if (status === 'received') {
                         cardBgColor = 'rgba(52, 199, 89, 0.05)';
-                        centerOverlay = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:900; color:#32d74b; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5;">Успешно<br>выведен</div>`;
+                        centerOverlay = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:900; color:#32d74b; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5; transform: translateY(-10px);">Успешно<br>выведен</div>` + lowerSkinName;
                     } else if (status === 'exchanged') {
                         cardBgColor = 'rgba(255, 149, 0, 0.05)';
                         centerOverlay = `<div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:10px; font-weight:900; color:#fff; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5; line-height: 1.3;"><span>Продан за</span><span style="color:#ffd700; font-size:11px;">${ticketVal} <i class="fa-solid fa-ticket"></i></span></div>`;
                     } else if (status === 'exchanged_swap') {
                         cardBgColor = 'rgba(255, 215, 0, 0.05)';
-                        centerOverlay = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:900; color:#ffd700; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5;">В свапе</div>`;
+                        centerOverlay = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:900; color:#ffd700; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5; transform: translateY(-10px);">В свапе</div>` + lowerSkinName;
                     } else if (status === 'failed') {
                         cardBgColor = 'rgba(255, 69, 58, 0.05)';
-                        centerOverlay = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:900; color:#ff453a; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5;">Ошибка</div>`;
+                        centerOverlay = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:900; color:#ff453a; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5; transform: translateY(-10px);">Ошибка</div>` + lowerSkinName;
                     }
                 } 
                 // Статусные изменения (Процесс)
@@ -1100,9 +1147,10 @@
                         if (timeLeftMs > 0) {
                             const days = Math.floor(timeLeftMs / (1000 * 60 * 60 * 24));
                             const hours = Math.floor((timeLeftMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                            let timeStr = days > 0 ? `${days}д ${hours}ч` : `${hours}ч`;
-                            if (days === 0 && hours === 0) timeStr = `${Math.floor((timeLeftMs % (1000 * 60 * 60)) / (1000 * 60))}м`;
-                            expirationHtml = `Сгорит через ${timeStr}`; // <-- Убрали кавычки и div, отдаем чистый текст
+                            const minutes = Math.floor((timeLeftMs % (1000 * 60 * 60)) / (1000 * 60));
+                            let timeStr = days > 0 ? `${days}д ${hours}ч ${minutes}м` : `${hours}ч ${minutes}м`;
+                            if (days === 0 && hours === 0) timeStr = `${minutes}м`;
+                            expirationHtml = `Сгорит через ${timeStr}`;
                         } else {
                             isExpired = true;
                             expirationHtml = `СГОРЕЛ`;
@@ -1222,7 +1270,6 @@
         }
 
         // --- УТИЛИТА ПОДТВЕРЖДЕНИЯ (CUSTOM CONFIRM) ---
-        // --- УТИЛИТА ПОДТВЕРЖДЕНИЯ (CUSTOM CONFIRM) ---
         function showCustomConfirmHTML(text, onConfirmCallback, btnText = 'Да', btnColor = '#0a84ff', btnTextColor = '#fff') {
             const overlay = document.createElement('div'); 
             overlay.className = 'modal-overlay visible'; 
@@ -1301,8 +1348,8 @@
             const amount = btn.dataset.amount;
             const count = btn.dataset.count;
             
-            // В самом конце мы передали "#000000", чтобы текст на желтой кнопке стал черным!
-            showCustomConfirmHTML(`Продать ВСЕ доступные скины (${count} шт.) за ${amount} <i class="fa-solid fa-ticket" style="color:#ffd700;"></i> ?`, async (close) => {
+            // Разделяем текст на красивые строки по ТЗ
+            showCustomConfirmHTML(`Продать ВСЕ доступные скины<br><span style="font-size: 14px; font-weight: 600; color: rgba(255,255,255,0.7); display: inline-block; margin-top: 6px;">в количестве: ${count} шт.</span><br><span style="display: inline-block; margin-top: 6px;">за ${amount} <i class="fa-solid fa-ticket" style="color:#ffd700;"></i> ?</span>`, async (close) => {
                 document.getElementById('global-loader').classList.add('active');
                 try {
                     const res = await apiRequest('/api/v1/user/inventory/sell_all', 'POST');
@@ -1320,7 +1367,6 @@
         }
 
         window.exchangeItem = function(historyId, amount) {
-            // Заменили эмодзи на иконку билета
             showCustomConfirmHTML(`Продать скин за ${amount} <i class="fa-solid fa-ticket" style="color:#ffd700;"></i> ?`, async (close) => {
                 document.getElementById('global-loader').classList.add('active');
                 try {
