@@ -12895,6 +12895,13 @@ async def cron_leaderboard_issue(request: Request, source: str = Query(...), per
         logging.warning(f"🚨 Попытка запуска CRON с неверным ключом: {auth_header}")
         raise HTTPException(status_code=401, detail="Unauthorized CRON call")
 
+    # 🔥 ЗАЩИТА ОТ РАННЕГО ЗАПУСКА ДЛЯ МЕСЯЧНЫХ НАГРАД
+    if period == "month":
+        now = datetime.now(timezone.utc)
+        # Если прибавить 1 день, и это НЕ 1-е число, значит сегодня НЕ последний день месяца
+        if (now + timedelta(days=1)).day != 1:
+            return {"success": True, "details": "Сегодня не последний день месяца, выдача наград отложена."}
+
     # 2. Формируем список ключей для проверки (ТГ или Твич)
     keys_to_check = []
     if source == "telegram":
