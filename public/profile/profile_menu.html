@@ -22,8 +22,30 @@
             --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
             --glass-blur: blur(25px);
             
-            /* Опустили шапку ниже, чтобы обойти системные элементы (увеличено для адаптации) */
-            --safe-top-gap: max(env(safe-area-inset-top, 24px) + 55px, 75px);
+            /* БАЗОВЫЙ ОТСТУП ДЛЯ МОБИЛЬНЫХ УСТРОЙСТВ (чтобы обойти кнопку "Назад", но не оставлять черную дыру) */
+            --safe-top-gap: calc(env(safe-area-inset-top, 15px) + 40px);
+        }
+
+        /* --- АДАПТАЦИЯ ДЛЯ КОМПЬЮТЕРОВ (ПК) --- */
+        @media (min-width: 768px) {
+            :root {
+                /* На ПК системных кнопок ТГ сверху нет, поднимаем всё к самому верху */
+                --safe-top-gap: 20px;
+            }
+            .profile-header {
+                padding-bottom: 15px !important; /* Больше пространства на ПК */
+            }
+            .nav-item {
+                font-size: 13px !important; /* Крупнее вкладки */
+                min-height: 50px !important;
+            }
+            .avatar-container {
+                width: 90px !important;
+                height: 90px !important;
+            }
+            .nickname {
+                font-size: 22px !important;
+            }
         }
 
         html, body {
@@ -53,12 +75,12 @@
             padding-top: var(--safe-top-gap);
         }
 
-        /* --- HEADER (ТЕПЕРЬ БЕЗ ФОНА И ОТСТУПОВ СВЕРХУ) --- */
+        /* --- HEADER --- */
         .profile-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0 15px 10px 15px; /* Уменьшенные отступы снизу */
+            padding: 0 15px 5px 15px; /* Уменьшили нижний отступ, чтобы приподнять навигацию */
             gap: 15px;
         }
 
@@ -160,18 +182,18 @@
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
 
-        /* --- NAV BAR (ТЕПЕРЬ БЕЗ ФОНА И ЛИНИЙ, ВНУТРИ ВРАППЕРА) --- */
+        /* --- NAV BAR --- */
         .nav-bar {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 0 10px 5px 10px;
+            padding: 0 10px 5px 10px; /* Приподняли вкладки выше */
         }
 
         .nav-item {
             flex: 1;
             text-align: center;
-            font-size: 10px;
+            font-size: 11px; /* Чуть увеличили по дефолту на мобилках */
             font-weight: 800;
             color: rgba(255,255,255,0.5);
             padding: 12px 2px;
@@ -288,7 +310,6 @@
         #fullscreen-weapon-modal.visible { opacity: 1; pointer-events: auto; }
         #fullscreen-weapon-img { max-width: 90%; max-height: 60%; object-fit: contain; filter: drop-shadow(0 10px 25px rgba(0,0,0,0.8)); transform: scale(1.15); }
         #fullscreen-weapon-name { color: #fff; font-size: 18px; font-weight: 800; margin-top: 20px; text-transform: uppercase; text-shadow: 0 2px 10px rgba(0,0,0,0.5); text-align: center; padding: 0 20px; }
-        /* Крестик перемещен влево, чтобы не перекрывать 3 точки ТГ */
         #fullscreen-weapon-close { position: absolute; top: max(env(safe-area-inset-top, 24px), 30px); left: 20px; right: auto; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.2); color: #fff; width: 36px; height: 36px; border-radius: 50%; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 
         /* Кнопка скролла наверх */
@@ -962,6 +983,19 @@
             if (!isSorting) window.currentInventoryItems = items || [];
             const itemsToRender = [...window.currentInventoryItems];
 
+            // Динамические переменные шрифтов в зависимости от Сетки (2 или 3 колонки)
+            let fsAction = currentGridSize === '2' ? '12px' : '8px';
+            let fsChevron = currentGridSize === '2' ? '10px' : '7px';
+            let fsTitle = currentGridSize === '2' ? '11px' : '8.5px';
+            let fsPrice = currentGridSize === '2' ? '12px' : '9px';
+            let fsBtn = currentGridSize === '2' ? '11px' : '8px';
+            let fsOverlay = currentGridSize === '2' ? '13px' : '10px';
+            let fsExp = currentGridSize === '2' ? '10px' : '7px';
+            let supportSize = currentGridSize === '2' ? '24px' : '18px';
+            let supportFont = currentGridSize === '2' ? '14px' : '10px';
+            let closeBtnSize = currentGridSize === '2' ? '26px' : '20px';
+            let closeBtnIcon = currentGridSize === '2' ? '12px' : '8px';
+
             // Динамическая колоночная структура 
             container.style.display = 'grid';
             container.style.gridTemplateColumns = `repeat(${currentGridSize}, 1fr)`;
@@ -1102,20 +1136,20 @@
                     imageStyles += ` opacity: 0.15; filter: blur(2px) grayscale(100%); transform: scale(1);`;
                     
                     // Плашка с названием скина в самом низу карточки
-                    const lowerSkinName = `<div style="position:absolute; bottom: 8px; left: 0; width: 100%; text-align: center; font-size: 8.5px; font-weight: 800; color: rgba(255,255,255,0.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 4px; box-sizing: border-box; z-index: 6;">${cleanName}</div>`;
+                    const lowerSkinName = `<div style="position:absolute; bottom: 8px; left: 0; width: 100%; text-align: center; font-size: ${fsTitle}; font-weight: 800; color: rgba(255,255,255,0.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 4px; box-sizing: border-box; z-index: 6;">${cleanName}</div>`;
 
                     if (status === 'received') {
                         cardBgColor = 'rgba(52, 199, 89, 0.05)';
-                        centerOverlay = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:900; color:#32d74b; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5; transform: translateY(-10px);">Успешно<br>выведен</div>` + lowerSkinName;
+                        centerOverlay = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:${fsOverlay}; font-weight:900; color:#32d74b; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5; transform: translateY(-10px);">Успешно<br>выведен</div>` + lowerSkinName;
                     } else if (status === 'exchanged') {
                         cardBgColor = 'rgba(255, 149, 0, 0.05)';
-                        centerOverlay = `<div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:10px; font-weight:900; color:#fff; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5; line-height: 1.3;"><span>Продан за</span><span style="color:#ffd700; font-size:11px;">${ticketVal} <i class="fa-solid fa-ticket"></i></span></div>`;
+                        centerOverlay = `<div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:${fsOverlay}; font-weight:900; color:#fff; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5; line-height: 1.3;"><span>Продан за</span><span style="color:#ffd700; font-size:${fsPrice};">${ticketVal} <i class="fa-solid fa-ticket"></i></span></div>`;
                     } else if (status === 'exchanged_swap') {
                         cardBgColor = 'rgba(255, 215, 0, 0.05)';
-                        centerOverlay = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:900; color:#ffd700; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5; transform: translateY(-10px);">В свапе</div>` + lowerSkinName;
+                        centerOverlay = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:${fsOverlay}; font-weight:900; color:#ffd700; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5; transform: translateY(-10px);">В свапе</div>` + lowerSkinName;
                     } else if (status === 'failed') {
                         cardBgColor = 'rgba(255, 69, 58, 0.05)';
-                        centerOverlay = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:900; color:#ff453a; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5; transform: translateY(-10px);">Ошибка</div>` + lowerSkinName;
+                        centerOverlay = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:${fsOverlay}; font-weight:900; color:#ff453a; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5; transform: translateY(-10px);">Ошибка</div>` + lowerSkinName;
                     }
                 } 
                 // Статусные изменения (Процесс)
@@ -1159,7 +1193,7 @@
                 }
 
                 // Нижняя кнопка-триггер и выезжающее меню (Action Panel)
-                let bottomBtnText = ' <i class="fa-solid fa-chevron-up"></i> ДЕЙСТВИЕ <i class="fa-solid fa-chevron-up" style="font-size:7px; margin-left:2px;"></i>';
+                let bottomBtnText = ` <i class="fa-solid fa-chevron-up"></i> ДЕЙСТВИЕ <i class="fa-solid fa-chevron-up" style="font-size:${fsChevron}; margin-left:2px;"></i>`;
                 let bottomBtnAction = `onclick="toggleActionPanel('${historyId}', true, event)"`;
                 let panelContent = '';
                 
@@ -1179,18 +1213,18 @@
                     bottomBtnAction = '';
                 } else if (status === 'offer_sent' || status === 'sent') {
                     const timerElementId = `timer-${historyId}`;
-                    bottomBtnText = `<span id="${timerElementId}">--:--</span> <i class="fa-solid fa-chevron-up" style="font-size:7px; margin-left:2px;"></i>`;
+                    bottomBtnText = `<span id="${timerElementId}">--:--</span> <i class="fa-solid fa-chevron-up" style="font-size:${fsChevron}; margin-left:2px;"></i>`;
                     
                     panelContent = `
-                        <button onclick="window.open('https://steamcommunity.com/my/tradeoffers/', '_blank'); toggleActionPanel('${historyId}', false, event);" style="box-sizing:border-box; background:rgba(52,199,89,0.1); border:1px solid rgba(52,199,89,0.3); color:#32d74b; border-radius:6px; font-size:8px; font-weight:800; padding:4px; width:100%; margin-bottom:4px; line-height:1.3;">ОТКРЫТЬ<br>STEAM</button>
-                        <button id="check-btn-${historyId}" onclick="checkTradeStatus(${historyId}); toggleActionPanel('${historyId}', false, event);" style="box-sizing:border-box; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); color:#fff; border-radius:6px; font-size:8px; font-weight:800; padding:4px; width:100%; line-height:1.3;">ОБНОВИТЬ<br>СТАТУС</button>
+                        <button onclick="window.open('https://steamcommunity.com/my/tradeoffers/', '_blank'); toggleActionPanel('${historyId}', false, event);" style="box-sizing:border-box; background:rgba(52,199,89,0.1); border:1px solid rgba(52,199,89,0.3); color:#32d74b; border-radius:6px; font-size:${fsBtn}; font-weight:800; padding:4px; width:100%; margin-bottom:4px; line-height:1.3;">ОТКРЫТЬ<br>STEAM</button>
+                        <button id="check-btn-${historyId}" onclick="checkTradeStatus(${historyId}); toggleActionPanel('${historyId}', false, event);" style="box-sizing:border-box; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); color:#fff; border-radius:6px; font-size:${fsBtn}; font-weight:800; padding:4px; width:100%; line-height:1.3;">ОБНОВИТЬ<br>СТАТУС</button>
                     `;
                     setTimeout(() => { if (typeof initCountdown === 'function') initCountdown(timerElementId, item.updated_at); }, 50);
                 } else {
                     // Available / Pending
                     panelContent = `
-                        <button onclick="exchangeItem(${historyId}, ${ticketVal}); toggleActionPanel('${historyId}', false, event);" style="box-sizing:border-box; background:rgba(255,149,0,0.1); border:1px solid rgba(255,149,0,0.3); color:#ff9f0a; border-radius:6px; font-size:8px; font-weight:800; padding:4px; width:100%; margin-bottom:4px; line-height:1.3;">ПРОДАТЬ ЗА<br>${ticketVal} <i class="fa-solid fa-ticket"></i></button>
-                        <button id="withdraw-btn-${historyId}" onclick="withdrawItem(${historyId}, '${safeNameStr}'); toggleActionPanel('${historyId}', false, event);" style="box-sizing:border-box; background:rgba(10,132,255,0.1); border:1px solid rgba(10,132,255,0.3); color:#0a84ff; border-radius:6px; font-size:8px; font-weight:800; padding:4px; width:100%; line-height:1.3;">ЗАБРАТЬ В<br>STEAM</button>
+                        <button onclick="exchangeItem(${historyId}, ${ticketVal}); toggleActionPanel('${historyId}', false, event);" style="box-sizing:border-box; background:rgba(255,149,0,0.1); border:1px solid rgba(255,149,0,0.3); color:#ff9f0a; border-radius:6px; font-size:${fsBtn}; font-weight:800; padding:4px; width:100%; margin-bottom:4px; line-height:1.3;">ПРОДАТЬ ЗА<br>${ticketVal} <i class="fa-solid fa-ticket"></i></button>
+                        <button id="withdraw-btn-${historyId}" onclick="withdrawItem(${historyId}, '${safeNameStr}'); toggleActionPanel('${historyId}', false, event);" style="box-sizing:border-box; background:rgba(10,132,255,0.1); border:1px solid rgba(10,132,255,0.3); color:#0a84ff; border-radius:6px; font-size:${fsBtn}; font-weight:800; padding:4px; width:100%; line-height:1.3;">ЗАБРАТЬ В<br>STEAM</button>
                     `;
                 }
 
@@ -1205,14 +1239,14 @@
                         <!-- Невидимый фон для закрытия по клику мимо -->
                         <div onclick="toggleActionPanel('${historyId}', false, event)" style="position:absolute; top:0; left:0; width:100%; height:100%; z-index:-1; cursor:pointer;"></div>
                         
-                        <!-- 1. Кнопка ЗАКРЫТЬ (Круглый крестик, отцентрованный и уменьшенный) -->
-                        <div onclick="toggleActionPanel('${historyId}', false, event)" style="position:absolute; top:4px; right:4px; width:20px; height:20px; background:rgba(255,255,255,0.1); border-radius:50%; display:flex; justify-content:center; align-items:center; cursor:pointer; z-index:10;">
-                            <i class="fa-solid fa-xmark" style="color:rgba(255,255,255,0.7); font-size:8px; line-height:1; display:flex; margin-top:0.5px;"></i>
+                        <!-- 1. Кнопка ЗАКРЫТЬ (Круглый крестик, отцентрованный и адаптированный) -->
+                        <div onclick="toggleActionPanel('${historyId}', false, event)" style="position:absolute; top:4px; right:4px; width:${closeBtnSize}; height:${closeBtnSize}; background:rgba(255,255,255,0.1); border-radius:50%; display:flex; justify-content:center; align-items:center; cursor:pointer; z-index:10;">
+                            <i class="fa-solid fa-xmark" style="color:rgba(255,255,255,0.7); font-size:${closeBtnIcon}; line-height:1; display:flex; margin-top:0.5px;"></i>
                         </div>
                         
-                        <!-- 2. Название скина строго в 1 ряд (Текст меньше) -->
+                        <!-- 2. Название скина строго в 1 ряд -->
                         <div style="text-align:center; margin-bottom:8px; padding:0 24px;">
-                            <div style="font-size:8.5px; font-weight:800; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.2;">
+                            <div style="font-size:${fsTitle}; font-weight:800; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.2;">
                                 ${cleanName}
                             </div>
                         </div>
@@ -1223,7 +1257,7 @@
                     ` : ''}
 
                     <!-- Кнопка вызова Поддержки (!) -->
-                    <div onclick="openSupportModal('${historyId}', event)" style="position:absolute; top:4px; left:4px; width:18px; height:18px; border-radius:50%; background:rgba(0,0,0,0.4); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); color:rgba(255,255,255,0.8); font-weight:900; display:flex; justify-content:center; align-items:center; z-index:20; font-size:10px; box-shadow: 0 2px 8px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.15); cursor:pointer;">!</div>
+                    <div onclick="openSupportModal('${historyId}', event)" style="position:absolute; top:4px; left:4px; width:${supportSize}; height:${supportSize}; border-radius:50%; background:rgba(0,0,0,0.4); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); color:rgba(255,255,255,0.8); font-weight:900; display:flex; justify-content:center; align-items:center; z-index:20; font-size:${supportFont}; box-shadow: 0 2px 8px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.15); cursor:pointer;">!</div>
 
                     <!-- Оружие -->
                     <div style="position:absolute; inset:0; display:flex; justify-content:center; align-items:center; overflow:hidden; z-index:1; padding-bottom: 15px;" onclick="${!isArchived ? `openFullscreenWeapon('${imageUrl}', '${safeNameStr}')` : ''}">
@@ -1234,7 +1268,7 @@
                     <!-- ПЛАШКА ЦЕНЫ (На законном месте сбоку над Действием) -->
                     <div style="position:absolute; bottom: ${isArchived ? '8px' : '32px'}; left:4px; z-index:10; display:flex; flex-direction:column; gap:0; pointer-events:none;">
                         ${!isArchived ? `
-                            <div style="background:rgba(0,0,0,0.5); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); border:1px solid rgba(255,255,255,0.05); padding: 2px 5px; border-radius: 4px; font-size:9px; font-weight:900; color:#ffd700;">
+                            <div style="background:rgba(0,0,0,0.5); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); border:1px solid rgba(255,255,255,0.05); padding: 2px 5px; border-radius: 4px; font-size:${fsPrice}; font-weight:900; color:#ffd700;">
                                 ${rawPrice} ₽
                             </div>
                         ` : ''}
@@ -1242,8 +1276,8 @@
                     
                     <!-- Кнопка ДЕЙСТВИЕ в самом низу -->
                     ${bottomBtnText ? `
-                    <div ${bottomBtnAction} style="position:absolute; bottom:0; left:0; width:100%; display:flex; flex-direction:column; justify-content:center; align-items:center; background:rgba(0,0,0,0.4); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); border-top:1px solid rgba(255,255,255,0.05); color:#fff; font-size:8px; font-weight:800; padding:2px 0; cursor:pointer; transition:0.2s; z-index:15;">
-                        ${expirationHtml && !isExpired ? `<span style="color:#ff4c4c; font-size:7px; font-weight:900; margin-bottom:1px;">${expirationHtml}</span>` : ''}
+                    <div ${bottomBtnAction} style="position:absolute; bottom:0; left:0; width:100%; display:flex; flex-direction:column; justify-content:center; align-items:center; background:rgba(0,0,0,0.4); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); border-top:1px solid rgba(255,255,255,0.05); color:#fff; font-size:${fsAction}; font-weight:800; padding:2px 0; cursor:pointer; transition:0.2s; z-index:15;">
+                        ${expirationHtml && !isExpired ? `<span style="color:#ff4c4c; font-size:${fsExp}; font-weight:900; margin-bottom:1px;">${expirationHtml}</span>` : ''}
                         <span style="display:flex; align-items:center; gap: 3px;">${bottomBtnText}</span>
                     </div>
                     ` : ''}
