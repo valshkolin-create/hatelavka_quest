@@ -1043,9 +1043,16 @@
                 let imgTransform = 'scale(1.3) translateX(15%) translateY(0%)'; 
 
                 // Уменьшаем размер и ставим по центру для музыки, наклеек, агентов и т.д.
+                // Расширенная проверка: ищем "Music Kit" и другие мелкие предметы
                 const nameCheck = displayName.toLowerCase();
-                if (nameCheck.includes('набор музыки') || nameCheck.includes('наклейка') || nameCheck.includes('агент') || nameCheck.includes('нашивка') || nameCheck.includes('значок') || nameCheck.includes('граффити')) {
-                    imgTransform = 'scale(0.85) translateY(-5%) translateX(0)'; 
+                const isSmallItem = nameCheck.includes('music kit') || nameCheck.includes('музык') || nameCheck.includes('наклейка') || nameCheck.includes('агент') || nameCheck.includes('нашивка') || nameCheck.includes('значок') || nameCheck.includes('граффити');
+
+                // Базовый размер для оружия
+                let imgTransform = 'scale(1.3) translateX(15%) translateY(0%)'; 
+
+                if (isSmallItem) {
+                    // Делаем еще меньше (0.65) и ставим !important, чтобы статусы это не перебивали
+                    imgTransform = 'scale(0.65) translateY(-5%) translateX(0) !important'; 
                 }
 
                 let imageStyles = `width:90%; height:90%; object-fit:contain; filter:drop-shadow(0 8px 15px rgba(0,0,0,0.6)) brightness(1.2); transition: all 0.4s ease; transform: ${imgTransform};`;
