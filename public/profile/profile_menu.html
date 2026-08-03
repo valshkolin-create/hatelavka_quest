@@ -1511,9 +1511,9 @@
                     
                     panelContent = `
                         <button onclick="exchangeItem(${historyId}, ${ticketVal}); toggleActionPanel('${historyId}', false, event);" style="box-sizing:border-box; background:rgba(255,255,255,0.05); border:1px solid var(--glass-border); color:#b0b0b0; border-radius:6px; font-size:${fsBtn}; font-weight:800; padding:4px; width:100%; margin-bottom:4px; line-height:1.3; transition:0.2s; backdrop-filter:blur(5px);">
-                            ПРОДАТЬ ЗА<br><span style="color:#fff;">${ticketVal}</span> <i class="fa-solid fa-ticket" style="color:#ffd700; opacity:0.8;"></i>
+                            ПРОДАТЬ ЗА<br><span style="color:#fff;">${ticketVal}</span> <i class="fa-solid fa-ticket" style="color:#fff; opacity:0.8;"></i>
                         </button>
-                        <button id="withdraw-btn-${historyId}" onclick="withdrawItem(${historyId}, '${safeNameStr}'); toggleActionPanel('${historyId}', false, event);" style="box-sizing:border-box; background:rgba(255,255,255,0.15); border:1px solid var(--glass-border); color:#fff; border-radius:6px; font-size:${fsBtn}; font-weight:800; padding:4px; width:100%; line-height:1.3; transition:0.2s; backdrop-filter:blur(5px);">
+                        <button id="withdraw-btn-${historyId}" onclick="withdrawItem(${historyId}, '${safeNameStr}'); toggleActionPanel('${historyId}', false, event);" style="box-sizing:border-box; background:rgba(42, 71, 94, 0.7); border:1px solid rgba(102, 192, 244, 0.4); color:#fff; border-radius:6px; font-size:${fsBtn}; font-weight:800; padding:4px; width:100%; line-height:1.3; transition:0.2s; backdrop-filter:blur(5px); box-shadow: 0 4px 15px rgba(27, 40, 56, 0.5);">
                             ЗАБРАТЬ В<br>STEAM
                         </button>
                     `;
@@ -1572,7 +1572,10 @@
                 if (availableSellCount > 0) {
                     sellAllBtn.style.display = 'flex';
                     sellAllBtn.style.alignItems = 'center';
-                    sellAllBtn.innerHTML = `<i class="fa-solid fa-tags" style="margin-right: 4px;"></i> ПРОДАТЬ (${availableSellCount})`;
+                    
+                    // Вот новая строчка с надписью и желтым билетиком:
+                    sellAllBtn.innerHTML = `ПРОДАТЬ ВСЁ <i class="fa-solid fa-ticket" style="color: #ffd700; margin-left: 6px;"></i>`;
+                    
                     sellAllBtn.dataset.amount = totalSellTickets.toFixed(2);
                     sellAllBtn.dataset.count = availableSellCount;
                     sellAllBtn.style.background = 'rgba(255,255,255,0.05)';
