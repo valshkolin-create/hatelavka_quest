@@ -1052,7 +1052,9 @@
                 let centerOverlay = '';
                 
                 // Исправленный размер скина: масштаб от центра, без багованных margin-bottom
-                let imageStyles = `width:90%; height:90%; object-fit:contain; filter:drop-shadow(0 8px 15px rgba(0,0,0,0.6)) brightness(1.2); transition: all 0.4s ease; transform: scale(1.1) translateX(15%);`;
+                // translateY(10%) сдвинет скин вниз. Если нужно еще ниже, пробуй 15% или 20%. 
+                // Если нужно поднять, используй минус: translateY(-10%).
+                let imageStyles = `width:90%; height:90%; object-fit:contain; filter:drop-shadow(0 8px 15px rgba(0,0,0,0.6)) brightness(1.2); transition: all 0.4s ease; transform: scale(1.3) translateX(15%) translateY(10%);`;
 
                 // Статусные изменения (Архив и Ошибки)
                 if (isArchived) {
@@ -1160,23 +1162,23 @@
                     </div>
                     ` : ''}
 
-                    <!-- Кнопка вызова Поддержки (!) С БЛЮРОМ, БЕЗ БЕЛОЙ РАМКИ -->
+                    <!-- Кнопка вызова Поддержки (!) -->
                     <div onclick="openSupportModal('${historyId}', event)" style="position:absolute; top:4px; left:4px; width:22px; height:22px; border-radius:50%; background:rgba(0,0,0,0.3); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); color:rgba(255,255,255,0.8); font-weight:900; display:flex; justify-content:center; align-items:center; z-index:20; font-size:10px; cursor:pointer;">!</div>
 
-                    <!-- Плашка таймера (сгорание) ПАРАЛЛЕЛЬНО ! -->
+                    <!-- Плашка таймера (сгорание) -->
                     ${expirationHtml ? `
                     <div style="position:absolute; top:4px; right:4px; background:rgba(0,0,0,0.3); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); padding:2px 5px; border-radius:4px; z-index:20; display:flex; align-items:center; justify-content:center; border:1px solid rgba(255,255,255,0.05);">
                         ${expirationHtml}
                     </div>
                     ` : ''}
 
-                    <!-- Оружие (КРУПНОЕ, сдвинуто вправо, ЯРКОЕ) -->
+                    <!-- Оружие -->
                     <div style="position:absolute; inset:0; display:flex; justify-content:center; align-items:center; overflow:hidden; z-index:1; padding-bottom: 10px;" onclick="${!isArchived ? `openFullscreenWeapon('${imageUrl}', '${safeNameStr}')` : ''}">
                         <img src="${imageUrl}" style="${imageStyles}">
                         ${centerOverlay}
                     </div>
 
-                    <!-- РАЗДЕЛЬНЫЕ ПЛАШКИ С ТЕКСТОМ (Прижаты к кнопке, интервал минимален) -->
+                    <!-- РАЗДЕЛЬНЫЕ ПЛАШКИ С ТЕКСТОМ -->
                     <div style="position:absolute; bottom: 21px; ${isArchived ? 'left:0; width:100%; align-items:center;' : 'left:4px; align-items:flex-start;'} z-index:10; display:flex; flex-direction:column; gap:0; pointer-events:none;">
                         
                         <!-- Плашка названия -->
@@ -1192,9 +1194,9 @@
                         ` : ''}
                     </div>
                     
-                    <!-- Кнопка ДЕЙСТВИЕ в самом низу -->
+                    <!-- Кнопка ДЕЙСТВИЕ в самом низу (С БЛЮРОМ) -->
                     ${bottomBtnText ? `
-                    <div ${bottomBtnAction} style="position:absolute; bottom:0; left:0; width:100%; display:flex; justify-content:center; align-items:center; background:rgba(0,0,0,0.4); border-top:1px solid rgba(255,255,255,0.05); color:#fff; font-size:8px; font-weight:800; padding:6px 0; cursor:pointer; transition:0.2s; z-index:15;">${bottomBtnText}</div>
+                    <div ${bottomBtnAction} style="position:absolute; bottom:0; left:0; width:100%; display:flex; justify-content:center; align-items:center; background:rgba(0,0,0,0.4); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); border-top:1px solid rgba(255,255,255,0.05); color:#fff; font-size:8px; font-weight:800; padding:6px 0; cursor:pointer; transition:0.2s; z-index:15;">${bottomBtnText}</div>
                     ` : ''}
                 `;
                 container.appendChild(el);
