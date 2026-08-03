@@ -27,7 +27,7 @@
 
         html, body {
             margin: 0; padding: 0; width: 100%; height: 100%;
-            background: radial-gradient(circle at top right, #1a1a2e, var(--bg-color));
+            background-color: var(--bg-color); /* СТРОГО ЧЕРНЫЙ ФОН ИЗ ТЗ */
             color: var(--text-color);
             font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Arial, sans-serif;
             overflow: hidden; 
@@ -44,6 +44,7 @@
         .profile-header {
             display: flex;
             align-items: center;
+            justify-content: space-between; /* Раскидываем инфо и историю */
             padding: var(--safe-top-gap) 15px 20px 15px;
             gap: 15px;
             background: var(--glass-bg);
@@ -95,37 +96,63 @@
         .user-icons i:active { transform: scale(0.8); }
 
         .nickname {
-            color: #fff;
-            font-size: 20px;
+            color: var(--danger-color); /* КРАСНЫЙ НИК КАК НА СКРИНШОТЕ */
+            font-size: 18px;
             font-weight: 800;
             letter-spacing: 0.5px;
             margin-bottom: 2px;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            text-transform: uppercase;
         }
 
         .user-id {
-            color: rgba(255,255,255,0.6);
-            font-size: 12px;
-            font-weight: 600;
+            color: #b0b0b0;
+            font-size: 11px;
+            font-weight: 800;
             margin-bottom: 8px;
         }
 
         .settings-btn {
-            background: rgba(255,255,255,0.1);
+            background-color: #1c1c1e;
             color: #fff;
-            border: 1px solid rgba(255,255,255,0.15);
-            border-radius: 12px;
-            padding: 6px 14px;
-            font-size: 11px;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 4px 12px;
+            font-size: 10px;
             font-weight: 700;
-            text-transform: uppercase;
+            text-transform: lowercase;
             cursor: pointer;
             width: fit-content;
             transition: all 0.2s;
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
         }
-        .settings-btn:active { transform: scale(0.95); background: rgba(255,255,255,0.2); }
+        .settings-btn:active { transform: scale(0.95); background: #2c2c2e; }
+
+        /* ВЕРНУЛИ ИСТОРИЮ КАК НА СКРИНШОТЕ */
+        .history-block {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .history-title {
+            font-size: 12px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .history-slots {
+            display: flex;
+            gap: 5px;
+        }
+
+        .h-slot {
+            width: 32px;
+            height: 32px;
+            background-color: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
 
         /* --- LIQUID GLASS NAV --- */
         .nav-bar {
@@ -143,31 +170,27 @@
         .nav-item {
             flex: 1;
             text-align: center;
-            font-size: 11px;
-            font-weight: 700;
+            font-size: 10px;
+            font-weight: 800;
             color: rgba(255,255,255,0.5);
             padding: 12px 2px;
             text-transform: uppercase;
             cursor: pointer;
             transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
             position: relative;
+            line-height: 1.1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 40px;
         }
 
         .nav-item.active {
-            color: #fff;
+            color: var(--danger-color); /* Красный цвет активной вкладки */
             font-weight: 800;
-            text-shadow: 0 0 10px rgba(255,255,255,0.3);
+            text-shadow: 0 0 10px rgba(255,69,58,0.3);
         }
         
-        .nav-item.active::after {
-            content: '';
-            position: absolute;
-            bottom: 0; left: 20%; width: 60%; height: 3px;
-            background: #fff;
-            border-radius: 3px 3px 0 0;
-            box-shadow: 0 -2px 8px rgba(255,255,255,0.5);
-        }
-
         /* --- CONTENT AREA --- */
         #content-area {
             flex-grow: 1;
@@ -264,29 +287,40 @@
         
         <!-- LIQUID GLASS HEADER -->
         <header class="profile-header">
-            <div class="avatar-container">
-                <img id="user-avatar" src="https://placehold.co/150x150/1c1c1e/ffffff?text=..." alt="Avatar">
-            </div>
-            
-            <div class="user-info">
-                <div class="user-icons">
-                    <!-- Иконки меняют цвет скриптом -->
-                    <i id="icon-steam" class="fa-brands fa-steam" style="color: var(--danger-color);" onclick="openSettings()"></i>
-                    <i id="icon-twitch" class="fa-brands fa-twitch" style="color: var(--danger-color);" onclick="openSettings()"></i>
+            <div style="display: flex; gap: 15px;">
+                <div class="avatar-container">
+                    <img id="user-avatar" src="https://placehold.co/150x150/1c1c1e/ffffff?text=..." alt="Avatar">
                 </div>
-                <div class="nickname" id="user-nickname">Загрузка...</div>
-                <div class="user-id" id="user-id">ID -----</div>
-                <button class="settings-btn" onclick="openSettings()"><i class="fa-solid fa-sliders"></i> Настройки</button>
+                
+                <div class="user-info">
+                    <div class="user-icons">
+                        <i id="icon-steam" class="fa-brands fa-steam" style="color: var(--danger-color);" onclick="openSettings()"></i>
+                        <i id="icon-twitch" class="fa-brands fa-twitch" style="color: var(--danger-color);" onclick="openSettings()"></i>
+                    </div>
+                    <div class="nickname" id="user-nickname">Загрузка...</div>
+                    <div class="user-id" id="user-id">ID -----</div>
+                    <button class="settings-btn" onclick="openSettings()">настройки</button>
+                </div>
+            </div>
+
+            <!-- ИСТОРИЯ СПРАВА -->
+            <div class="history-block">
+                <div class="history-title">ИСТОРИЯ</div>
+                <div class="history-slots">
+                    <div class="h-slot"></div>
+                    <div class="h-slot"></div>
+                    <div class="h-slot"></div>
+                </div>
             </div>
         </header>
 
         <!-- LIQUID GLASS NAV -->
         <nav class="nav-bar">
-            <!-- КЕЙСЫ стоят по умолчанию -->
-            <div class="nav-item active" data-target="cases">КЕЙСЫ</div>
-            <div class="nav-item" data-target="inventory">ИНВЕНТАРЬ</div>
+            <!-- Кнопки по ТЗ -->
+            <div class="nav-item active" data-target="inventory">ИНВЕНТАРЬ</div>
+            <div class="nav-item" data-target="events">СОБЫТИЯ</div>
             <div class="nav-item" data-target="promocodes">ПРОМОКОДЫ</div>
-            <div class="nav-item" data-target="referral">РЕФЕРАЛЫ</div>
+            <div class="nav-item" data-target="referral">РЕФЕРАЛЬНЫЙ<br>КАБИНЕТ</div>
         </nav>
 
         <!-- DYNAMIC CONTENT AREA -->
@@ -341,7 +375,7 @@
         tg.ready();
         tg.expand();
 
-        let currentUserData = null; // Храним JSON пользователя глобально
+        let currentUserData = null; 
 
         // --- УТИЛИТА ДЛЯ API ---
         async function apiRequest(endpoint, method = 'POST', body = null) {
@@ -366,7 +400,6 @@
         async function fetchAndApplyUserData() {
             try {
                 // В SPA мы должны делать реальный запрос на бэкенд, чтобы получить пользователя.
-                // Так как у нас нет точного эндпоинта под рукой, я эмулирую подгрузку твоего JSON.
                 // В БОЕВОМ КОДЕ раскомментируй запрос к твоему API:
                 // const data = await apiRequest('/api/v1/bootstrap', 'POST'); 
                 // currentUserData = data.user;
@@ -407,6 +440,24 @@
             }
         }
 
+        // --- ЛОГИКА СИСТЕМНОЙ КНОПКИ НАЗАД ---
+        tg.BackButton.show();
+        tg.BackButton.onClick(() => {
+            const settingsModal = document.getElementById('settings-modal');
+            
+            // Если открыто окно настроек — закрываем его
+            if (settingsModal.classList.contains('visible')) {
+                closeSettings();
+            } else {
+                // Если окон нет, возвращаемся в предыдущее меню (или по истории браузера)
+                if (window.history.length > 1 && document.referrer) {
+                    window.history.back();
+                } else {
+                    window.location.href = '/menu'; // Замени на нужный URL возврата
+                }
+            }
+        });
+
         // --- ЛОГИКА НАСТРОЕК (1 В 1 СТАРЫЙ КОД) ---
         function openSettings() {
             if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
@@ -421,7 +472,6 @@
             const input = document.getElementById('trade-link-input');
             let val = input.value.trim();
             
-            // Валидация как в старом коде
             if (!val.startsWith("https://steamcommunity.com/tradeoffer/new") || !val.includes("partner=") || !val.includes("token=")) {
                 input.classList.add('error');
                 tg.showAlert("Укажите правильную Trade-ссылку из Steam!");
@@ -436,7 +486,6 @@
                 // БОЕВОЙ ЗАПРОС (Перенесли твой 1в1)
                 // await apiRequest('/api/v1/user/trade_link/save', 'POST', { trade_link: val });
                 
-                // Обновляем локально для визуала
                 currentUserData.trade_link = val;
                 document.getElementById('icon-steam').style.color = 'var(--primary-color)';
                 
@@ -459,7 +508,6 @@
                 // tg.openLink(data.url);
                 // setTimeout(() => tg.close(), 500);
 
-                // Эмуляция ответа сервера для теста:
                 setTimeout(() => {
                     tg.showAlert("Здесь откроется OAuth ссылка Twitch (включи боевой запрос в коде)");
                     document.getElementById('global-loader').classList.remove('active');
@@ -482,7 +530,6 @@
                 currentUserData.twitch_login = null;
                 document.getElementById('icon-twitch').style.color = 'var(--danger-color)';
                 
-                // Обновляем визуал в модалке
                 document.getElementById('twitch-status-text').innerText = `Аккаунт не привязан`;
                 document.getElementById('twitch-action-btn-container').innerHTML = `<button class="ios-btn btn-twitch" onclick="connectTwitch()">Привязать</button>`;
                 
@@ -508,7 +555,7 @@
 
                 // Эмуляция для тестов:
                 setTimeout(() => {
-                    contentArea.innerHTML = `<div style="text-align:center; padding-top: 50px; color: rgba(255,255,255,0.5);">Раздел <b>${tabName}.html</b></div>`;
+                    contentArea.innerHTML = `<div style="text-align:center; padding-top: 50px; color: rgba(255,255,255,0.5);">Раздел <b>${tabName}.html</b> загружен</div>`;
                 }, 300);
 
             } catch (error) {
@@ -528,8 +575,8 @@
 
         // Запуск приложения
         fetchAndApplyUserData().then(() => {
-            // Грузим дефолтную вкладку (КЕЙСЫ) после загрузки юзера
-            loadTab('cases');
+            // Грузим Инвентарь по умолчанию (он первый в меню)
+            loadTab('inventory');
         });
 
     </script>
