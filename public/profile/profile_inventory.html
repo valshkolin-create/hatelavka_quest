@@ -39,13 +39,16 @@
     .glass-select option { background: #1c1c1e; color: #fff; }
 
     .sell-all-btn {
-        background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 215, 0, 0.05));
-        backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); color: #ffd700;
-        border: 1px solid rgba(255, 215, 0, 0.4); border-top: 1px solid rgba(255, 215, 0, 0.6);
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); 
+        color: #fff;
+        border: 1px solid rgba(255, 255, 255, 0.15); 
+        border-top: 1px solid rgba(255, 255, 255, 0.25);
         border-radius: 10px; padding: 6px 14px; font-size: 10px; font-weight: 800; cursor: pointer;
-        transition: 0.2s; box-shadow: 0 6px 16px rgba(255, 215, 0, 0.15);
+        transition: 0.2s; 
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
     }
-    .sell-all-btn:active { transform: scale(0.95); background: rgba(255, 215, 0, 0.3); }
+    .sell-all-btn:active { transform: scale(0.95); background: rgba(255, 255, 255, 0.1); }
 
     /* СЕТКА (2 колонки, квадратные карточки) */
     .inventory-grid {
