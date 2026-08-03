@@ -541,25 +541,45 @@
             }
         }
 
-        // --- ЛОГИКА БЕСШОВНОЙ ПОДГРУЗКИ (SPA РОУТЕР) ---
+// --- ЛОГИКА БЕСШОВНОЙ ПОДГРУЗКИ (SPA РОУТЕР) ---
         const navItems = document.querySelectorAll('.nav-item');
         const contentArea = document.getElementById('content-area');
 
         async function loadTab(tabName) {
+            // Показываем крутилку загрузки вкладки
             contentArea.innerHTML = '<div class="tab-loader"><i class="fa-solid fa-circle-notch fa-spin"></i></div>';
+            
             try {
-                // БОЕВОЙ FETCH:
-                // const response = await fetch(`/public/profile/sections/${tabName}.html`);
-                // const html = await response.text();
-                // contentArea.innerHTML = html;
+                // 1. БОЕВОЙ FETCH: Подгружаем HTML-файл
+                // (Если вкладка inventory, грузим profile_inventory.html, иначе по имени вкладки)
+                const fileName = tabName === 'inventory' ? 'profile_inventory' : tabName;
+                const response = await fetch(`/public/profile/${fileName}.html`);
+                
+                if (!response.ok) throw new Error("Файл не найден");
+                const html = await response.text();
+                
+                // Вставляем макет в наш контейнер
+                contentArea.innerHTML = html;
 
-                // Эмуляция для тестов:
-                setTimeout(() => {
-                    contentArea.innerHTML = `<div style="text-align:center; padding-top: 50px; color: rgba(255,255,255,0.5);">Раздел <b>${tabName}.html</b> загружен</div>`;
-                }, 300);
+                // 2. ЕСЛИ ЗАГРУЗИЛСЯ ИНВЕНТАРЬ - ДОСТАЕМ СКИНЫ ИЗ БАЗЫ!
+                if (tabName === 'inventory') {
+                    const invContainer = document.getElementById('inventory-list-container');
+                    if (invContainer) {
+                        invContainer.innerHTML = '<div style="text-align: center; color: rgba(255,255,255,0.5); margin-top: 50px;"><i class="fa-solid fa-circle-notch fa-spin" style="margin-bottom: 10px; font-size: 32px; color: #0a84ff;"></i><br>Связь с базой данных...</div>';
+                    }
+                    
+                    try {
+                        // Делаем реальный запрос к твоему API за скинами
+                        const inventoryData = await apiRequest("/api/v1/user/inventory", "POST");
+                        // Отдаем скины нашей функции отрисовки
+                        renderInventory(inventoryData);
+                    } catch (err) {
+                        if (invContainer) invContainer.innerHTML = `<div style="text-align:center; color:var(--danger-color); margin-top:50px;">Ошибка загрузки предметов:<br>${err.message}</div>`;
+                    }
+                }
 
             } catch (error) {
-                contentArea.innerHTML = '<div style="text-align:center; color:var(--danger-color); padding-top: 50px;">Ошибка загрузки раздела</div>';
+                contentArea.innerHTML = `<div style="text-align:center; color:var(--danger-color); padding-top: 50px;">Ошибка загрузки раздела: ${error.message}</div>`;
             }
         }
 
