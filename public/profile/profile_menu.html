@@ -599,10 +599,10 @@
             loadTab('inventory');
         });
 
+ // =========================================================
+        // ЛОГИКА ИНВЕНТАРЯ (NEW PREMIUM DESIGN)
         // =========================================================
-        // ЛОГИКА ИНВЕНТАРЯ (ИЗ СТАРОГО КОДА, АДАПТИРОВАНА ПОД SPA)
-        // =========================================================
-        
+
         let isUpdating = false;
         let inventoryRefreshInterval = null;
         window.currentInventoryItems = [];
@@ -612,6 +612,7 @@
             renderInventory(window.currentInventoryItems, true);
         }
 
+        // Возвращает HEX цвет редкости
         function getRarityData(rarity) {
             const r = (rarity || '').toLowerCase();
             if (r.includes('gold') || r.includes('крайне') || r.includes('knife')) return { color: '#ffd700', name: 'Крайне редкий' };
@@ -622,6 +623,15 @@
             if (r.includes('industrial') || r.includes('light_blue') || r.includes('промышленное')) return { color: '#5e98d9', name: 'Промышленное качество' };
             if (r.includes('blue') || r.includes('mil-spec') || r.includes('rare') || r.includes('армейское')) return { color: '#4b69ff', name: 'Армейское качество' };
             return { color: '#b0c3d9', name: 'Ширпотреб' };
+        }
+
+        // Превращает HEX (например, #ff453a) в RGBA с нужной прозрачностью для заливки карточки
+        function hexToRgba(hex, alpha) {
+            let r = 0, g = 0, b = 0;
+            hex = hex.replace('#', '');
+            if (hex.length === 3) { r = parseInt(hex[0]+hex[0], 16); g = parseInt(hex[1]+hex[1], 16); b = parseInt(hex[2]+hex[2], 16); }
+            else if (hex.length === 6) { r = parseInt(hex.substring(0,2), 16); g = parseInt(hex.substring(2,4), 16); b = parseInt(hex.substring(4,6), 16); }
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
         }
 
         function parseSafeDate(dateStr) {
@@ -637,6 +647,7 @@
             } catch(e) { return 0; }
         }
 
+        // Таймер для бейджей
         function initCountdown(elementId, updatedAtStr) {
             const el = document.getElementById(elementId);
             if (!el) return;
@@ -651,7 +662,7 @@
             const getDistance = () => expireTime - new Date().getTime();
 
             if (getDistance() < 0) {
-                el.innerHTML = `<span style="color:#ffcc00; font-size:10px;"><i class="fa-solid fa-clock"></i> ВРЕМЯ ВЫШЛО</span>`;
+                el.innerHTML = `ВРЕМЯ ВЫШЛО`;
                 if (el.dataset.intervalId) clearInterval(el.dataset.intervalId);
                 return;
             }
@@ -659,14 +670,14 @@
             const updateTimer = () => {
                 const distance = getDistance();
                 if (distance < 0) {
-                    el.innerHTML = `<span style="color:#34c759; font-size:10px;"><i class="fa-solid fa-circle-notch fa-spin"></i> ПРОВЕРЯЕМ...</span>`;
+                    el.innerHTML = `ПРОВЕРЯЕМ...`;
                     clearInterval(el.dataset.intervalId);
                     checkTradeStatus(historyId, true);
                     return;
                 }
                 const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
                 const seconds = Math.floor((distance % (1000 * 60)) / 1000);
-                el.innerHTML = `<i class="fa-solid fa-clock-rotate-left"></i> ${minutes}м ${seconds < 10 ? '0' + seconds : seconds}с`;
+                el.innerHTML = `${minutes}:${seconds < 10 ? '0' + seconds : seconds}`;
             };
 
             if (el.dataset.intervalId) clearInterval(el.dataset.intervalId);
@@ -674,7 +685,25 @@
             el.dataset.intervalId = setInterval(updateTimer, 1000);
         }
 
-        // --- РЕНДЕР ИНВЕНТАРЯ ---
+        // Переключатель скрытия интерфейса (кнопка "!")
+        window.toggleInvInfo = function(btn) {
+            const card = btn.closest('.inv-card');
+            card.classList.toggle('hide-info');
+            if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+        }
+
+        // Фуллскрин просмотр оружия
+        window.openFullscreenWeapon = function(url, name) {
+            document.getElementById('fullscreen-weapon-img').src = url;
+            document.getElementById('fullscreen-weapon-name').innerText = name;
+            document.getElementById('fullscreen-weapon-modal').classList.add('visible');
+            if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+        }
+        window.closeFullscreenWeapon = function() {
+            document.getElementById('fullscreen-weapon-modal').classList.remove('visible');
+        }
+
+        // --- ГЛАВНЫЙ РЕНДЕР ИНВЕНТАРЯ ---
         function renderInventory(items, isSorting = false) {
             const container = document.getElementById('inventory-list-container');
             if(!container) return; // Защита, если вкладка еще не загружена
@@ -751,6 +780,15 @@
                     displayName = item.details.replace('Выигрыш:', '').split('||')[0].trim();
                 }
                 if (!displayName) displayName = "Секретный приз";
+
+                // Разбиваем имя на Тип (MP9) и Название (Hydra)
+                let itemType = '';
+                let cleanName = displayName;
+                if (displayName.includes('|')) {
+                    const parts = displayName.split('|');
+                    itemType = parts[0].trim();
+                    cleanName = parts.slice(1).join('|').trim();
+                }
                 
                 let imageUrl = item.image_url;
                 if (!imageUrl || imageUrl.includes('null')) imageUrl = 'https://placehold.co/100x100/18181b/3f3f46?text=?';
@@ -767,20 +805,27 @@
                     totalSellTickets += ticketVal;
                 }
 
-                const imageContentHtml = isReplaced 
-                    ? `<i class="fa-solid fa-right-left" style="font-size: 24px; color: #FFD700; text-shadow: 0 0 10px rgba(255, 215, 0, 0.4);"></i>`
-                    : `<img src="${imageUrl}" loading="lazy" decoding="async">`;
+                // --- ЛОГИКА ЦВЕТОВ КАРТОЧКИ ПО ТЗ ---
+                let cardBgColor = hexToRgba(rData.color, 0.15); // Нежный цвет редкости
+                
+                if (status === 'received' || status === 'exchanged') {
+                    cardBgColor = 'rgba(52, 199, 89, 0.15)'; // Нежный зеленый
+                } else if (status === 'failed') {
+                    cardBgColor = 'rgba(255, 69, 58, 0.15)'; // Нежный красный
+                } else if (status === 'exchanged_swap') {
+                    cardBgColor = 'rgba(255, 215, 0, 0.15)'; // Нежный желтый
+                }
 
-                const timestamp = parseSafeDate(item.created_at || item.updated_at || item.date);
-                const dateObj = new Date(timestamp);
-                const dateStr = timestamp > 0 ? dateObj.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }) : '??.??';
-
-                const timerElementId = `timer-${historyId}`;
-                let rightContentHtml = '';
-                let cardOpacity = '1';
+                // --- ЛОГИКА БЕЙДЖЕЙ (КАК НА МАКЕТЕ) ---
+                let statusBadgesHtml = '';
+                let expirationHtml = '';
+                let isExpired = false;
                 let overlayHtml = '';
 
-                // Оверлей отмены
+                const timerElementId = `timer-${historyId}`;
+                const safeNameStr = displayName.replace(/'/g, "\\'");
+
+                // Проверяем, отменен ли трейд
                 const isCancelAcked = localStorage.getItem(`ack_cancel_${historyId}`);
                 if (status === 'canceled' && !isCancelAcked) {
                     let titleText = "Трейд<br>отменен!";
@@ -798,61 +843,8 @@
                     `;
                 }
 
-                if (status === 'auto_queued') {
-                    rightContentHtml = `<div style="color: #64d2ff; font-size: 9px; font-weight: 800; padding: 4px 0;">ПОИСК...</div>`;
-                }
-                else if (status === 'processing') {
-                    rightContentHtml = `<div style="color: #ffd700; font-size: 9px; font-weight: 800; padding: 4px 0;">ОБРАБОТКА</div>`;
-                }
-                else if (status === 'market_pending') {
-                    rightContentHtml = `
-                        <div style="color: #bf5af2; font-size: 9px; font-weight: 800; text-transform: uppercase; margin-bottom: 2px;">
-                            <i class="fa-solid fa-spinner fa-spin"></i> СБОРКА БОТОМ
-                        </div>
-                        <div style="font-size: 8px; color: rgba(255,255,255,0.6); margin-bottom: 4px;">Ждем отправку...</div>
-                        <button id="check-btn-${historyId}" class="inv-btn" onclick="checkTradeStatus(${historyId})" style="background: rgba(255,255,255,0.1); color: #fff;">
-                            <span id="check-icon-${historyId}"><i class="fa-solid fa-rotate"></i> Обновить</span>
-                        </button>`;
-                }
-                else if (status === 'offer_sent' || status === 'sent') {
-                    rightContentHtml = `
-                        <div style="color: #ffd700; font-size: 9px; font-weight: 800; text-transform: uppercase; margin-bottom: 2px; animation: pulse-opacity 1.5s infinite;">
-                            ПРИМИТЕ ОФФЕР
-                        </div>
-                        <div id="${timerElementId}" style="background: rgba(255,255,255,0.1); color: #fff; padding: 4px 2px; border-radius: 6px; font-size: 9px; font-family: monospace; margin-bottom: 4px;">--:--</div>
-                        <div style="display: flex; gap: 4px; margin-top: 4px;">
-                            <button class="inv-btn" onclick="window.open('https://steamcommunity.com/my/tradeoffers/', '_blank')" style="background: rgba(10, 132, 255, 0.8); color: #fff; flex: 1;">
-                                <i class="fa-brands fa-steam"></i> Steam
-                            </button>
-                            <button id="check-btn-${historyId}" class="inv-btn" onclick="checkTradeStatus(${historyId})" style="background: rgba(255, 215, 0, 0.8); color: #000; flex: 1;">
-                                <span id="check-icon-${historyId}"><i class="fa-solid fa-rotate"></i> Чек</span>
-                            </button>
-                        </div>`;
-                    setTimeout(() => { if (typeof initCountdown === 'function') initCountdown(timerElementId, item.updated_at); }, 50);
-                }
-                else if (status === 'received') {
-                    cardOpacity = '0.6';
-                    rightContentHtml = `<div style="color: #32d74b; font-size: 10px; font-weight: 800;"><i class="fa-solid fa-check"></i> ПОЛУЧЕНО</div>`;
-                } 
-                else if (status === 'exchanged') {
-                    cardOpacity = '0.6';
-                    rightContentHtml = `<div style="color: #fff; font-size: 10px; font-weight: 800;">+${ticketVal} <i class="fa-solid fa-ticket" style="color:#ffd700;"></i></div>`;
-                }
-                else if (status === 'exchanged_swap') {
-                    cardOpacity = '0.6';
-                    rightContentHtml = `<div style="color: rgba(255,255,255,0.6); font-size: 10px; font-weight: 800;">СВАП</div>`;
-                }
-                else if (status === 'failed') {
-                    cardOpacity = '0.8';
-                    rightContentHtml = `
-                        <div style="color: #ff453a; font-size: 9px; font-weight: 800; margin-bottom: 4px;">
-                            <i class="fa-solid fa-triangle-exclamation"></i> ОШИБКА
-                        </div>
-                        <div style="font-size: 8px; color: rgba(255,255,255,0.6); line-height: 1.2;">Скин заморожен.</div>
-                    `;
-                }
-                else {
-                    // available, pending, canceled
+                // Расчет сгорания
+                if (['available', 'pending', 'canceled'].includes(status)) {
                     const updateTimeMs = parseSafeDate(item.updated_at || item.created_at);
                     const source = item.source || 'shop';
                     const amnestyTimestamp = new Date('2026-07-15T00:00:00+03:00').getTime();
@@ -864,9 +856,6 @@
                         expireTimeMs = updateTimeMs + (daysToKeep * 24 * 60 * 60 * 1000);
                     }
                     
-                    let expirationHtml = '';
-                    let isExpired = false;
-                    
                     if (updateTimeMs > 0) {
                         const timeLeftMs = expireTimeMs - Date.now();
                         if (timeLeftMs > 0) {
@@ -876,56 +865,80 @@
                             if (days === 0 && hours === 0) timeStr = `${Math.floor((timeLeftMs % (1000 * 60 * 60)) / (1000 * 60))}м`;
                             
                             const textColor = days < 1 ? '#ff453a' : '#ff9f0a';
-                            expirationHtml = `
-                                <div style="color: ${textColor}; font-size: 8px; font-weight: 800; margin-bottom: 4px; text-transform: uppercase;">
-                                    <i class="fa-solid fa-fire"></i> Сгорит: ${timeStr}
-                                </div>`;
+                            expirationHtml = `<div class="inv-expiration" style="color: ${textColor};">Сгорит: ${timeStr}</div>`;
                         } else {
                             isExpired = true;
-                            expirationHtml = `
-                                <div style="color: #ff453a; font-size: 8px; font-weight: 800; margin-bottom: 4px; text-transform: uppercase;">
-                                    <i class="fa-solid fa-skull"></i> ВРЕМЯ ВЫШЛО
-                                </div>`;
+                            expirationHtml = `<div class="inv-expiration" style="color: #ff453a;">СГОРЕЛ</div>`;
                         }
                     }
-
-                    const btnStyle = isExpired ? 'background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.3); cursor: not-allowed; border: none; box-shadow: none;' : '';
-                    const withdrawAction = isExpired ? '' : `onclick="withdrawItem(${historyId}, '${displayName.replace(/'/g, "\\'")}')"`;
-                    const sellAction = isExpired ? '' : `onclick="exchangeItem(${historyId}, ${ticketVal})"`;
-
-                    rightContentHtml = `
-                        ${expirationHtml}
-                        <button id="withdraw-btn-${historyId}" class="inv-btn inv-btn-claim" style="${btnStyle}" ${withdrawAction} ${isExpired ? 'disabled' : ''}>
-                            ЗАБРАТЬ
-                        </button>
-                        <button class="inv-btn inv-btn-sell" style="${btnStyle}" ${sellAction} ${isExpired ? 'disabled' : ''}>
-                            ЗА ${ticketVal} 🎟️
-                        </button>`;
                 }
 
+                // Генерация бейджей в зависимости от статуса
+                if (isExpired) {
+                    statusBadgesHtml = `<div class="neon-badge red">ВРЕМЯ ВЫШЛО</div>`;
+                } else if (['available', 'pending', 'canceled'].includes(status)) {
+                    statusBadgesHtml = `
+                        <div class="neon-badge orange btn" onclick="exchangeItem(${historyId}, ${ticketVal})">Продать за ${ticketVal} 🎟️</div>
+                        <div class="neon-badge yellow btn" id="withdraw-btn-${historyId}" onclick="withdrawItem(${historyId}, '${safeNameStr}')">Получить</div>
+                    `;
+                } else if (status === 'auto_queued') {
+                    statusBadgesHtml = `<div class="neon-badge blue">Поиск...</div>`;
+                } else if (status === 'processing') {
+                    statusBadgesHtml = `<div class="neon-badge yellow">Обработка...</div>`;
+                } else if (status === 'market_pending') {
+                    statusBadgesHtml = `
+                        <div class="neon-badge purple"><i class="fa-solid fa-spinner fa-spin"></i> Сборка ботом</div>
+                        <div class="neon-badge blue btn" id="check-btn-${historyId}" onclick="checkTradeStatus(${historyId})">
+                            <span id="check-icon-${historyId}">Обновить</span>
+                        </div>
+                    `;
+                } else if (status === 'offer_sent' || status === 'sent') {
+                    statusBadgesHtml = `
+                        <div class="neon-badge orange" id="${timerElementId}">--:--</div>
+                        <div class="neon-badge orange btn" onclick="window.open('https://steamcommunity.com/my/tradeoffers/', '_blank')">Принять трейд</div>
+                        <div class="neon-badge blue btn" id="check-btn-${historyId}" onclick="checkTradeStatus(${historyId})">
+                            <span id="check-icon-${historyId}">Обновить статус</span>
+                        </div>
+                    `;
+                    setTimeout(() => { if (typeof initCountdown === 'function') initCountdown(timerElementId, item.updated_at); }, 50);
+                } else if (status === 'received') {
+                    statusBadgesHtml = `<div class="neon-badge green">Успешно выведен</div>`;
+                } else if (status === 'exchanged') {
+                    statusBadgesHtml = `<div class="neon-badge green">Продан за ${ticketVal} 🎟️</div>`;
+                } else if (status === 'exchanged_swap') {
+                    statusBadgesHtml = `<div class="neon-badge yellow">Свап</div>`;
+                } else if (status === 'failed') {
+                    statusBadgesHtml = `<div class="neon-badge red">Заморожен / Ошибка</div>`;
+                }
+
+                // Сборка карточки HTML
                 const el = document.createElement('div');
                 el.className = 'inv-card';
-                el.style.opacity = cardOpacity;
-                el.style.borderLeft = `3px solid ${rData.color}`; // Акцентная полоса слева
-                el.style.setProperty('--rarity-color', rData.color); // Для фонового свечения
-                
-                const conditionText = (item.condition && !isReplaced && !isSwapped) ? item.condition : '';
+                el.style.background = cardBgColor; 
+                el.style.setProperty('--rarity-color', rData.color); // Для фонового свечения (если включено в CSS)
                 
                 el.innerHTML = `
                     ${overlayHtml}
-                    <div class="inv-card-top">
-                        <span>#${historyId}</span>
-                        <span style="color: rgba(255,255,255,0.4);">${conditionText}</span>
-                        <span>${dateStr}</span>
+                    <!-- Ценник -->
+                    <div class="inv-price-pill">${rawPrice} <i class="fa-solid fa-ruble-sign" style="font-size:9px; margin-left: 2px;"></i></div>
+                    
+                    <!-- Стэк бейджей действий -->
+                    <div class="inv-status-stack">
+                        ${statusBadgesHtml}
                     </div>
-                    <div class="inv-card-img-wrap">
-                        ${imageContentHtml}
+
+                    <!-- Оружие по центру (Кликабельно) -->
+                    <img src="${imageUrl}" class="inv-image-center" onclick="openFullscreenWeapon('${imageUrl}', '${safeNameStr}')">
+
+                    <!-- Информация снизу слева -->
+                    <div class="inv-bottom-info">
+                        ${itemType ? `<div class="inv-name-type">${itemType}</div>` : ''}
+                        <div class="inv-name-skin">${cleanName}</div>
+                        ${expirationHtml}
                     </div>
-                    <div class="inv-card-price">${item.price_rub ? item.price_rub + ' ₽' : '??? ₽'}</div>
-                    <div class="inv-card-name" style="color: ${rData.color};">${displayName}</div>
-                    <div class="inv-card-status">
-                        ${rightContentHtml}
-                    </div>
+
+                    <!-- Кнопка '!' снизу справа -->
+                    <div class="inv-info-btn" onclick="toggleInvInfo(this)">!</div>
                 `;
                 container.appendChild(el);
             });
@@ -996,8 +1009,7 @@
             showCustomConfirmHTML(`Вывести "${itemName}" в Steam?`, async (closeConfirm) => {
                 isUpdating = true;
                 const btn = document.getElementById(`withdraw-btn-${historyId}`);
-                const originalText = btn ? btn.innerHTML : "ЗАБРАТЬ";
-                if (btn) { btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> ЖДЕМ...'; btn.style.opacity = '0.7'; }
+                if (btn) { btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>'; btn.style.opacity = '0.7'; }
 
                 try {
                     const res = await apiRequest('/api/v1/user/inventory/withdraw', 'POST', { history_id: historyId });
@@ -1010,12 +1022,12 @@
                         if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
                         tg.showPopup({message: res.message});
                     }
-                    // Обновляем данные на бэке. Заглушка для теста:
-                    console.log('Данные обновлены после вывода');
+                    
+                    await loadData(true);
                 } catch (e) {
                     closeConfirm();
                     tg.showAlert("Ошибка: " + e.message);
-                    if (btn) { btn.innerHTML = originalText; btn.style.opacity = '1'; }
+                    if (btn) { btn.innerHTML = 'Получить'; btn.style.opacity = '1'; }
                 } finally {
                     isUpdating = false;
                 }
@@ -1034,6 +1046,7 @@
                     tg.showAlert(res.message || `Успешно! +${amount} билетов.`);
                     if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
                     close();
+                    await loadData(true);
                 } catch (e) {
                     tg.showAlert(e.message || "Ошибка при массовой продаже");
                     close();
@@ -1051,6 +1064,7 @@
                     tg.showAlert(res.message || `Успешно! +${amount} билетов.`);
                     if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
                     close();
+                    await loadData(true);
                 } catch (e) {
                     tg.showAlert(e.message || "Ошибка обмена");
                     close();
@@ -1083,11 +1097,12 @@
                 } else {
                     if (!isAuto) tg.showPopup({message: res.message || "Оффер еще не принят. Посмотрите в Steam."});
                 }
-                console.log('Статус обновлен');
+                
+                await loadData(true);
             } catch (e) {
                 if (!isAuto) tg.showAlert("Ошибка: " + e.message);
             } finally {
-                if (iconContainer) iconContainer.innerHTML = '<i class="fa-solid fa-rotate"></i> Чек';
+                if (iconContainer) iconContainer.innerHTML = 'Обновить';
                 if (btn) btn.style.opacity = '1';
             }
         }
@@ -1148,6 +1163,7 @@
                     if (res && res.success) {
                         if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
                         tg.showPopup({message: 'Замена успешно выбрана!'});
+                        await loadData(true);
                     } else {
                         tg.showAlert("❌ " + (res.message || "Ошибка замены"));
                     }
