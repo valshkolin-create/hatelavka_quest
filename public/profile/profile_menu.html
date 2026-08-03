@@ -1176,7 +1176,7 @@
                     
                     <!-- Кнопка ДЕЙСТВИЕ в самом низу (ФОН УМЕНЬШЕН ПО ВЫСОТЕ) -->
                     ${bottomBtnText ? `
-                    <div ${bottomBtnAction} style="position:absolute; bottom:0; left:0; width:100%; display:flex; flex-direction:column; justify-content:center; align-items:center; background:rgba(0,0,0,0.4); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); border-top:1px solid rgba(255,255,255,0.05); color:#fff; font-size:8px; font-weight:800; padding:4px 0; cursor:pointer; transition:0.2s; z-index:15;">
+                    <div ${bottomBtnAction} style="position:absolute; bottom:0; left:0; width:100%; display:flex; flex-direction:column; justify-content:center; align-items:center; background:rgba(0,0,0,0.4); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); border-top:1px solid rgba(255,255,255,0.05); color:#fff; font-size:8px; font-weight:800; padding:0px 0; cursor:pointer; transition:0.2s; z-index:15;">
                         ${expirationHtml && !isExpired ? `<span style="color:#ff4c4c; font-size:7px; font-weight:900; margin-bottom:1px;">${expirationHtml}</span>` : ''}
                         <span style="display:flex; align-items:center; gap: 3px;">${bottomBtnText}</span>
                     </div>
