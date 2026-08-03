@@ -899,7 +899,7 @@
                 }
 
                 // Нижняя кнопка-триггер и выезжающее меню (Action Panel)
-                let bottomBtnText = 'ДЕЙСТВИЕ <i class="fa-solid fa-chevron-up" style="font-size:7px; margin-left:4px;"></i>';
+                let bottomBtnText = 'ДЕЙСТВИЕ <i class="fa-solid fa-chevron-up" style="font-size:7px; margin-left:2px;"></i>';
                 let bottomBtnAction = `onclick="toggleActionPanel('${historyId}', true, event)"`;
                 let panelContent = '';
                 
@@ -909,76 +909,76 @@
                     bottomBtnText = 'СГОРЕЛ';
                     bottomBtnAction = '';
                 } else if (status === 'market_pending') {
-                    bottomBtnText = 'ОБНОВИТЬ СТАТУС';
+                    bottomBtnText = 'ОБНОВИТЬ';
                     bottomBtnAction = `onclick="checkTradeStatus(${historyId})"`;
                 } else if (status === 'processing') {
-                    bottomBtnText = 'ОБРАБОТКА...';
+                    bottomBtnText = 'ОБРАБОТКА';
                     bottomBtnAction = '';
                 } else if (status === 'auto_queued') {
                     bottomBtnText = 'ПОИСК...';
                     bottomBtnAction = '';
                 } else if (status === 'offer_sent' || status === 'sent') {
                     const timerElementId = `timer-${historyId}`;
-                    bottomBtnText = `<span id="${timerElementId}">--:--</span> <i class="fa-solid fa-chevron-up" style="font-size:7px; margin-left:4px;"></i>`;
+                    bottomBtnText = `<span id="${timerElementId}">--:--</span> <i class="fa-solid fa-chevron-up" style="font-size:7px; margin-left:2px;"></i>`;
                     
                     panelContent = `
-                        <div style="font-size:8px; font-weight:800; color:rgba(255,255,255,0.4); margin-bottom:4px; text-align:center;">ОФФЕР ОТПРАВЛЕН</div>
-                        <button onclick="window.open('https://steamcommunity.com/my/tradeoffers/', '_blank'); toggleActionPanel('${historyId}', false, event);" style="background:rgba(52,199,89,0.1); border:1px solid rgba(52,199,89,0.3); color:#32d74b; border-radius:6px; font-size:9px; font-weight:800; padding:8px; width:100%; margin-bottom:6px;">ОТКРЫТЬ STEAM</button>
-                        <button id="check-btn-${historyId}" onclick="checkTradeStatus(${historyId}); toggleActionPanel('${historyId}', false, event);" style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); color:#fff; border-radius:6px; font-size:9px; font-weight:800; padding:8px; width:100%;">ОБНОВИТЬ СТАТУС</button>
+                        <button onclick="window.open('https://steamcommunity.com/my/tradeoffers/', '_blank'); toggleActionPanel('${historyId}', false, event);" style="box-sizing:border-box; background:rgba(52,199,89,0.1); border:1px solid rgba(52,199,89,0.3); color:#32d74b; border-radius:6px; font-size:8px; font-weight:800; padding:4px; width:100%; margin-bottom:4px; line-height:1.3;">ОТКРЫТЬ<br>STEAM</button>
+                        <button id="check-btn-${historyId}" onclick="checkTradeStatus(${historyId}); toggleActionPanel('${historyId}', false, event);" style="box-sizing:border-box; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); color:#fff; border-radius:6px; font-size:8px; font-weight:800; padding:4px; width:100%; line-height:1.3;">ОБНОВИТЬ<br>СТАТУС</button>
                     `;
                     setTimeout(() => { if (typeof initCountdown === 'function') initCountdown(timerElementId, item.updated_at); }, 50);
                 } else {
                     // Available / Pending
                     panelContent = `
-                        <div style="font-size:8px; font-weight:800; color:rgba(255,255,255,0.4); margin-bottom:4px; text-align:center;">ВЫБЕРИТЕ ДЕЙСТВИЕ</div>
-                        <button onclick="exchangeItem(${historyId}, ${ticketVal}); toggleActionPanel('${historyId}', false, event);" style="background:rgba(255,149,0,0.1); border:1px solid rgba(255,149,0,0.3); color:#ff9f0a; border-radius:6px; font-size:9px; font-weight:800; padding:8px; width:100%; margin-bottom:6px;">ПРОДАТЬ ЗА ${ticketVal} <i class="fa-solid fa-ticket"></i></button>
-                        <button id="withdraw-btn-${historyId}" onclick="withdrawItem(${historyId}, '${safeNameStr}'); toggleActionPanel('${historyId}', false, event);" style="background:rgba(10,132,255,0.1); border:1px solid rgba(10,132,255,0.3); color:#0a84ff; border-radius:6px; font-size:9px; font-weight:800; padding:8px; width:100%;">ЗАБРАТЬ В STEAM</button>
+                        <button onclick="exchangeItem(${historyId}, ${ticketVal}); toggleActionPanel('${historyId}', false, event);" style="box-sizing:border-box; background:rgba(255,149,0,0.1); border:1px solid rgba(255,149,0,0.3); color:#ff9f0a; border-radius:6px; font-size:8px; font-weight:800; padding:4px; width:100%; margin-bottom:4px; line-height:1.3;">ПРОДАТЬ ЗА ${ticketVal}<br><i class="fa-solid fa-ticket"></i></button>
+                        <button id="withdraw-btn-${historyId}" onclick="withdrawItem(${historyId}, '${safeNameStr}'); toggleActionPanel('${historyId}', false, event);" style="box-sizing:border-box; background:rgba(10,132,255,0.1); border:1px solid rgba(10,132,255,0.3); color:#0a84ff; border-radius:6px; font-size:8px; font-weight:800; padding:4px; width:100%; line-height:1.3;">ЗАБРАТЬ В<br>STEAM</button>
                     `;
                 }
 
                 const el = document.createElement('div');
-                el.style.cssText = `position: relative; aspect-ratio: 1 / 1; display: flex; flex-direction: column; border-radius: 12px; border: ${cardBorder}; background: ${cardBgColor}; box-shadow: ${cardShadow}; overflow: hidden; transition: all 0.3s ease;`;
+                // Карточка-квадрат
+                el.style.cssText = `position: relative; aspect-ratio: 1 / 1; display: flex; flex-direction: column; border-radius: 12px; border: ${cardBorder}; background: ${cardBgColor}; box-shadow: ${cardShadow}; overflow: hidden; transition: all 0.3s ease; box-sizing: border-box;`;
                 
                 el.innerHTML = `
-                    <!-- 1. Матовое окно с тех. данными (Увеличенный !, закрытие по клику в любое место) -->
-                    <div id="tech-info-${historyId}" onclick="toggleTechInfo('${historyId}', false, event)" style="position:absolute; inset:0; background:rgba(0,0,0,0.95); backdrop-filter:blur(10px); z-index:50; opacity:0; pointer-events:none; transition:0.2s; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; padding:10px;">
-                        <i class="fa-solid fa-xmark" style="position:absolute; top:8px; right:8px; font-size:16px; color:#fff;"></i>
-                        <div style="color:#fff; font-weight:900; font-size:11px; margin-bottom:8px; text-transform:uppercase;">Тех. Данные</div>
-                        <div style="font-size:9px; color:rgba(255,255,255,0.6); margin-bottom:4px;">ID: <span style="color:#fff;">#${historyId}</span></div>
-                        <div style="font-size:9px; color:rgba(255,255,255,0.6); margin-bottom:4px;">Цена Steam: <span style="color:#fff;">${parsedBasePrice} ₽</span></div>
-                        <div style="font-size:9px; color:rgba(255,255,255,0.6); margin-bottom:4px;">Редкость:<br><span style="color:${rData.color};">${rData.name}</span></div>
-                        <div style="font-size:9px; color:rgba(255,255,255,0.6);">Статус:<br><span style="color:#fff;">${status}</span></div>
+                    <!-- 1. Матовое окно с тех. данными -->
+                    <div id="tech-info-${historyId}" onclick="toggleTechInfo('${historyId}', false, event)" style="position:absolute; inset:0; background:rgba(0,0,0,0.95); backdrop-filter:blur(10px); z-index:50; opacity:0; pointer-events:none; transition:0.2s; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; padding:8px; box-sizing:border-box; width:100%;">
+                        <i class="fa-solid fa-xmark" style="position:absolute; top:6px; right:6px; font-size:14px; color:#fff;"></i>
+                        <div style="color:#fff; font-weight:900; font-size:10px; margin-bottom:6px; text-transform:uppercase;">Тех. Данные</div>
+                        <div style="font-size:8px; color:rgba(255,255,255,0.6); margin-bottom:4px;">ID: <span style="color:#fff;">#${historyId}</span></div>
+                        <div style="font-size:8px; color:rgba(255,255,255,0.6); margin-bottom:4px;">Цена: <span style="color:#fff;">${parsedBasePrice} ₽</span></div>
+                        <div style="font-size:8px; color:rgba(255,255,255,0.6); margin-bottom:4px;">Редкость:<br><span style="color:${rData.color};">${rData.name}</span></div>
+                        <div style="font-size:8px; color:rgba(255,255,255,0.6);">Статус:<br><span style="color:#fff;">${status}</span></div>
                     </div>
 
-                    <!-- 2. Выезжающее меню "Действие" -->
+                    <!-- 2. Выезжающее меню "Действие" (ужато под квадрат) -->
                     ${panelContent ? `
-                    <div id="action-panel-${historyId}" style="position:absolute; bottom:-100%; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); backdrop-filter:blur(10px); z-index:40; opacity:0; pointer-events:none; transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1); display:flex; flex-direction:column; justify-content:flex-end; padding:8px;">
-                        <i class="fa-solid fa-chevron-down" onclick="toggleActionPanel('${historyId}', false, event)" style="position:absolute; top:8px; right:8px; font-size:14px; color:#fff; padding:6px; cursor:pointer;"></i>
+                    <div id="action-panel-${historyId}" style="position:absolute; bottom:-100%; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); backdrop-filter:blur(10px); z-index:40; opacity:0; pointer-events:none; transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1); display:flex; flex-direction:column; justify-content:flex-end; padding:4px; box-sizing:border-box;">
+                        <div onclick="toggleActionPanel('${historyId}', false, event)" style="position:absolute; top:0; left:0; width:100%; height:100%; z-index:-1; cursor:pointer;"></div>
+                        <i class="fa-solid fa-chevron-down" onclick="toggleActionPanel('${historyId}', false, event)" style="align-self:center; font-size:12px; color:#fff; padding-bottom:6px; cursor:pointer;"></i>
                         ${panelContent}
                     </div>
                     ` : ''}
 
-                    <!-- Увеличенный восклицательный знак (Вызов тех инфы) -->
-                    <div onclick="toggleTechInfo('${historyId}', true, event)" style="position:absolute; top:4px; right:4px; width:24px; height:24px; border-radius:50%; background:rgba(0,0,0,0.4); color:rgba(255,255,255,0.6); font-weight:900; display:flex; justify-content:center; align-items:center; z-index:20; font-size:11px; border:1px solid rgba(255,255,255,0.1); cursor:pointer;">!</div>
+                    <!-- Кнопка вызова тех. инфы -->
+                    <div onclick="toggleTechInfo('${historyId}', true, event)" style="position:absolute; top:4px; right:4px; width:22px; height:22px; border-radius:50%; background:rgba(0,0,0,0.4); color:rgba(255,255,255,0.6); font-weight:900; display:flex; justify-content:center; align-items:center; z-index:20; font-size:10px; border:1px solid rgba(255,255,255,0.1); cursor:pointer;">!</div>
 
-                    <!-- Оружие по центру (Затухает при продаже) -->
+                    <!-- Оружие по центру -->
                     <div style="flex-grow:1; display:flex; justify-content:center; align-items:center; position:relative; overflow:hidden;" onclick="${!isArchived ? `openFullscreenWeapon('${imageUrl}', '${safeNameStr}')` : ''}">
                         <img src="${imageUrl}" style="${imageStyles}">
                         ${centerOverlay}
                     </div>
 
-                    <!-- Информация внизу (Название, Цена над сгоранием) -->
-                    <div style="padding: 6px; display:flex; flex-direction:column; gap:2px; background:linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%); pointer-events:none; z-index:10;">
-                        <div style="font-size:9px; font-weight:900; color:rgba(255,255,255,0.9); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${cleanName}</div>
+                    <!-- Информация внизу -->
+                    <div style="padding: 4px; display:flex; flex-direction:column; gap:2px; background:linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%); pointer-events:none; z-index:10; box-sizing:border-box; width:100%;">
+                        <div style="font-size:8px; font-weight:900; color:rgba(255,255,255,0.9); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${cleanName}</div>
                         ${!isArchived ? `
-                            <div style="font-size:9px; font-weight:800; color:#ffd700;">${rawPrice} ₽</div>
+                            <div style="font-size:8px; font-weight:800; color:#ffd700;">${rawPrice} ₽</div>
                             ${expirationHtml}
                         ` : ''}
                     </div>
                     
-                    <!-- Кнопка ДЕЙСТВИЕ (Отцентрована, не вылазит) -->
+                    <!-- Кнопка ДЕЙСТВИЕ -->
                     ${bottomBtnText ? `
-                    <div ${bottomBtnAction} style="box-sizing: border-box; display: flex; justify-content: center; align-items: center; background:rgba(255,255,255,0.03); border-top:1px solid rgba(255,255,255,0.05); color:#fff; font-size:8px; font-weight:800; padding:6px 0; width:100%; cursor:pointer; transition:0.2s; z-index:15;">${bottomBtnText}</div>
+                    <div ${bottomBtnAction} style="box-sizing:border-box; display:flex; justify-content:center; align-items:center; background:rgba(255,255,255,0.03); border-top:1px solid rgba(255,255,255,0.05); color:#fff; font-size:7px; font-weight:800; padding:6px 2px; width:100%; cursor:pointer; transition:0.2s; z-index:15; white-space:nowrap; overflow:hidden;">${bottomBtnText}</div>
                     ` : ''}
                 `;
                 container.appendChild(el);
