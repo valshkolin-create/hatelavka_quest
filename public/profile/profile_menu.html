@@ -1102,7 +1102,7 @@
                             const hours = Math.floor((timeLeftMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
                             let timeStr = days > 0 ? `${days}д ${hours}ч` : `${hours}ч`;
                             if (days === 0 && hours === 0) timeStr = `${Math.floor((timeLeftMs % (1000 * 60 * 60)) / (1000 * 60))}м`;
-                            expirationHtml = `Сгорит: ${timeStr}`; // <-- Убрали кавычки и div, отдаем чистый текст
+                            expirationHtml = `Сгорит через ${timeStr}`; // <-- Убрали кавычки и div, отдаем чистый текст
                         } else {
                             isExpired = true;
                             expirationHtml = `СГОРЕЛ`;
