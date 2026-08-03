@@ -9,18 +9,21 @@
     
     <style>
         :root {
-            --bg-color: #000000;
+            /* Единая элегантная палитра */
+            --bg-color: #050505;
             --text-color: #ffffff;
-            --text-color-muted: #ebebf5;
-            --primary-color: #34c759;
-            --action-color: #0a84ff;
-            --danger-color: #ff453a;
+            --text-color-muted: #8e8e93;
             
-            /* iOS Liquid Glass Variables - Темное тонированное стекло */
-            --glass-bg: linear-gradient(135deg, rgba(25, 25, 28, 0.85), rgba(0, 0, 0, 0.7));
-            --glass-border: rgba(255, 255, 255, 0.1);
-            --glass-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
-            --glass-blur: blur(20px);
+            /* Убираем светофор. Оставляем благородные цвета */
+            --primary-color: #ffffff; 
+            --action-color: rgba(255, 255, 255, 0.15);
+            --danger-color: rgba(255, 69, 58, 0.9);
+            
+            /* iOS Liquid Glass Variables - Премиальное темное стекло */
+            --glass-bg: rgba(18, 18, 20, 0.75);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --glass-shadow: 0 10px 40px rgba(0, 0, 0, 0.9);
+            --glass-blur: blur(25px);
             
             /* БАЗОВЫЙ ОТСТУП ДЛЯ МОБИЛЬНЫХ УСТРОЙСТВ */
             --safe-top-gap: calc(env(safe-area-inset-top, 15px) + 40px);
@@ -70,11 +73,11 @@
             left: 0;
             width: 100%;
             box-sizing: border-box;
-            background: var(--glass-bg);
+            background: linear-gradient(180deg, rgba(15,15,15,0.9) 0%, rgba(10,10,12,0.7) 100%);
             backdrop-filter: var(--glass-blur);
             -webkit-backdrop-filter: var(--glass-blur);
             border-bottom: 1px solid var(--glass-border);
-            box-shadow: var(--glass-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.15); 
+            box-shadow: var(--glass-shadow); 
             z-index: 1000;
             padding-top: var(--safe-top-gap);
         }
@@ -93,10 +96,10 @@
             height: 75px;
             border-radius: 22px; 
             overflow: hidden;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-            border: 1px solid rgba(255,255,255,0.2);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.8);
+            border: 1px solid var(--glass-border);
             flex-shrink: 0;
-            background: #1c1c1e;
+            background: #111;
         }
 
         .avatar-container img {
@@ -122,32 +125,32 @@
         
         .user-icons i {
             cursor: pointer;
-            transition: transform 0.2s, color 0.3s ease;
-            text-shadow: 0 0 10px rgba(0,0,0,0.5);
+            transition: transform 0.2s, color 0.3s ease, text-shadow 0.3s ease;
         }
         
         .user-icons i:active { transform: scale(0.8); }
 
         .nickname {
-            color: var(--danger-color);
+            color: #ffffff;
             font-size: 18px;
             font-weight: 800;
             letter-spacing: 0.5px;
             margin-bottom: 2px;
             text-transform: uppercase;
+            text-shadow: 0 2px 10px rgba(255,255,255,0.1);
         }
 
         .user-id {
-            color: #b0b0b0;
+            color: var(--text-color-muted);
             font-size: 11px;
             font-weight: 800;
             margin-bottom: 8px;
         }
 
         .settings-btn {
-            background-color: #1c1c1e;
+            background-color: rgba(255,255,255,0.05);
             color: #fff;
-            border: 1px solid #333;
+            border: 1px solid var(--glass-border);
             border-radius: 8px;
             padding: 4px 12px;
             font-size: 10px;
@@ -156,8 +159,9 @@
             cursor: pointer;
             width: fit-content;
             transition: all 0.2s;
+            backdrop-filter: blur(10px);
         }
-        .settings-btn:active { transform: scale(0.95); background: #2c2c2e; }
+        .settings-btn:active { transform: scale(0.95); background: rgba(255,255,255,0.1); }
 
         .history-block {
             display: flex;
@@ -171,6 +175,7 @@
             font-weight: 900;
             text-transform: uppercase;
             letter-spacing: 1px;
+            color: var(--text-color-muted);
         }
 
         .history-slots {
@@ -181,9 +186,9 @@
         .h-slot {
             width: 32px;
             height: 32px;
-            background-color: rgba(255, 255, 255, 0.05);
+            background-color: rgba(255, 255, 255, 0.03);
             border-radius: 6px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.05);
         }
 
         /* --- NAV BAR --- */
@@ -199,7 +204,7 @@
             text-align: center;
             font-size: 9px;
             font-weight: 800;
-            color: rgba(255,255,255,0.5);
+            color: rgba(255,255,255,0.3);
             padding: 8px 2px;
             text-transform: uppercase;
             cursor: pointer;
@@ -213,9 +218,9 @@
         }
 
         .nav-item.active {
-            color: var(--danger-color);
+            color: #ffffff;
             font-weight: 800;
-            text-shadow: 0 0 10px rgba(255,69,58,0.3);
+            text-shadow: 0 0 15px rgba(255,255,255,0.4);
         }
         
         /* --- CONTENT AREA --- */
@@ -242,8 +247,8 @@
         
         /* --- LIQUID GLASS MODAL (SETTINGS) --- */
         .modal-overlay {
-            position: fixed; inset: 0; background: rgba(0,0,0,0.6);
-            backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+            position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
             z-index: 10000; display: flex; align-items: flex-end; justify-content: center;
             opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
         }
@@ -266,68 +271,69 @@
             display: flex; justify-content: space-between; align-items: center;
             margin-bottom: 25px;
         }
-        .sheet-title { font-size: 20px; font-weight: 800; margin: 0; }
+        .sheet-title { font-size: 20px; font-weight: 800; margin: 0; color: #fff; }
         .sheet-close {
-            background: rgba(255,255,255,0.1); border: none; color: #fff;
+            background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); color: #fff;
             width: 32px; height: 32px; border-radius: 16px; cursor: pointer;
-            display: flex; align-items: center; justify-content: center;
+            display: flex; align-items: center; justify-content: center; transition: 0.2s;
         }
+        .sheet-close:active { transform: scale(0.9); }
 
         /* Карточки внутри настроек */
         .settings-card {
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--glass-border);
             border-radius: 16px; padding: 16px;
             margin-bottom: 15px; display: flex; flex-direction: column; gap: 12px;
         }
         .settings-card-row { display: flex; justify-content: space-between; align-items: center; }
         
-        .settings-icon-title { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 700; }
+        .settings-icon-title { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 700; color: #fff; }
         .settings-status-text { font-size: 13px; color: var(--text-color-muted); word-break: break-all; }
         
         .ios-input {
-            width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1);
+            width: 100%; background: rgba(0,0,0,0.5); border: 1px solid var(--glass-border);
             color: #fff; padding: 12px 15px; border-radius: 12px; font-size: 13px; outline: none;
             box-sizing: border-box; transition: 0.3s;
         }
-        .ios-input:focus { border-color: var(--action-color); background: rgba(0,0,0,0.5); }
-        .ios-input.error { border-color: var(--danger-color); box-shadow: 0 0 10px rgba(255,69,58,0.3); }
+        .ios-input:focus { border-color: rgba(255,255,255,0.3); background: rgba(0,0,0,0.7); }
+        .ios-input.error { border-color: var(--danger-color); box-shadow: 0 0 10px rgba(255,69,58,0.2); }
 
         .ios-btn {
-            border: none; padding: 10px 16px; border-radius: 10px; font-size: 13px; font-weight: 700;
-            cursor: pointer; transition: transform 0.2s; color: #fff;
+            border: 1px solid var(--glass-border); padding: 10px 16px; border-radius: 10px; font-size: 13px; font-weight: 700;
+            cursor: pointer; transition: all 0.2s; color: #fff; backdrop-filter: blur(5px);
         }
         .ios-btn:active { transform: scale(0.95); }
-        .btn-twitch { background: #9146ff; }
-        .btn-steam { background: var(--action-color); }
-        .btn-danger { background: rgba(255,69,58,0.15); color: var(--danger-color); border: 1px solid rgba(255,69,58,0.3); }
+        /* Единый стиль кнопок в настройках */
+        .btn-twitch, .btn-steam { background: rgba(255,255,255,0.05); }
+        .btn-danger { background: rgba(255,69,58,0.1); color: #ff453a; border-color: rgba(255,69,58,0.2); }
 
         /* Loader Overlay (Global) */
         #global-loader {
-            position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px);
+            position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(10px);
             z-index: 99999; display: none; align-items: center; justify-content: center;
         }
         #global-loader.active { display: flex; }
 
         /* Fullscreen Weapon Modal */
         #fullscreen-weapon-modal {
-            position: fixed; inset: 0; background: rgba(0,0,0,0.92); z-index: 999999;
+            position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 999999;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            opacity: 0; pointer-events: none; transition: opacity 0.3s ease; backdrop-filter: blur(15px);
+            opacity: 0; pointer-events: none; transition: opacity 0.3s ease; backdrop-filter: blur(20px);
         }
         #fullscreen-weapon-modal.visible { opacity: 1; pointer-events: auto; }
-        #fullscreen-weapon-img { max-width: 90%; max-height: 60%; object-fit: contain; filter: drop-shadow(0 10px 25px rgba(0,0,0,0.8)); transform: scale(1.15); }
-        #fullscreen-weapon-name { color: #fff; font-size: 18px; font-weight: 800; margin-top: 20px; text-transform: uppercase; text-shadow: 0 2px 10px rgba(0,0,0,0.5); text-align: center; padding: 0 20px; }
-        #fullscreen-weapon-close { position: absolute; top: max(env(safe-area-inset-top, 24px) + 50px, 80px); right: 20px; left: auto; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.2); color: #fff; width: 36px; height: 36px; border-radius: 50%; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10; }
+        #fullscreen-weapon-img { max-width: 90%; max-height: 60%; object-fit: contain; filter: drop-shadow(0 10px 40px rgba(255,255,255,0.1)); transform: scale(1.15); }
+        #fullscreen-weapon-name { color: #fff; font-size: 18px; font-weight: 800; margin-top: 20px; text-transform: uppercase; text-shadow: 0 2px 10px rgba(0,0,0,0.8); text-align: center; padding: 0 20px; }
+        #fullscreen-weapon-close { position: absolute; top: max(env(safe-area-inset-top, 24px) + 50px, 80px); right: 20px; left: auto; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); color: #fff; width: 36px; height: 36px; border-radius: 50%; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10; }
 
         /* Кнопка скролла наверх */
         #scroll-to-top {
             position: absolute; bottom: 20px; right: 20px; width: 38px; height: 38px;
-            background: rgba(28, 28, 30, 0.85); border: 1px solid rgba(255, 255, 255, 0.15);
+            background: var(--glass-bg); border: 1px solid var(--glass-border);
             border-radius: 50%; color: #fff; display: flex; align-items: center; justify-content: center;
             font-size: 14px; cursor: pointer; z-index: 100; opacity: 0; pointer-events: none;
-            backdrop-filter: blur(10px); transition: 0.3s box-shadow, 0.3s opacity;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            backdrop-filter: blur(15px); transition: 0.3s box-shadow, 0.3s opacity;
+            box-shadow: var(--glass-shadow);
         }
 
         /* Дополнительные анимации из старого дизайна */
@@ -341,8 +347,8 @@
         }
         /* --- КРЕАТИВНЫЙ ЛОАДЕР ДЛЯ ВЫВОДА В STEAM --- */
         .withdraw-loader-overlay {
-            position: fixed; inset: 0; background: rgba(0,0,0,0.85);
-            backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
+            position: fixed; inset: 0; background: rgba(0,0,0,0.9);
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
             z-index: 999999; display: flex; flex-direction: column;
             align-items: center; justify-content: center; opacity: 0;
             pointer-events: none; transition: opacity 0.3s ease;
@@ -351,27 +357,33 @@
             opacity: 1; pointer-events: auto;
         }
         .withdraw-loader-icon {
-            font-size: 50px; color: var(--primary-color);
-            margin-bottom: 20px; filter: drop-shadow(0 0 15px rgba(52, 199, 89, 0.6));
+            font-size: 50px; color: #ffffff;
+            margin-bottom: 20px; filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.3));
             animation: pulse-spin 2s infinite ease-in-out;
         }
         .withdraw-loader-title {
-            color: rgba(255,255,255,0.5); font-size: 11px; font-weight: 800; 
+            color: rgba(255,255,255,0.4); font-size: 11px; font-weight: 800; 
             text-transform: uppercase; margin-bottom: 5px;
         }
         .withdraw-loader-item {
-            color: #ffd700; font-size: 16px; font-weight: 900; 
+            color: #ffffff; font-size: 16px; font-weight: 900; 
             text-align: center; margin-bottom: 20px; max-width: 80%;
-            text-shadow: 0 0 10px rgba(255, 215, 0, 0.4);
+            text-shadow: 0 0 15px rgba(255, 255, 255, 0.2);
         }
         .withdraw-loader-msg {
-            color: #fff; font-size: 14px; font-weight: 800; text-transform: uppercase;
+            color: var(--text-color-muted); font-size: 14px; font-weight: 800; text-transform: uppercase;
             letter-spacing: 1px; text-align: center; transition: opacity 0.3s ease;
         }
         @keyframes pulse-spin {
             0% { transform: scale(0.9); opacity: 0.7; }
             50% { transform: scale(1.1); opacity: 1; }
             100% { transform: scale(0.9); opacity: 0.7; }
+        }
+        
+        /* Анимация поп-апов */
+        @keyframes popIn {
+            0% { transform: scale(0.85); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
         }
     </style>
 </head>
@@ -399,8 +411,8 @@
                     
                     <div class="user-info">
                         <div class="user-icons">
-                            <i id="icon-steam" class="fa-brands fa-steam" style="color: var(--danger-color);" onclick="openSettings()"></i>
-                            <i id="icon-twitch" class="fa-brands fa-twitch" style="color: var(--danger-color);" onclick="openSettings()"></i>
+                            <i id="icon-steam" class="fa-brands fa-steam" style="color: rgba(255,255,255,0.2);" onclick="openSettings()"></i>
+                            <i id="icon-twitch" class="fa-brands fa-twitch" style="color: rgba(255,255,255,0.2);" onclick="openSettings()"></i>
                         </div>
                         <div class="nickname" id="user-nickname">Загрузка...</div>
                         <div class="user-id" id="user-id">ID -----</div>
@@ -446,16 +458,16 @@
                 <button class="sheet-close" onclick="closeSettings()"><i class="fa-solid fa-xmark"></i></button>
             </div>
 
-            <!-- Блок Сетки Инвентаря (Новый функционал) -->
+            <!-- Блок Сетки Инвентаря -->
             <div class="settings-card">
                 <div class="settings-card-row">
                     <div class="settings-icon-title">
-                        <i class="fa-solid fa-table-cells" style="color: #34c759; font-size: 20px;"></i>
+                        <i class="fa-solid fa-table-cells" style="color: rgba(255,255,255,0.6); font-size: 20px;"></i>
                         Сетка инвентаря
                     </div>
                     <div style="display: flex; gap: 8px;">
-                        <button class="ios-btn" id="grid-size-2" onclick="setGridSize(2)" style="background: rgba(255,255,255,0.1); color: #fff;">2 в ряд</button>
-                        <button class="ios-btn" id="grid-size-3" onclick="setGridSize(3)" style="background: rgba(255,255,255,0.1); color: #fff;">3 в ряд</button>
+                        <button class="ios-btn" id="grid-size-2" onclick="setGridSize(2)" style="background: rgba(255,255,255,0.05); color: #fff;">2 в ряд</button>
+                        <button class="ios-btn" id="grid-size-3" onclick="setGridSize(3)" style="background: rgba(255,255,255,0.05); color: #fff;">3 в ряд</button>
                     </div>
                 </div>
             </div>
@@ -464,7 +476,7 @@
             <div class="settings-card">
                 <div class="settings-card-row">
                     <div class="settings-icon-title">
-                        <i class="fa-brands fa-twitch" style="color: #9146ff; font-size: 20px;"></i>
+                        <i class="fa-brands fa-twitch" style="color: rgba(255,255,255,0.6); font-size: 20px;"></i>
                         Twitch Аккаунт
                     </div>
                 </div>
@@ -480,7 +492,7 @@
             <div class="settings-card">
                 <div class="settings-card-row" style="margin-bottom: 5px;">
                     <div class="settings-icon-title">
-                        <i class="fa-brands fa-steam" style="color: var(--action-color); font-size: 20px;"></i>
+                        <i class="fa-brands fa-steam" style="color: rgba(255,255,255,0.6); font-size: 20px;"></i>
                         Trade Ссылка
                     </div>
                 </div>
@@ -494,22 +506,22 @@
         </div>
     </div>
 
-    <!-- ОКНО ЗАМЕН (Остается на уровне DOM) -->
+    <!-- ОКНО ЗАМЕН (Остается на уровне DOM, стилизовано под новое стекло) -->
     <div id="replacement-modal" class="modal-overlay">
-        <div class="custom-popup" style="background: #1c1c1e; border: 1px solid rgba(255,255,255,0.15); border-radius: 16px; padding: 20px; max-width: 360px; width: 90%; margin: auto; position: relative; display: flex; flex-direction: column;">
+        <div class="custom-popup" style="background: var(--glass-bg); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border: 1px solid var(--glass-border); border-radius: 24px; padding: 24px; max-width: 360px; width: 90%; margin: auto; position: relative; display: flex; flex-direction: column; box-shadow: var(--glass-shadow);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                <h3 style="margin: 0; font-size: 18px; color: #fff;">Выберите замену</h3>
-                <button onclick="closeReplacementModal()" style="background: rgba(255,255,255,0.1); border: none; color: #fff; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                <h3 style="margin: 0; font-size: 18px; color: #fff; font-weight: 800;">Выберите замену</h3>
+                <button onclick="closeReplacementModal()" style="background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); color: #fff; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;">
                     <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
-            <p style="font-size: 11px; color: #8E8E93; margin: 0 0 10px 0; text-align: left;">Оригинала нет, выберите любой скин — отправим его сразу:</p>
+            <p style="font-size: 11px; color: var(--text-color-muted); margin: 0 0 10px 0; text-align: left;">Оригинала нет, выберите любой скин — отправим его сразу:</p>
             
             <div id="replacement-options-list" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 10px; max-height: 60vh; overflow-y: auto; padding-bottom: 10px;">
                 <!-- Динамически заполняется -->
             </div>
 
-            <button onclick="closeReplacementModal()" class="ios-btn" style="background: #3a3a3c; margin-top: 10px; width: 100%;">Отмена</button>
+            <button onclick="closeReplacementModal()" class="ios-btn" style="background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); margin-top: 10px; width: 100%; color: #fff;">Отмена</button>
         </div>
     </div>
 
@@ -523,7 +535,7 @@
         const checkCooldowns = {};
         window.currentInventoryItems = [];
         
-        // Логика настройки сетки инвентаря (2 или 3)
+        // Логика настройки сетки инвентаря
         let currentGridSize = localStorage.getItem('inventory_grid_size') || '3';
         function setGridSize(size) {
             currentGridSize = size.toString();
@@ -537,8 +549,8 @@
         function updateGridButtons() {
             const b2 = document.getElementById('grid-size-2');
             const b3 = document.getElementById('grid-size-3');
-            if(b2) b2.style.background = currentGridSize === '2' ? 'var(--action-color)' : 'rgba(255,255,255,0.1)';
-            if(b3) b3.style.background = currentGridSize === '3' ? 'var(--action-color)' : 'rgba(255,255,255,0.1)';
+            if(b2) b2.style.background = currentGridSize === '2' ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.05)';
+            if(b3) b3.style.background = currentGridSize === '3' ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.05)';
         }
         updateGridButtons(); 
 
@@ -555,6 +567,69 @@
                     scrollBtn.style.pointerEvents = 'none';
                 }
             });
+        }
+
+        // --- УНИВЕРСАЛЬНЫЕ ОКНА АЛЕРТОВ И ПОДТВЕРЖДЕНИЙ В НОВОМ СТИЛЕ ---
+        window.customAlert = function(text, btnText = 'Закрыть', callback = null) {
+            const overlay = document.createElement('div'); 
+            overlay.className = 'modal-overlay visible'; 
+            overlay.style.alignItems = 'center';
+            
+            const box = document.createElement('div'); 
+            box.style.cssText = `background: var(--glass-bg); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border: 1px solid var(--glass-border); border-radius: 24px; padding: 24px; width: 85%; max-width: 320px; text-align: center; color: white; box-shadow: var(--glass-shadow); transform: scale(0.95); animation: popIn 0.2s forwards;`;
+            
+            box.innerHTML = `
+                <h3 style="margin: 0 0 20px; font-size: 16px; font-weight: 600; line-height: 1.4; color: #fff;">${text}</h3>
+                <button id="custom-alert-btn" style="width: 100%; padding: 12px; border: 1px solid var(--glass-border); border-radius: 14px; background: rgba(255,255,255,0.1); color: #fff; font-size: 14px; font-weight: 800; cursor: pointer; transition: 0.2s;">${btnText}</button>
+            `;
+                
+            overlay.appendChild(box); 
+            document.body.appendChild(overlay);
+            
+            const close = () => { overlay.style.opacity = '0'; setTimeout(() => overlay.remove(), 300); };
+            
+            const btn = overlay.querySelector('#custom-alert-btn');
+            btn.onclick = () => {
+                btn.style.transform = "scale(0.95)";
+                close();
+                if(callback) callback();
+            };
+        };
+
+        function showCustomConfirmHTML(text, onConfirmCallback, btnText = 'Да', btnColor = 'rgba(255,255,255,0.15)', btnTextColor = '#fff') {
+            const overlay = document.createElement('div'); 
+            overlay.className = 'modal-overlay visible'; 
+            overlay.style.alignItems = 'center';
+            
+            // Если цвет передается ярким (из старого кода), глушим его для стиля
+            let finalBg = btnColor.includes('34c759') || btnColor.includes('ffd700') ? 'rgba(255,255,255,0.15)' : btnColor;
+            let finalBorder = btnColor.includes('34c759') || btnColor.includes('ffd700') ? 'var(--glass-border)' : 'transparent';
+            
+            const box = document.createElement('div'); 
+            box.style.cssText = `background: var(--glass-bg); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border: 1px solid var(--glass-border); border-radius: 24px; padding: 24px; width: 85%; max-width: 320px; text-align: center; color: white; box-shadow: var(--glass-shadow); transform: scale(0.95); animation: popIn 0.2s forwards;`;
+            
+            box.innerHTML = `
+                <h3 style="margin: 0 0 20px; font-size: 18px; font-weight: 800; line-height: 1.4;">${text}</h3>
+                <div style="display: flex; gap: 12px;">
+                    <button id="custom-cancel-btn" style="flex: 1; padding: 12px; border: 1px solid var(--glass-border); border-radius: 14px; background: rgba(255,255,255,0.05); color: #8e8e93; font-size: 14px; font-weight: 700; cursor: pointer; transition: 0.2s;">Отмена</button>
+                    <button id="custom-confirm-btn" style="flex: 1; padding: 12px; border: 1px solid ${finalBorder}; border-radius: 14px; background: ${finalBg}; color: ${btnTextColor}; font-size: 14px; font-weight: 800; cursor: pointer; transition: 0.2s;">${btnText}</button>
+                </div>`;
+                
+            overlay.appendChild(box); 
+            document.body.appendChild(overlay);
+            
+            const close = () => { overlay.style.opacity = '0'; setTimeout(() => overlay.remove(), 300); };
+            
+            const cancelBtn = overlay.querySelector('#custom-cancel-btn');
+            cancelBtn.onclick = () => { cancelBtn.style.transform = "scale(0.95)"; close(); };
+            
+            const confirmBtn = overlay.querySelector('#custom-confirm-btn');
+            confirmBtn.onclick = () => {
+                if (confirmBtn.dataset.clicked) return;
+                confirmBtn.dataset.clicked = "true";
+                confirmBtn.style.transform = "scale(0.95)";
+                onConfirmCallback(close);
+            };
         }
 
         // --- УТИЛИТА ДЛЯ API С ПОДДЕРЖКОЙ ЗАЩИТ ---
@@ -577,22 +652,19 @@
                 const data = await res.json();
                 
                 if (!res.ok) {
-                    // ЛОВИМ БЛОКИРОВКУ ПО АКТИВУ
                     if (data.detail && typeof data.detail === 'object' && data.detail.error_code === "ACTIVITY_LOCK") {
                         if(typeof window.showActivityWallModal === 'function') {
                             window.showActivityWallModal(data.detail.current_msgs, data.detail.required_msgs);
                         }
                         throw new Error("Activity Lock");
                     }
-                    
-                    // ВЕЧНЫЙ ЭКРАН БАНА
                     if (res.status === 403 && data.detail === "BANNED") {
                         document.body.innerHTML = `
-                            <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #000; z-index: 2147483647; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #ff3b30; text-align: center; padding: 30px; box-sizing: border-box; font-family: -apple-system, system-ui, sans-serif;">
-                                <i class="fa-solid fa-skull-crossbones" style="font-size: 100px; margin-bottom: 25px; filter: drop-shadow(0 0 20px rgba(255, 59, 48, 0.6));"></i>
-                                <h1 style="font-size: 28px; font-weight: 900; margin-bottom: 10px; text-transform: uppercase; color: #fff; letter-spacing: 1px;">Доступ ограничен</h1>
-                                <p style="color: #fff; font-size: 16px; line-height: 1.5; margin-bottom: 30px; opacity: 0.9; max-width: 300px;">Твой аккаунт заблокирован за нарушение правил системы.</p>
-                                <a href="https://t.me/hatelove_twitch" target="_blank" style="display: inline-flex; align-items: center; gap: 10px; background: #2AABEE; color: #fff; text-decoration: none; padding: 14px 24px; border-radius: 14px; font-weight: 800; font-size: 14px; transition: transform 0.2s; box-shadow: 0 4px 20px rgba(42, 171, 238, 0.3);">
+                            <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #000; z-index: 2147483647; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; text-align: center; padding: 30px; box-sizing: border-box; font-family: -apple-system, system-ui, sans-serif;">
+                                <i class="fa-solid fa-skull-crossbones" style="font-size: 100px; margin-bottom: 25px; filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.2));"></i>
+                                <h1 style="font-size: 28px; font-weight: 900; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px;">Доступ ограничен</h1>
+                                <p style="color: var(--text-color-muted); font-size: 16px; line-height: 1.5; margin-bottom: 30px; max-width: 300px;">Твой аккаунт заблокирован за нарушение правил системы.</p>
+                                <a href="https://t.me/hatelove_twitch" target="_blank" style="display: inline-flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.1); border: 1px solid var(--glass-border); color: #fff; text-decoration: none; padding: 14px 24px; border-radius: 14px; font-weight: 800; font-size: 14px; transition: transform 0.2s;">
                                     <i class="fa-brands fa-telegram" style="font-size: 18px;"></i> СВЯЗАТЬСЯ СО МНОЙ
                                 </a>
                             </div>`;
@@ -600,25 +672,20 @@
                         if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
                         throw new Error("USER_BANNED");
                     }
-                    
-                    // ДУБЛИКАТЫ TRADE LINK
                     if (res.status === 400 && data.detail === "DUPLICATE_TRADE_LINK") {
                         if(typeof window.showSecurityBlock === 'function') window.showSecurityBlock("Эта Трейд-ссылка уже используется другим игроком! Мы удалили её. Укажите свою.");
                         throw new Error("Security Block");
                     }
-                    
-                    // Обычная проверка на 403 (другие ограничения)
                     if (res.status === 403) {
                         if(typeof window.showSecurityBlock === 'function') window.showSecurityBlock(data.detail || "Доступ ограничен.");
                         throw new Error("Security Block");
                     }
-                    
                     throw new Error(data.detail || 'Ошибка сервера');
                 }
                 return data;
             } catch (e) {
                 if (e.message !== 'Security Block' && e.message !== 'USER_BANNED' && e.message !== 'Activity Lock' && !isSilent) {
-                    tg.showAlert(`Ошибка: ${e.message}`);
+                    customAlert(`Ошибка: ${e.message}`);
                 }
                 throw e;
             } finally {
@@ -634,40 +701,40 @@
 
             const overlay = document.createElement('div');
             overlay.id = 'activity-wall-modal';
-            overlay.style.cssText = "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); z-index: 2147483647; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px); opacity: 0; transition: opacity 0.3s;";
+            overlay.style.cssText = "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); z-index: 2147483647; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(15px); opacity: 0; transition: opacity 0.3s;";
 
             const percent = Math.min((currentMsgs / requiredMsgs) * 100, 100).toFixed(1);
 
             overlay.innerHTML = `
-                <div style="padding: 24px 20px; width: 90%; max-width: 350px; background: #1c1c1e; border-radius: 16px; border: 1px solid rgba(255, 215, 0, 0.3); text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.8);">
-                    <i class="fa-solid fa-lock" style="font-size:44px; color:#ffcc00; margin-bottom:15px; filter: drop-shadow(0 0 15px rgba(255, 204, 0, 0.4));"></i>
+                <div style="padding: 24px 20px; width: 90%; max-width: 350px; background: var(--glass-bg); border-radius: 20px; border: 1px solid var(--glass-border); text-align: center; box-shadow: var(--glass-shadow); backdrop-filter: blur(20px);">
+                    <i class="fa-solid fa-lock" style="font-size:44px; color:#fff; margin-bottom:15px; opacity: 0.8;"></i>
                     <h3 style="color: #fff; font-size: 18px; margin-bottom: 10px; font-weight: 900; text-transform: uppercase;">Проекту нужен твой актив!</h3>
                     
-                    <div style="font-size: 13px; color: #bbb; line-height: 1.5; text-align: left; margin-bottom: 20px;">
+                    <div style="font-size: 13px; color: var(--text-color-muted); line-height: 1.5; text-align: left; margin-bottom: 20px;">
                         Бюджет HATElavka не бесконечен. Сейчас покупки и выводы открыты <b>только для активного комьюнити</b>.<br><br>
                         Чтобы разблокировать кейсы, прояви себя на стримах или в чате! Залетай и общайся.
                     </div>
 
-                    <div style="background: rgba(0,0,0,0.4); padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 15px;">
+                    <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 15px;">
                         <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 800; color: #fff; margin-bottom: 8px;">
-                            <span style="color: #aaa;">Мой актив за месяц</span>
-                            <span style="color: #ffcc00;">${currentMsgs} / ${requiredMsgs}</span>
+                            <span style="color: var(--text-color-muted);">Мой актив</span>
+                            <span style="color: #fff;">${currentMsgs} / ${requiredMsgs}</span>
                         </div>
-                        <div style="width: 100%; height: 8px; border-radius: 4px; background: rgba(0,0,0,0.6); overflow: hidden;">
-                            <div style="height: 100%; width: ${percent}%; background: linear-gradient(90deg, #ff3b30, #ffcc00); border-radius: 4px; box-shadow: 0 0 10px rgba(255, 204, 0, 0.5);"></div>
+                        <div style="width: 100%; height: 8px; border-radius: 4px; background: rgba(0,0,0,0.6); overflow: hidden; border: 1px solid rgba(255,255,255,0.05);">
+                            <div style="height: 100%; width: ${percent}%; background: #fff; border-radius: 4px; box-shadow: 0 0 10px rgba(255,255,255, 0.3);"></div>
                         </div>
                     </div>
 
                     <div style="display: flex; flex-direction: column; gap: 10px;">
                         <div style="display: flex; gap: 10px; width: 100%;">
-                            <button onclick="window.open('https://twitch.tv/hatelove_ttv', '_blank');" style="flex: 1; padding: 14px 10px; background: #9146ff; color: #fff; border: none; border-radius: 12px; font-weight: 800; font-size: 13px; text-transform: uppercase; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 6px;">
+                            <button onclick="window.open('https://twitch.tv/hatelove_ttv', '_blank');" style="flex: 1; padding: 14px 10px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); color: #fff; border-radius: 12px; font-weight: 800; font-size: 13px; text-transform: uppercase; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 6px; transition: 0.2s;">
                                 <i class="fa-brands fa-twitch"></i> Twitch
                             </button>
-                            <button onclick="window.open('https://t.me/hatelovettv', '_blank');" style="flex: 1; padding: 14px 10px; background: #2AABEE; color: #fff; border: none; border-radius: 12px; font-weight: 800; font-size: 13px; text-transform: uppercase; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 6px;">
+                            <button onclick="window.open('https://t.me/hatelovettv', '_blank');" style="flex: 1; padding: 14px 10px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); color: #fff; border-radius: 12px; font-weight: 800; font-size: 13px; text-transform: uppercase; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 6px; transition: 0.2s;">
                                 <i class="fa-brands fa-telegram"></i> Telegram
                             </button>
                         </div>
-                        <button id="close-activity-wall-btn" style="width: 100%; padding: 14px; background: rgba(255,255,255,0.1); color: #fff; border: none; border-radius: 12px; font-weight: 700; text-transform: uppercase; cursor: pointer; transition: background 0.2s;">Понятно</button>
+                        <button id="close-activity-wall-btn" style="width: 100%; padding: 14px; background: transparent; color: var(--text-color-muted); border: none; font-weight: 700; text-transform: uppercase; cursor: pointer; transition: 0.2s;">Понятно</button>
                     </div>
                 </div>
             `;
@@ -690,19 +757,19 @@
 
             const overlay = document.createElement('div');
             overlay.id = 'security-trade-modal';
-            overlay.style.cssText = "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.98); z-index: 2147483647; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); font-family: sans-serif;";
+            overlay.style.cssText = "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.95); z-index: 2147483647; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);";
             
             overlay.innerHTML = `
-                <div style="padding: 24px 20px; width: 90%; max-width: 340px; background: #1c1c1e; border-radius: 20px; border: 1px solid rgba(255,59,48,0.4); text-align: center; box-shadow: 0 0 50px rgba(0,0,0,1);">
-                    <i class="fa-solid fa-shield-halved" style="font-size:48px; color:#ff3b30; margin-bottom:15px; display:block;"></i>
-                    <h3 style="color: #ff3b30; font-size: 22px; margin-bottom: 10px; font-weight: 900; text-transform: uppercase;">Защита активна</h3>
-                    <div style="margin-bottom: 20px; font-size: 14px; color: #fff; line-height: 1.4; opacity: 0.9;">${message}</div>
+                <div style="padding: 24px 20px; width: 90%; max-width: 340px; background: var(--glass-bg); border-radius: 20px; border: 1px solid var(--glass-border); text-align: center; box-shadow: var(--glass-shadow);">
+                    <i class="fa-solid fa-shield-halved" style="font-size:48px; color:#fff; margin-bottom:15px; display:block; opacity:0.8;"></i>
+                    <h3 style="color: #fff; font-size: 22px; margin-bottom: 10px; font-weight: 900; text-transform: uppercase;">Защита активна</h3>
+                    <div style="margin-bottom: 20px; font-size: 14px; color: var(--text-color-muted); line-height: 1.4;">${message}</div>
                     
-                    <div style="text-align: left; margin-bottom: 20px; background: rgba(0,0,0,0.5); padding: 15px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.1);">
-                        <label style="font-size: 11px; color: #ffd700; font-weight: 800; text-transform: uppercase; margin-bottom: 8px; display: block;">Укажите ВАШУ ссылку:</label>
-                        <input type="url" id="security-trade-input" placeholder="https://steamcommunity.com/tradeoffer/new/..." style="width: 100%; background: #000; border: 1px solid #444; color: #fff; padding: 12px; border-radius: 10px; font-size: 12px; outline: none; box-sizing: border-box;">
+                    <div style="text-align: left; margin-bottom: 20px; background: rgba(255,255,255,0.03); padding: 15px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.05);">
+                        <label style="font-size: 11px; color: #fff; font-weight: 800; text-transform: uppercase; margin-bottom: 8px; display: block;">Укажите ВАШУ ссылку:</label>
+                        <input type="url" id="security-trade-input" placeholder="https://steamcommunity.com/tradeoffer/new/..." style="width: 100%; background: rgba(0,0,0,0.5); border: 1px solid var(--glass-border); color: #fff; padding: 12px; border-radius: 10px; font-size: 12px; outline: none; box-sizing: border-box;">
                     </div>
-                    <button id="security-save-btn" style="width: 100%; padding: 16px; background: #ffcc00; color: #000; border: none; border-radius: 12px; font-weight: 900; font-size: 14px; text-transform: uppercase; cursor: pointer;">Сохранить и войти</button>
+                    <button id="security-save-btn" style="width: 100%; padding: 16px; background: rgba(255,255,255,0.1); color: #fff; border: 1px solid var(--glass-border); border-radius: 12px; font-weight: 900; font-size: 14px; text-transform: uppercase; cursor: pointer; transition: 0.2s;">Сохранить и войти</button>
                 </div>
             `;
             
@@ -714,7 +781,7 @@
             saveBtn.onclick = async () => {
                 const v = input.value.trim();
                 if (!v.includes("partner=") || !v.includes("token=")) {
-                    input.style.borderColor = "#ff3b30";
+                    input.style.borderColor = "var(--danger-color)";
                     if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
                     return;
                 }
@@ -732,37 +799,6 @@
             };
         };
 
-        // --- УНИВЕРСАЛЬНОЕ ОКНО (CUSTOM CONFIRM) ---
-        function showCustomConfirmHTML(text, onConfirmCallback, btnText = 'Да', btnColor = '#0a84ff', btnTextColor = '#fff') {
-            const overlay = document.createElement('div'); 
-            overlay.className = 'modal-overlay visible'; 
-            overlay.style.alignItems = 'center';
-            
-            const box = document.createElement('div'); 
-            box.style.cssText = `background: var(--glass-bg); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border: 1px solid var(--glass-border); border-radius: 24px; padding: 24px; width: 85%; max-width: 320px; text-align: center; color: white; box-shadow: var(--glass-shadow); transform: scale(0.95); animation: popIn 0.2s forwards;`;
-            
-            box.innerHTML = `
-                <h3 style="margin: 0 0 20px; font-size: 18px; font-weight: 800; line-height: 1.4;">${text}</h3>
-                <div style="display: flex; gap: 12px;">
-                    <button id="custom-cancel-btn" style="flex: 1; padding: 12px; border: none; border-radius: 14px; background: rgba(255,255,255,0.1); color: white; font-size: 14px; font-weight: 700; cursor: pointer;">Отмена</button>
-                    <button id="custom-confirm-btn" style="flex: 1; padding: 12px; border: none; border-radius: 14px; background: ${btnColor}; color: ${btnTextColor}; font-size: 14px; font-weight: 800; cursor: pointer; text-shadow: ${btnTextColor === '#000000' ? 'none' : '0 1px 2px rgba(0,0,0,0.3)'};">${btnText}</button>
-                </div>`;
-                
-            overlay.appendChild(box); 
-            document.body.appendChild(overlay);
-            
-            const close = () => { overlay.style.opacity = '0'; setTimeout(() => overlay.remove(), 300); };
-            overlay.querySelector('#custom-cancel-btn').onclick = close;
-            
-            const confirmBtn = overlay.querySelector('#custom-confirm-btn');
-            confirmBtn.onclick = () => {
-                if (confirmBtn.dataset.clicked) return;
-                confirmBtn.dataset.clicked = "true";
-                confirmBtn.style.transform = "scale(0.95)";
-                onConfirmCallback(close);
-            };
-        }
-
         // --- ЗАГРУЗКА И ПРИМЕНЕНИЕ ДАННЫХ (ЭМУЛЯЦИЯ) ---
         async function fetchAndApplyUserData() {
             try {
@@ -776,8 +812,10 @@
                 const hasSteam = !!currentUserData.trade_link;
                 const hasTwitch = !!currentUserData.twitch_login;
                 
-                document.getElementById('icon-steam').style.color = hasSteam ? 'var(--primary-color)' : 'var(--danger-color)';
-                document.getElementById('icon-twitch').style.color = hasTwitch ? 'var(--primary-color)' : 'var(--danger-color)';
+                document.getElementById('icon-steam').style.color = hasSteam ? '#fff' : 'rgba(255,255,255,0.2)';
+                document.getElementById('icon-steam').style.textShadow = hasSteam ? '0 0 10px rgba(255,255,255,0.4)' : 'none';
+                document.getElementById('icon-twitch').style.color = hasTwitch ? '#fff' : 'rgba(255,255,255,0.2)';
+                document.getElementById('icon-twitch').style.textShadow = hasTwitch ? '0 0 10px rgba(255,255,255,0.4)' : 'none';
 
                 document.getElementById('trade-link-input').value = currentUserData.trade_link || "";
                 const twitchText = document.getElementById('twitch-status-text');
@@ -793,7 +831,7 @@
 
             } catch(e) {
                 console.error("Ошибка загрузки пользователя:", e);
-                tg.showAlert("Не удалось загрузить профиль");
+                customAlert("Не удалось загрузить профиль");
             }
         }
 
@@ -828,7 +866,7 @@
             
             if (!val.startsWith("https://steamcommunity.com/tradeoffer/new") || !val.includes("partner=") || !val.includes("token=")) {
                 input.classList.add('error');
-                tg.showAlert("Укажите правильную Trade-ссылку из Steam!");
+                customAlert("Укажите правильную Trade-ссылку из Steam!");
                 if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
                 return;
             }
@@ -838,13 +876,14 @@
                 // БОЕВОЙ ЗАПРОС
                 // await apiRequest('/api/v1/user/trade_link/save', 'POST', { trade_link: val });
                 currentUserData.trade_link = val;
-                document.getElementById('icon-steam').style.color = 'var(--primary-color)';
+                document.getElementById('icon-steam').style.color = '#fff';
+                document.getElementById('icon-steam').style.textShadow = '0 0 10px rgba(255,255,255,0.4)';
                 
                 if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
-                tg.showPopup({message: 'Trade Link успешно сохранен!'});
+                customAlert('Trade Link успешно сохранен!');
                 closeSettings();
             } catch (err) {
-                if(err.message !== 'Activity Lock') tg.showAlert("Ошибка: " + err.message);
+                if(err.message !== 'Activity Lock') customAlert("Ошибка: " + err.message);
             }
         }
 
@@ -856,28 +895,32 @@
                 // setTimeout(() => tg.close(), 500);
 
                 setTimeout(() => {
-                    tg.showAlert("Здесь откроется OAuth ссылка Twitch (включи боевой запрос в коде)");
+                    customAlert("Здесь откроется OAuth ссылка Twitch (включи боевой запрос в коде)");
                 }, 500);
 
             } catch (err) {
-                if(err.message !== 'Activity Lock') tg.showAlert("Ошибка: " + err.message);
+                if(err.message !== 'Activity Lock') customAlert("Ошибка: " + err.message);
             }
         }
 
         async function unlinkTwitch() {
-            if (!confirm("Отвязать Twitch аккаунт?")) return;
-            try {
-                // БОЕВОЙ ЗАПРОС
-                // await apiRequest('/api/v1/user/twitch/unlink', 'POST');
-                currentUserData.twitch_login = null;
-                document.getElementById('icon-twitch').style.color = 'var(--danger-color)';
-                document.getElementById('twitch-status-text').innerText = `Аккаунт не привязан`;
-                document.getElementById('twitch-action-btn-container').innerHTML = `<button class="ios-btn btn-twitch" onclick="connectTwitch()">Привязать</button>`;
-                
-                if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
-            } catch (err) {
-                if(err.message !== 'Activity Lock') tg.showAlert("Ошибка: " + err.message);
-            }
+            showCustomConfirmHTML("Отвязать Twitch аккаунт?", async (close) => {
+                try {
+                    // БОЕВОЙ ЗАПРОС
+                    // await apiRequest('/api/v1/user/twitch/unlink', 'POST');
+                    currentUserData.twitch_login = null;
+                    document.getElementById('icon-twitch').style.color = 'rgba(255,255,255,0.2)';
+                    document.getElementById('icon-twitch').style.textShadow = 'none';
+                    document.getElementById('twitch-status-text').innerText = `Аккаунт не привязан`;
+                    document.getElementById('twitch-action-btn-container').innerHTML = `<button class="ios-btn btn-twitch" onclick="connectTwitch()">Привязать</button>`;
+                    
+                    if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+                    close();
+                } catch (err) {
+                    if(err.message !== 'Activity Lock') customAlert("Ошибка: " + err.message);
+                    close();
+                }
+            }, "ОТВЯЗАТЬ", "rgba(255,255,255,0.1)", "#fff");
         }
 
         // --- ЛОГИКА БЕСШОВНОЙ ПОДГРУЗКИ (SPA РОУТЕР) ---
@@ -901,7 +944,7 @@
                     
                     const invContainer = document.getElementById('inventory-list-container');
                     if (invContainer) {
-                        invContainer.innerHTML = '<div style="height: 50vh; display: flex; flex-direction: column; justify-content: center; align-items: center; color: rgba(255,255,255,0.5);"><i class="fa-solid fa-circle-notch fa-spin" style="margin-bottom: 15px; font-size: 32px; color: #0a84ff;"></i><br>Связь с базой данных...</div>';
+                        invContainer.innerHTML = '<div style="height: 50vh; display: flex; flex-direction: column; justify-content: center; align-items: center; color: var(--text-color-muted);"><i class="fa-solid fa-circle-notch fa-spin" style="margin-bottom: 15px; font-size: 32px; color: #fff;"></i><br>Связь с базой данных...</div>';
                     }
                     
                     try {
@@ -909,12 +952,12 @@
                         renderInventory(inventoryData);
                     } catch (err) {
                         if (invContainer && err.message !== 'Activity Lock') {
-                            invContainer.innerHTML = `<div style="text-align:center; color:var(--danger-color); margin-top:50px;">Ошибка загрузки предметов:<br>${err.message}</div>`;
+                            invContainer.innerHTML = `<div style="text-align:center; color:var(--text-color-muted); margin-top:50px;">Ошибка загрузки предметов:<br>${err.message}</div>`;
                         }
                     }
                 }
             } catch (error) {
-                contentArea.innerHTML = `<div style="text-align:center; color:var(--danger-color); padding-top: 50px;">Ошибка загрузки раздела: ${error.message}</div>`;
+                contentArea.innerHTML = `<div style="text-align:center; color:var(--text-color-muted); padding-top: 50px;">Ошибка загрузки раздела: ${error.message}</div>`;
             }
         }
 
@@ -935,7 +978,7 @@
         // --- УНИВЕРСАЛЬНАЯ ФУНКЦИЯ ТИХОГО ОБНОВЛЕНИЯ ИНВЕНТАРЯ ---
         window.refreshInventoryList = async function() {
             try {
-                const inventoryData = await apiRequest("/api/v1/user/inventory", "POST", null, true); // true = silent (без лоадера)
+                const inventoryData = await apiRequest("/api/v1/user/inventory", "POST", null, true); // true = silent
                 renderInventory(inventoryData, false);
             } catch (err) {
                 console.error("Refresh failed:", err);
@@ -947,6 +990,8 @@
         // =========================================================
 
         function getRarityData(rarity) {
+            // Сохраняем логику, но можно приглушить цвета, если захочется полного монохрома.
+            // Пока оставляем оригинальные цвета редкости для текста.
             const r = (rarity || '').toLowerCase();
             if (r.includes('gold') || r.includes('крайне') || r.includes('knife')) return { color: '#ffd700', name: 'Крайне редкий' };
             if (r.includes('contraband') || r.includes('контрабандное')) return { color: '#e4ae39', name: 'Контрабандное' };
@@ -1050,10 +1095,10 @@
             
             const rawStatus = (item.status || 'available').toLowerCase();
             const statusMap = {
-                'available': 'Доступен 🟢', 'pending': 'Ожидание ⏳', 'market_pending': 'На продаже 🛒',
-                'auto_queued': 'Поиск трейда 🔍', 'offer_sent': 'Оффер отправлен 📩', 'sent': 'Отправлен 📩',
-                'processing': 'В обработке ⚙️', 'failed': 'Ошибка / Заморожен 🔴', 'canceled': 'Отменен ❌',
-                'received': 'Успешно выведен ✅', 'exchanged': 'Продан 🎟️', 'exchanged_swap': 'Объединен в свапе 🔄'
+                'available': 'Доступен', 'pending': 'Ожидание', 'market_pending': 'На продаже',
+                'auto_queued': 'Поиск трейда', 'offer_sent': 'Оффер отправлен', 'sent': 'Отправлен',
+                'processing': 'В обработке', 'failed': 'Ошибка / Заморожен', 'canceled': 'Отменен',
+                'received': 'Успешно выведен', 'exchanged': 'Продан', 'exchanged_swap': 'Объединен в свапе'
             };
             const statusRu = statusMap[rawStatus] || rawStatus;
             
@@ -1087,15 +1132,15 @@
                         let timeStr = days > 0 ? `${days}д ${hours}ч ${minutes}м` : `${hours}ч ${minutes}м`;
                         if (days === 0 && hours === 0) timeStr = `${minutes}м`;
                         modalExpireText = `
-                        <div style="display:flex; justify-content:space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
-                            <span style="color: rgba(255,255,255,0.5); font-size: 12px;">Сгорание:</span>
-                            <span style="font-weight: 900; font-size: 12px; color: #ff453a;">Через ${timeStr}</span>
+                        <div style="display:flex; justify-content:space-between; border-bottom: 1px solid var(--glass-border); padding-bottom: 8px;">
+                            <span style="color: var(--text-color-muted); font-size: 12px;">Сгорание:</span>
+                            <span style="font-weight: 900; font-size: 12px; color: #fff;">Через ${timeStr}</span>
                         </div>`;
                     } else {
                         modalExpireText = `
-                        <div style="display:flex; justify-content:space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
-                            <span style="color: rgba(255,255,255,0.5); font-size: 12px;">Сгорание:</span>
-                            <span style="font-weight: 900; font-size: 12px; color: #ff453a;">СГОРЕЛ</span>
+                        <div style="display:flex; justify-content:space-between; border-bottom: 1px solid var(--glass-border); padding-bottom: 8px;">
+                            <span style="color: var(--text-color-muted); font-size: 12px;">Сгорание:</span>
+                            <span style="font-weight: 900; font-size: 12px; color: var(--text-color-muted);">СГОРЕЛ</span>
                         </div>`;
                     }
                 }
@@ -1115,48 +1160,48 @@
             };
 
             const box = document.createElement('div'); 
-            box.style.cssText = `position: relative; background: var(--glass-bg, rgba(20,20,22,0.95)); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border-top: 1px solid rgba(255,255,255,0.1); border-radius: 24px 24px 0 0; padding: 30px 20px 35px 20px; width: 100%; box-sizing: border-box; color: white; box-shadow: 0 -10px 40px rgba(0,0,0,0.8); transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); display: flex; flex-direction: column; gap: 15px;`;
+            box.style.cssText = `position: relative; background: var(--glass-bg); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); border-top: 1px solid var(--glass-border); border-radius: 24px 24px 0 0; padding: 30px 20px 35px 20px; width: 100%; box-sizing: border-box; color: white; box-shadow: 0 -10px 40px rgba(0,0,0,0.9); transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); display: flex; flex-direction: column; gap: 15px;`;
             
             box.innerHTML = `
-                <div id="close-modal-btn-${historyId}" style="position:absolute; top:4px; right:15px; width:22px; height:22px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.1); border-radius:50%; display:flex; justify-content:center; align-items:center; cursor:pointer; transition:0.2s;">
-                    <i class="fa-solid fa-xmark" style="color:rgba(255,255,255,0.6); font-size:11px;"></i>
+                <div id="close-modal-btn-${historyId}" style="position:absolute; top:4px; right:15px; width:22px; height:22px; background:rgba(255,255,255,0.05); border:1px solid var(--glass-border); border-radius:50%; display:flex; justify-content:center; align-items:center; cursor:pointer; transition:0.2s;">
+                    <i class="fa-solid fa-xmark" style="color:var(--text-color-muted); font-size:11px;"></i>
                 </div>
-                <div style="display:flex; align-items:center; gap: 15px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); padding: 12px; border-radius: 16px;">
+                <div style="display:flex; align-items:center; gap: 15px; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); padding: 12px; border-radius: 16px;">
                     <img src="${imageUrl}" style="width: 60px; height: 60px; object-fit: contain; filter: drop-shadow(0 5px 10px rgba(0,0,0,0.5));">
                     <div style="display:flex; flex-direction:column; gap: 4px; overflow: hidden;">
                         <span style="font-size: 10px; color: ${rData.color}; text-transform: uppercase; font-weight: 800;">${rData.name}</span>
                         <span style="font-size: 14px; font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${cleanName}</span>
-                        <span style="font-size: 12px; font-weight: 800; color: #ffd700;">${parsedBasePrice} ₽</span>
+                        <span style="font-size: 12px; font-weight: 800; color: #fff;">${parsedBasePrice} ₽</span>
                     </div>
                 </div>
                 <div style="display:flex; flex-direction:column; gap: 10px; padding: 0 5px;">
-                    <div style="display:flex; justify-content:space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
-                        <span style="color: rgba(255,255,255,0.5); font-size: 12px;">ID Предмета:</span>
+                    <div style="display:flex; justify-content:space-between; border-bottom: 1px solid var(--glass-border); padding-bottom: 8px;">
+                        <span style="color: var(--text-color-muted); font-size: 12px;">ID Предмета:</span>
                         <span style="font-weight: 800; font-size: 12px;">#${historyId}</span>
                     </div>
-                    ${finalCondition ? `<div style="display:flex; justify-content:space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
-                        <span style="color: rgba(255,255,255,0.5); font-size: 12px;">Качество:</span>
-                        <span style="font-weight: 800; font-size: 12px; color: #b0c3d9;">${finalCondition}</span>
+                    ${finalCondition ? `<div style="display:flex; justify-content:space-between; border-bottom: 1px solid var(--glass-border); padding-bottom: 8px;">
+                        <span style="color: var(--text-color-muted); font-size: 12px;">Качество:</span>
+                        <span style="font-weight: 800; font-size: 12px; color: #fff;">${finalCondition}</span>
                     </div>` : ''}
-                    <div style="display:flex; justify-content:space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
-                        <span style="color: rgba(255,255,255,0.5); font-size: 12px;">Источник:</span>
+                    <div style="display:flex; justify-content:space-between; border-bottom: 1px solid var(--glass-border); padding-bottom: 8px;">
+                        <span style="color: var(--text-color-muted); font-size: 12px;">Источник:</span>
                         <span style="font-weight: 800; font-size: 12px;">${sourceText}</span>
                     </div>
-                    <div style="display:flex; justify-content:space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
-                        <span style="color: rgba(255,255,255,0.5); font-size: 12px;">Выбит:</span>
+                    <div style="display:flex; justify-content:space-between; border-bottom: 1px solid var(--glass-border); padding-bottom: 8px;">
+                        <span style="color: var(--text-color-muted); font-size: 12px;">Выбит:</span>
                         <span style="font-weight: 800; font-size: 12px;">${dateFormatted}</span>
                     </div>
                     ${modalExpireText}
                     <div style="display:flex; justify-content:space-between;">
-                        <span style="color: rgba(255,255,255,0.5); font-size: 12px;">Статус:</span>
-                        <span style="font-weight: 800; font-size: 12px;">${statusRu}</span>
+                        <span style="color: var(--text-color-muted); font-size: 12px;">Статус:</span>
+                        <span style="font-weight: 800; font-size: 12px; color:#fff;">${statusRu}</span>
                     </div>
-                    ${item.error_log ? `<div style="background: rgba(255,69,58,0.1); border: 1px solid rgba(255,69,58,0.3); padding: 8px; border-radius: 8px; margin-top: 5px;">
-                        <span style="color: #ff453a; font-size: 10px; font-weight: 800;">ОШИБКА:</span><br>
-                        <span style="color: rgba(255,255,255,0.8); font-size: 10px;">${item.error_log}</span>
+                    ${item.error_log ? `<div style="background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); padding: 8px; border-radius: 8px; margin-top: 5px;">
+                        <span style="color: var(--text-color-muted); font-size: 10px; font-weight: 800;">ОШИБКА:</span><br>
+                        <span style="color: #fff; font-size: 10px;">${item.error_log}</span>
                     </div>` : ''}
                 </div>
-                <button onclick="window.open('https://t.me/hatelove_twitch?text=${encodeURIComponent(supportText)}', '_blank');" style="background: linear-gradient(135deg, #0a84ff 0%, #005bb5 100%); border: none; border-radius: 14px; color: white; font-size: 14px; font-weight: 800; padding: 16px; margin-top: 10px; cursor: pointer; box-shadow: 0 4px 15px rgba(10,132,255,0.4);">
+                <button onclick="window.open('https://t.me/hatelove_twitch?text=${encodeURIComponent(supportText)}', '_blank');" style="background: rgba(255,255,255,0.1); border: 1px solid var(--glass-border); border-radius: 14px; color: white; font-size: 14px; font-weight: 800; padding: 16px; margin-top: 10px; cursor: pointer; transition: 0.2s;">
                     <i class="fa-solid fa-headset" style="margin-right: 5px;"></i> СООБЩИТЬ ПРОБЛЕМУ
                 </button>
             `;
@@ -1165,7 +1210,7 @@
             document.body.appendChild(overlay);
             
             document.getElementById(`close-modal-btn-${historyId}`).onclick = closeSupport;
-            setTimeout(() => { overlay.style.backgroundColor = 'rgba(0,0,0,0.6)'; box.style.transform = 'translateY(0)'; }, 10);
+            setTimeout(() => { overlay.style.backgroundColor = 'rgba(0,0,0,0.7)'; box.style.transform = 'translateY(0)'; }, 10);
             overlay.onclick = (e) => { if (e.target === overlay) closeSupport(); };
         };
 
@@ -1241,6 +1286,9 @@
                 sortSelect.style.height = '24px';
                 sortSelect.style.maxWidth = '115px';
                 sortSelect.dataset.minified = 'true';
+                sortSelect.style.background = 'rgba(255,255,255,0.05)';
+                sortSelect.style.border = '1px solid var(--glass-border)';
+                sortSelect.style.color = '#fff';
             }
             if (sortSelect) {
                 sortSelect.style.transition = 'opacity 0.3s ease';
@@ -1256,8 +1304,8 @@
                 container.style.display = 'block';
                 container.innerHTML = `
                     <div style="text-align:center; padding-top: 50px;">
-                        <i class="fa-solid fa-box-open" style="font-size: 40px; margin-bottom: 15px; opacity: 0.3; color: #fff;"></i>
-                        <p style="font-size: 14px; color: rgba(255,255,255,0.6); font-weight: 600;">Инвентарь пуст</p>
+                        <i class="fa-solid fa-box-open" style="font-size: 40px; margin-bottom: 15px; opacity: 0.2; color: #fff;"></i>
+                        <p style="font-size: 14px; color: var(--text-color-muted); font-weight: 600;">Инвентарь пуст</p>
                     </div>`;
                 return;
             }
@@ -1332,9 +1380,10 @@
                     totalSellTickets += ticketVal;
                 }
 
-                let cardBgColor = hexToRgba(rData.color, 0.05); 
-                let cardBorder = `1px solid rgba(255,255,255, 0.05)`;
-                let cardShadow = `inset 0 0 20px rgba(0,0,0,0.6), 0 4px 10px rgba(0,0,0,0.5)`;
+                // Единый стиль карточки (Стекло)
+                let cardBgColor = 'rgba(25, 25, 28, 0.5)'; 
+                let cardBorder = `1px solid var(--glass-border)`;
+                let cardShadow = `inset 0 0 20px rgba(0,0,0,0.5), 0 4px 10px rgba(0,0,0,0.3)`;
                 
                 let isArchived = ['received', 'exchanged', 'exchanged_swap', 'failed'].includes(status);
                 let centerOverlay = '';
@@ -1351,10 +1400,10 @@
                         subText = parts[1];
                     }
                     overlayHtml = `
-                        <div class="inv-overlay" id="blur-overlay-${historyId}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 50; border-radius: 12px; padding: 10px; box-sizing: border-box; text-align: center;">
-                            <div style="color: #ff3b30; font-size: 11px; font-weight: 800; text-transform: uppercase; line-height: 1.2; margin-bottom: 4px;">${titleText}</div>
-                            <div style="color: #ccc; font-size: 8px; margin-bottom: 10px; line-height: 1.1;">${subText}</div>
-                            <button style="background: #34c759; color: #000; border: none; border-radius: 6px; font-size: 9px; font-weight: 800; padding: 6px 16px; cursor: pointer;" onclick="acknowledgeCancel(${historyId}, event)">Хорошо!</button>
+                        <div class="inv-overlay" id="blur-overlay-${historyId}" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 50; border-radius: 12px; padding: 10px; box-sizing: border-box; text-align: center;">
+                            <div style="color: #fff; font-size: 11px; font-weight: 800; text-transform: uppercase; line-height: 1.2; margin-bottom: 4px;">${titleText}</div>
+                            <div style="color: var(--text-color-muted); font-size: 8px; margin-bottom: 10px; line-height: 1.1;">${subText}</div>
+                            <button style="background: rgba(255,255,255,0.1); border: 1px solid var(--glass-border); color: #fff; border-radius: 6px; font-size: 9px; font-weight: 800; padding: 6px 16px; cursor: pointer;" onclick="acknowledgeCancel(${historyId}, event)">Хорошо!</button>
                         </div>
                     `;
                 }
@@ -1367,35 +1416,24 @@
                     imgTransform = currentGridSize === '2' ? 'scale(0.8) translateX(15%) translateY(0%) !important' : 'scale(0.9) translateX(20%) translateY(0%) !important'; 
                 }
 
-                let imageStyles = `width:90%; height:90%; object-fit:contain; filter:drop-shadow(0 8px 15px rgba(0,0,0,0.6)) brightness(1.2); transition: all 0.4s ease; transform: ${imgTransform};`;
+                let imageStyles = `width:90%; height:90%; object-fit:contain; filter:drop-shadow(0 8px 15px rgba(0,0,0,0.8)) brightness(1.1); transition: all 0.4s ease; transform: ${imgTransform};`;
                 
                 if (isArchived) {
                     imageStyles += ` opacity: 0.15; filter: blur(2px) grayscale(100%); transform: scale(1);`;
                     const lowerSkinName = `<div style="position:absolute; bottom: 8px; left: 0; width: 100%; text-align: center; font-size: ${fsTitle}; font-weight: 800; color: rgba(255,255,255,0.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 4px; box-sizing: border-box; z-index: 6;">${cleanName}</div>`;
 
                     if (status === 'received') {
-                        cardBgColor = 'rgba(52, 199, 89, 0.05)';
-                        centerOverlay = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:${fsOverlay}; font-weight:900; color:#32d74b; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5; transform: translateY(-10px);">Успешно<br>выведен</div>` + lowerSkinName;
+                        centerOverlay = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:${fsOverlay}; font-weight:900; color:#fff; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5; transform: translateY(-10px);">Выведен</div>` + lowerSkinName;
                     } else if (status === 'exchanged') {
-                        cardBgColor = 'rgba(255, 149, 0, 0.05)';
-                        centerOverlay = `<div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:${fsOverlay}; font-weight:900; color:#fff; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5; line-height: 1.3;"><span>Продан за</span><span style="color:#ffd700; font-size:${fsPrice};">${ticketVal} <i class="fa-solid fa-ticket"></i></span></div>`;
+                        centerOverlay = `<div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:${fsOverlay}; font-weight:900; color:#fff; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5; line-height: 1.3;"><span>Продан за</span><span style="color:#fff; font-size:${fsPrice}; opacity:0.8;">${ticketVal} <i class="fa-solid fa-ticket"></i></span></div>`;
                     } else if (status === 'exchanged_swap') {
-                        cardBgColor = 'rgba(255, 215, 0, 0.05)';
-                        centerOverlay = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:${fsOverlay}; font-weight:900; color:#ffd700; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5; transform: translateY(-10px);">В свапе</div>` + lowerSkinName;
+                        centerOverlay = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:${fsOverlay}; font-weight:900; color:#fff; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5; transform: translateY(-10px);">В свапе</div>` + lowerSkinName;
                     } else if (status === 'failed') {
-                        cardBgColor = 'rgba(255, 69, 58, 0.05)';
-                        centerOverlay = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:${fsOverlay}; font-weight:900; color:#ff453a; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5; transform: translateY(-10px);">Ошибка</div>` + lowerSkinName;
+                        centerOverlay = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:${fsOverlay}; font-weight:900; color:#fff; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5; transform: translateY(-10px);">Ошибка</div>` + lowerSkinName;
                     }
                 } 
-                else if (status === 'auto_queued') {
-                    cardBorder = `1px solid rgba(10, 132, 255, 0.3)`;
+                else if (status === 'auto_queued' || status === 'market_pending') {
                     imageStyles += ` opacity: 0.5; filter: grayscale(50%); transform: scale(1);`;
-                } else if (status === 'market_pending') {
-                    cardBorder = `1px solid rgba(191, 90, 242, 0.3)`;
-                    imageStyles += ` opacity: 0.5; filter: grayscale(50%); transform: scale(1);`;
-                } else if (status === 'offer_sent' || status === 'sent') {
-                    cardBorder = `1px solid rgba(52, 199, 89, 0.4)`;
-                    cardShadow = `inset 0 0 20px rgba(52, 199, 89, 0.05), 0 4px 15px rgba(52, 199, 89, 0.1)`;
                 }
 
                 // Сгорание
@@ -1426,7 +1464,7 @@
                     }
                 }
 
-                // ЛОГИКА НИЖНЕЙ КНОПКИ (СТАТУСЫ СТАРОГО ДИЗАЙНА)
+                // ЛОГИКА НИЖНЕЙ КНОПКИ (ТЕПЕРЬ ВСЕ В ЕДИНОМ СТИЛЕ СТЕКЛА)
                 let bottomBtnText = '';
                 let bottomBtnAction = '';
                 let panelContent = '';
@@ -1436,29 +1474,29 @@
                     bottomBtnText = ''; 
                 } else if (isExpired && ['available', 'pending', 'canceled'].includes(status)) {
                     bottomBtnText = 'СГОРЕЛ';
-                    bottomBtnStyle = 'background: rgba(255, 59, 48, 0.2); color: #ff3b30;';
+                    bottomBtnStyle = 'background: rgba(255,255,255,0.02); color: var(--text-color-muted); border-top: 1px solid var(--glass-border);';
                 } else if (status === 'market_pending') {
                     bottomBtnText = `<span id="check-icon-${historyId}" style="display:flex; align-items:center; gap:4px;"><i class="fa-solid fa-spinner fa-spin-fast"></i> СБОРКА БОТОМ</span>`;
                     bottomBtnAction = `onclick="checkTradeStatus(${historyId})"`;
-                    bottomBtnStyle = 'background: rgba(162, 0, 255, 0.2); color: #a200ff;';
+                    bottomBtnStyle = 'background: rgba(255,255,255,0.05); color: #fff; border-top: 1px solid var(--glass-border);';
                 } else if (status === 'processing') {
                     bottomBtnText = 'ОБРАБОТКА';
-                    bottomBtnStyle = 'background: rgba(255, 215, 0, 0.2); color: #ffd700;';
+                    bottomBtnStyle = 'background: rgba(255,255,255,0.05); color: #fff; border-top: 1px solid var(--glass-border);';
                 } else if (status === 'auto_queued') {
                     bottomBtnText = '<i class="fa-solid fa-magnifying-glass"></i> ПОИСК...';
-                    bottomBtnStyle = 'background: rgba(0, 192, 227, 0.2); color: #00c0e3;';
+                    bottomBtnStyle = 'background: rgba(255,255,255,0.05); color: #fff; border-top: 1px solid var(--glass-border);';
                 } else if (status === 'offer_sent' || status === 'sent') {
                     const timerElementId = `timer-${historyId}`;
                     bottomBtnText = `<span id="${timerElementId}">--:--</span> <i class="fa-solid fa-chevron-up" style="font-size:${fsChevron}; margin-left:2px;"></i>`;
-                    bottomBtnStyle = 'background: rgba(255, 204, 0, 0.2); color: #ffcc00; animation: pulse-opacity 1.5s infinite;';
+                    bottomBtnStyle = 'background: rgba(255,255,255,0.1); color: #fff; border-top: 1px solid var(--glass-border); animation: pulse-opacity 1.5s infinite;';
                     bottomBtnAction = `onclick="toggleActionPanel('${historyId}', true, event)"`;
                     
                     panelContent = `
-                        <div style="font-size: 9px; color: #ffcc00; font-weight: 800; margin-bottom: 6px; text-align: center;">ПРИМИТЕ ОФФЕР В STEAM</div>
-                        <button onclick="window.open('https://steamcommunity.com/my/tradeoffers/', '_blank'); toggleActionPanel('${historyId}', false, event);" style="box-sizing:border-box; background:#2a475e; color:#c7d5e0; border:none; border-radius:6px; font-size:${fsBtn}; font-weight:800; padding:6px; width:100%; margin-bottom:4px; line-height:1.3;">
+                        <div style="font-size: 9px; color: #fff; font-weight: 800; margin-bottom: 6px; text-align: center; opacity: 0.8;">ПРИМИТЕ ОФФЕР В STEAM</div>
+                        <button onclick="window.open('https://steamcommunity.com/my/tradeoffers/', '_blank'); toggleActionPanel('${historyId}', false, event);" style="box-sizing:border-box; background:rgba(255,255,255,0.1); border:1px solid var(--glass-border); color:#fff; border-radius:6px; font-size:${fsBtn}; font-weight:800; padding:6px; width:100%; margin-bottom:4px; line-height:1.3; backdrop-filter:blur(5px);">
                             <i class="fa-brands fa-steam"></i> ОТКРЫТЬ STEAM
                         </button>
-                        <button id="check-btn-${historyId}" onclick="checkTradeStatus(${historyId}); toggleActionPanel('${historyId}', false, event);" style="box-sizing:border-box; background:#ffcc00; color:#000; border:none; border-radius:6px; font-size:${fsBtn}; font-weight:800; padding:6px; width:100%; line-height:1.3;">
+                        <button id="check-btn-${historyId}" onclick="checkTradeStatus(${historyId}); toggleActionPanel('${historyId}', false, event);" style="box-sizing:border-box; background:rgba(255,255,255,0.05); border:1px solid var(--glass-border); color:#fff; border-radius:6px; font-size:${fsBtn}; font-weight:800; padding:6px; width:100%; line-height:1.3; backdrop-filter:blur(5px);">
                             <i class="fa-solid fa-rotate"></i> ОБНОВИТЬ СТАТУС
                         </button>
                     `;
@@ -1467,31 +1505,31 @@
                     // Available, Pending
                     bottomBtnText = ` <i class="fa-solid fa-chevron-up"></i> ДЕЙСТВИЕ <i class="fa-solid fa-chevron-up" style="font-size:${fsChevron}; margin-left:2px;"></i>`;
                     bottomBtnAction = `onclick="toggleActionPanel('${historyId}', true, event)"`;
-                    bottomBtnStyle = 'background: rgba(0,0,0,0.4); border-top: 1px solid rgba(255,255,255,0.05); color: #fff;';
+                    bottomBtnStyle = 'background: rgba(0,0,0,0.6); border-top: 1px solid var(--glass-border); color: #fff;';
                     
-                    // 🔥 ВОТ ЗДЕСЬ ВОЗВРАЩАЕМ СТАРЫЙ СОЧНЫЙ ДИЗАЙН КНОПОК В 2 СТРОКИ 🔥
+                    // Кнопки действий переделаны под единый стиль стекла
                     panelContent = `
-                        <button onclick="exchangeItem(${historyId}, ${ticketVal}); toggleActionPanel('${historyId}', false, event);" style="box-sizing:border-box; background:rgba(255,149,0,0.1); border:1px solid rgba(255,149,0,0.3); color:#ff9f0a; border-radius:6px; font-size:${fsBtn}; font-weight:800; padding:4px; width:100%; margin-bottom:4px; line-height:1.3; transition:0.2s;">
+                        <button onclick="exchangeItem(${historyId}, ${ticketVal}); toggleActionPanel('${historyId}', false, event);" style="box-sizing:border-box; background:rgba(255,255,255,0.05); border:1px solid var(--glass-border); color:#fff; border-radius:6px; font-size:${fsBtn}; font-weight:800; padding:4px; width:100%; margin-bottom:4px; line-height:1.3; transition:0.2s; backdrop-filter:blur(5px);">
                             ПРОДАТЬ ЗА<br>${ticketVal} <i class="fa-solid fa-ticket"></i>
                         </button>
-                        <button id="withdraw-btn-${historyId}" onclick="withdrawItem(${historyId}, '${safeNameStr}'); toggleActionPanel('${historyId}', false, event);" style="box-sizing:border-box; background:rgba(10,132,255,0.1); border:1px solid rgba(10,132,255,0.3); color:#0a84ff; border-radius:6px; font-size:${fsBtn}; font-weight:800; padding:4px; width:100%; line-height:1.3; transition:0.2s;">
+                        <button id="withdraw-btn-${historyId}" onclick="withdrawItem(${historyId}, '${safeNameStr}'); toggleActionPanel('${historyId}', false, event);" style="box-sizing:border-box; background:rgba(255,255,255,0.15); border:1px solid var(--glass-border); color:#fff; border-radius:6px; font-size:${fsBtn}; font-weight:800; padding:4px; width:100%; line-height:1.3; transition:0.2s; backdrop-filter:blur(5px);">
                             ЗАБРАТЬ В<br>STEAM
                         </button>
                     `;
                 }
 
                 const el = document.createElement('div');
-                el.style.cssText = `position: relative; aspect-ratio: 1 / 1; display: flex; flex-direction: column; border-radius: 12px; border: ${cardBorder}; background: ${cardBgColor}; box-shadow: ${cardShadow}; overflow: hidden; transition: all 0.3s ease; box-sizing: border-box;`;
+                el.style.cssText = `position: relative; aspect-ratio: 1 / 1; display: flex; flex-direction: column; border-radius: 12px; border: ${cardBorder}; background: ${cardBgColor}; box-shadow: ${cardShadow}; overflow: hidden; transition: all 0.3s ease; box-sizing: border-box; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);`;
                 
                 el.innerHTML = `
                     ${overlayHtml}
-                    <!-- Выезжающее меню (Название ВНУТРИ) -->
+                    <!-- Выезжающее меню -->
                     ${panelContent ? `
-                    <div id="action-panel-${historyId}" style="position:absolute; bottom:-100%; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); backdrop-filter:blur(10px); z-index:40; opacity:0; pointer-events:none; transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1); display:flex; flex-direction:column; justify-content:flex-end; padding:4px; box-sizing:border-box;">
+                    <div id="action-panel-${historyId}" style="position:absolute; bottom:-100%; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); backdrop-filter:blur(15px); -webkit-backdrop-filter:blur(15px); z-index:40; opacity:0; pointer-events:none; transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1); display:flex; flex-direction:column; justify-content:flex-end; padding:4px; box-sizing:border-box;">
                         <div onclick="toggleActionPanel('${historyId}', false, event)" style="position:absolute; top:0; left:0; width:100%; height:100%; z-index:-1; cursor:pointer;"></div>
                         
-                        <div onclick="toggleActionPanel('${historyId}', false, event)" style="position:absolute; top:4px; right:4px; width:${closeBtnSize}; height:${closeBtnSize}; background:rgba(255,255,255,0.1); border-radius:50%; display:flex; justify-content:center; align-items:center; cursor:pointer; z-index:10;">
-                            <i class="fa-solid fa-xmark" style="color:rgba(255,255,255,0.7); font-size:${closeBtnIcon}; line-height:1; display:flex; margin-top:0.5px;"></i>
+                        <div onclick="toggleActionPanel('${historyId}', false, event)" style="position:absolute; top:4px; right:4px; width:${closeBtnSize}; height:${closeBtnSize}; background:rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius:50%; display:flex; justify-content:center; align-items:center; cursor:pointer; z-index:10;">
+                            <i class="fa-solid fa-xmark" style="color:var(--text-color-muted); font-size:${closeBtnIcon}; line-height:1; display:flex; margin-top:0.5px;"></i>
                         </div>
                         
                         <div style="text-align:center; margin-bottom:8px; padding:0 ${namePadding};">
@@ -1503,7 +1541,7 @@
                     </div>
                     ` : ''}
 
-                    <div onclick="openSupportModal('${historyId}', event)" style="position:absolute; top:4px; left:4px; width:${supportSize}; height:${supportSize}; border-radius:50%; background:rgba(0,0,0,0.4); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); color:rgba(255,255,255,0.8); font-weight:900; display:flex; justify-content:center; align-items:center; z-index:20; font-size:${supportFont}; box-shadow: 0 2px 8px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.15); cursor:pointer;">!</div>
+                    <div onclick="openSupportModal('${historyId}', event)" style="position:absolute; top:4px; left:4px; width:${supportSize}; height:${supportSize}; border-radius:50%; background:rgba(255,255,255,0.05); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); color:var(--text-color-muted); font-weight:900; display:flex; justify-content:center; align-items:center; z-index:20; font-size:${supportFont}; border: 1px solid var(--glass-border); cursor:pointer;">!</div>
 
                     <div style="position:absolute; inset:0; display:flex; justify-content:center; align-items:center; overflow:hidden; z-index:1; padding-bottom: 15px;" onclick="${!isArchived ? `openFullscreenWeapon('${imageUrl}', '${safeNameStr}')` : ''}">
                         <img src="${imageUrl}" style="${imageStyles}">
@@ -1512,15 +1550,15 @@
 
                     <div style="position:absolute; bottom: ${isArchived ? '8px' : '32px'}; left:4px; z-index:10; display:flex; flex-direction:column; gap:0; pointer-events:none;">
                         ${!isArchived ? `
-                            <div style="background:rgba(0,0,0,0.5); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); border:1px solid rgba(255,255,255,0.05); padding: 2px 5px; border-radius: 4px; font-size:${fsPrice}; font-weight:900; color:#ffd700;">
+                            <div style="background:rgba(0,0,0,0.6); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); border:1px solid var(--glass-border); padding: 2px 5px; border-radius: 4px; font-size:${fsPrice}; font-weight:900; color:#fff;">
                                 ${rawPrice} ₽
                             </div>
                         ` : ''}
                     </div>
                     
                     ${bottomBtnText ? `
-                    <div ${bottomBtnAction} style="position:absolute; bottom:0; left:0; width:100%; display:flex; flex-direction:column; justify-content:center; align-items:center; backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); font-size:${fsAction}; font-weight:800; padding:2px 0; cursor:pointer; transition:0.2s; z-index:15; ${bottomBtnStyle}">
-                        ${expirationHtml && !isExpired ? `<span style="color:#ff4c4c; font-size:${fsExp}; font-weight:900; margin-bottom:1px;">${expirationHtml}</span>` : ''}
+                    <div ${bottomBtnAction} style="position:absolute; bottom:0; left:0; width:100%; display:flex; flex-direction:column; justify-content:center; align-items:center; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); font-size:${fsAction}; font-weight:800; padding:2px 0; cursor:pointer; transition:0.2s; z-index:15; ${bottomBtnStyle}">
+                        ${expirationHtml && !isExpired ? `<span style="color:var(--text-color-muted); font-size:${fsExp}; font-weight:900; margin-bottom:1px;">${expirationHtml}</span>` : ''}
                         <span style="display:flex; align-items:center; gap: 3px;">${bottomBtnText}</span>
                     </div>
                     ` : ''}
@@ -1539,6 +1577,10 @@
                     sellAllBtn.style.height = '24px';
                     sellAllBtn.dataset.amount = totalSellTickets.toFixed(2);
                     sellAllBtn.dataset.count = availableSellCount;
+                    // Стилизация для единого стиля
+                    sellAllBtn.style.background = 'rgba(255,255,255,0.1)';
+                    sellAllBtn.style.border = '1px solid var(--glass-border)';
+                    sellAllBtn.style.color = '#fff';
                 } else {
                     sellAllBtn.style.display = 'none';
                 }
@@ -1566,7 +1608,6 @@
             document.getElementById('withdraw-loader-item').innerText = itemName;
             loader.classList.add('active');
             
-            // Массив крутых фраз
             const messages = [
                 "Связываемся с маркетом...",
                 "Ищем подходящий скин...",
@@ -1582,13 +1623,12 @@
             msgEl.innerText = messages[0];
             msgEl.style.opacity = '1';
             
-            // Меняем текст каждые 2.5 секунды
             withdrawLoaderInterval = setInterval(() => {
                 msgIdx = (msgIdx + 1) % messages.length;
-                msgEl.style.opacity = '0'; // Плавно гасим
+                msgEl.style.opacity = '0'; 
                 setTimeout(() => {
                     msgEl.innerText = messages[msgIdx];
-                    msgEl.style.opacity = '1'; // Плавно проявляем
+                    msgEl.style.opacity = '1'; 
                 }, 300);
             }, 2500);
         }
@@ -1601,14 +1641,14 @@
             }
         }
 
-        // --- ФУНКЦИЯ "ЗАБРАТЬ" (С КРЕАТИВНЫМ ЛОАДЕРОМ) ---
+        // --- ФУНКЦИЯ "ЗАБРАТЬ" ---
         window.withdrawItem = function(historyId, itemName) {
             if (isUpdating) return;
             const lockKey = `claim_lock_${historyId}`;
             const lockTimestamp = localStorage.getItem(lockKey);
             
             if (lockTimestamp && (Date.now() - lockTimestamp < 30 * 60 * 1000)) {
-                tg.showAlert("⏳ Трейд уже в очереди! Steam может тупить, подождите еще немного.");
+                customAlert("⏳ Трейд уже в очереди! Steam может тупить, подождите еще немного.");
                 return;
             }
 
@@ -1616,15 +1656,11 @@
                 if (isUpdating) return; 
                 isUpdating = true;
                 
-                // 1. Мгновенно закрываем окно подтверждения и выезжающую менюшку скина
                 closeConfirm();
                 toggleActionPanel(historyId, false);
-                
-                // 2. Врубаем наш крутой креативный лоадер
                 showWithdrawLoader(itemName);
 
                 try {
-                    // Передаем true в конце, чтобы стандартный тихий лоадер не мешал нашему
                     const res = await apiRequest('/api/v1/user/inventory/withdraw', 'POST', { history_id: historyId }, true);
 
                     if (res && res.status === 'offer_replacement') {
@@ -1635,27 +1671,23 @@
                         localStorage.setItem(lockKey, Date.now());
                         if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
                         
-                        // Меняем текст лоадера на успех перед его скрытием для красоты
                         document.getElementById('withdraw-loader-msg').innerText = "ТРЕЙД УСПЕШНО СОЗДАН!";
                         document.querySelector('.withdraw-loader-icon').className = "fa-solid fa-check-circle withdraw-loader-icon";
                         
-                        setTimeout(() => tg.showPopup({message: res.message}), 500);
+                        setTimeout(() => customAlert(res.message, 'Супер!'), 500);
                     }
                     await refreshInventoryList();
                 } catch (e) {
-                    if (e.message !== 'Activity Lock') tg.showAlert("Ошибка: " + e.message);
+                    if (e.message !== 'Activity Lock') customAlert("Ошибка: " + e.message);
                 } finally {
-                    // 3. Выключаем наш лоадер (с небольшой задержкой, чтобы юзер увидел успех)
                     setTimeout(() => {
                         hideWithdrawLoader();
                         isUpdating = false;
-                        
-                        // Возвращаем иконку радара обратно для следующих трейдов
                         const icon = document.querySelector('.withdraw-loader-icon');
                         if (icon) icon.className = "fa-solid fa-radar withdraw-loader-icon";
                     }, 500);
                 }
-            }, "ВЫВЕСТИ", "#34c759", "#000");
+            }, "ВЫВЕСТИ", "rgba(255,255,255,0.15)", "#fff");
         }
         
         window.sellAllItems = function() {
@@ -1663,39 +1695,39 @@
             const amount = btn.dataset.amount;
             const count = btn.dataset.count;
             
-            showCustomConfirmHTML(`Продать ВСЕ доступные скины<br><span style="font-size: 14px; font-weight: 600; color: rgba(255,255,255,0.7); display: inline-block; margin-top: 6px;">в количестве: ${count} шт.</span><br><span style="display: inline-block; margin-top: 6px;">за ${amount} <i class="fa-solid fa-ticket" style="color:#ffd700;"></i> ?</span>`, async (close) => {
+            showCustomConfirmHTML(`Продать ВСЕ доступные скины<br><span style="font-size: 14px; font-weight: 600; color: var(--text-color-muted); display: inline-block; margin-top: 6px;">в количестве: ${count} шт.</span><br><span style="display: inline-block; margin-top: 6px;">за ${amount} <i class="fa-solid fa-ticket" style="color:#fff;"></i> ?</span>`, async (close) => {
                 document.getElementById('global-loader').classList.add('active');
                 try {
                     const res = await apiRequest('/api/v1/user/inventory/sell_all', 'POST');
-                    tg.showAlert(res.message || `Успешно! +${amount} билетов.`);
+                    customAlert(res.message || `Успешно! +${amount} билетов.`, 'Круто');
                     if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
                     close();
                     await refreshInventoryList();
                 } catch (e) {
-                    if (e.message !== 'Activity Lock') tg.showAlert(e.message || "Ошибка при массовой продаже");
+                    if (e.message !== 'Activity Lock') customAlert(e.message || "Ошибка при массовой продаже");
                     close();
                 } finally {
                     document.getElementById('global-loader').classList.remove('active');
                 }
-            }, "ПРОДАТЬ ВСЁ", "#ffd700", "#000000"); 
+            }, "ПРОДАТЬ ВСЁ", "rgba(255,255,255,0.15)", "#fff"); 
         }
 
         window.exchangeItem = function(historyId, amount) {
-            showCustomConfirmHTML(`Продать скин за ${amount} <i class="fa-solid fa-ticket" style="color:#ffd700;"></i> ?`, async (close) => {
+            showCustomConfirmHTML(`Продать скин за ${amount} <i class="fa-solid fa-ticket" style="color:#fff;"></i> ?`, async (close) => {
                 document.getElementById('global-loader').classList.add('active');
                 try {
                     const res = await apiRequest('/api/v1/user/inventory/sell', 'POST', { history_id: historyId });
-                    tg.showAlert(res.message || `Успешно! +${amount} билетов.`);
+                    customAlert(res.message || `Успешно! +${amount} билетов.`, 'Отлично');
                     if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
                     close();
                     await refreshInventoryList();
                 } catch (e) {
-                    if (e.message !== 'Activity Lock') tg.showAlert(e.message || "Ошибка обмена");
+                    if (e.message !== 'Activity Lock') customAlert(e.message || "Ошибка обмена");
                     close();
                 } finally {
                     document.getElementById('global-loader').classList.remove('active');
                 }
-            }, "ПРОДАТЬ", "#34c759", "#000000");
+            }, "ПРОДАТЬ", "rgba(255,255,255,0.15)", "#fff");
         }
 
         window.checkTradeStatus = async function(historyId, isAuto = false) {
@@ -1704,7 +1736,7 @@
 
             const now = Date.now();
             if (checkCooldowns[historyId] && (now - checkCooldowns[historyId] < 55000)) { 
-                if (!isAuto) tg.showPopup({message: "⏳ Проверять статус можно раз в минуту. Подождите немного."});
+                if (!isAuto) customAlert("⏳ Проверять статус можно раз в минуту. Подождите немного.");
                 return;
             }
             
@@ -1719,16 +1751,16 @@
             try {
                 const res = await apiRequest('/api/v1/user/inventory/check_trade', 'POST', { history_id: historyId }, true);
                 if (res && res.success) {
-                    if (!isAuto) tg.showPopup({message: res.message});
+                    if (!isAuto) customAlert(res.message);
                     await refreshInventoryList();
                 } else {
-                    if (!isAuto) tg.showPopup({message: res.message || "Оффер еще не принят. Посмотрите в Steam."});
+                    if (!isAuto) customAlert(res.message || "Оффер еще не принят. Посмотрите в Steam.");
                     if (res && res.new_status) {
                         await refreshInventoryList();
                     }
                 }
             } catch (e) {
-                if (!isAuto && e.message !== 'Activity Lock') tg.showAlert("Ошибка: " + e.message);
+                if (!isAuto && e.message !== 'Activity Lock') customAlert("Ошибка: " + e.message);
             } finally {
                 if (btn) {
                     btn.style.opacity = '1';
@@ -1751,18 +1783,18 @@
                     const res = await apiRequest('/api/v1/user/inventory/confirm_replacement', 'POST', { history_id: historyId, assetid: assetid }, true);
                     if (res && res.success) {
                         if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
-                        tg.showPopup({message: 'Замена успешно выбрана!'});
+                        customAlert('Замена успешно выбрана!');
                         await refreshInventoryList();
                     } else {
-                        tg.showAlert("❌ " + (res.message || "Ошибка замены"));
+                        customAlert("❌ " + (res.message || "Ошибка замены"));
                     }
                 } catch (e) {
-                    if (e.message !== 'Activity Lock') tg.showAlert("Ошибка: " + e.message);
+                    if (e.message !== 'Activity Lock') customAlert("Ошибка: " + e.message);
                 } finally {
                     document.getElementById('global-loader').classList.remove('active');
                     isUpdating = false; 
                 }
-            }, "ЗАБРАТЬ", "#ffd700", "#000"); 
+            }, "ЗАБРАТЬ", "rgba(255,255,255,0.15)", "#fff"); 
         }
 
     </script>
