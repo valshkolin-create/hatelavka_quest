@@ -683,7 +683,7 @@
             el.dataset.intervalId = setInterval(updateTimer, 1000);
         }
 
-        // --- ДЕТАЛЬНАЯ ИНФОРМАЦИЯ И ПОДДЕРЖКА ---
+// --- ДЕТАЛЬНАЯ ИНФОРМАЦИЯ И ПОДДЕРЖКА ---
         window.openSupportModal = function(historyId, event) {
             if (event) event.stopPropagation();
             if (typeof tg !== 'undefined' && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
@@ -700,8 +700,25 @@
             }
             if (!displayName) displayName = "Секретный приз";
 
-            // 1. ЛОГИКА КАЧЕСТВА: Берем напрямую из объекта, как в твоем старом коде
-            const skinCondition = item.condition || '';
+            // 1. УМНАЯ ЛОГИКА КАЧЕСТВА
+            const lowerName = displayName.toLowerCase();
+            const isNoConditionItem = lowerName.includes('наклейка') || 
+                                      lowerName.includes('агент') || 
+                                      lowerName.includes('граффити') || 
+                                      lowerName.includes('нашивка') || 
+                                      lowerName.includes('набор музыки') || 
+                                      lowerName.includes('значок');
+
+            let finalCondition = null;
+            if (!isNoConditionItem && item.condition && item.condition !== '-') {
+                const c = item.condition.toLowerCase();
+                if (c.includes('factory new') || c.includes('прямо с завода') || c === 'fn') finalCondition = 'Прямо с завода (FN)';
+                else if (c.includes('minimal wear') || c.includes('немного поношенное') || c === 'mw') finalCondition = 'Немного поношенное (MW)';
+                else if (c.includes('field-tested') || c.includes('после полевых') || c === 'ft') finalCondition = 'После полевых испытаний (FT)';
+                else if (c.includes('well-worn') || c.includes('поношенное') || c === 'ww') finalCondition = 'Поношенное (WW)';
+                else if (c.includes('battle-scarred') || c.includes('закаленное') || c.includes('закалённое') || c === 'bs') finalCondition = 'Закалённое в боях (BS)';
+                else finalCondition = item.condition; // Фолбэк на случай неизвестного формата
+            }
 
             // 2. ЧИСТИМ ИМЯ (оставляем только правую часть после |)
             let cleanName = displayName.includes('|') ? displayName.split('|').slice(1).join('|').trim() : displayName;
@@ -750,7 +767,7 @@
             supportText += `📦 Предмет: ${displayName}\n`;
             supportText += `🧾 ID Операции (History): #${historyId}\n`;
             supportText += `📊 Текущий статус: ${statusRu}\n`;
-            if (skinCondition) supportText += `✨ Качество: ${skinCondition}\n`;
+            if (finalCondition) supportText += `✨ Качество: ${finalCondition}\n`;
             supportText += `📅 Получен: ${dateFormatted}\n`;
             supportText += `🛠 Источник: ${sourceText}\n`;
             if (item.error_log) supportText += `❌ Лог ошибки: ${item.error_log}\n`;
@@ -792,10 +809,10 @@
                         <span style="color: rgba(255,255,255,0.5); font-size: 12px;">ID Предмета:</span>
                         <span style="font-weight: 800; font-size: 12px;">#${historyId}</span>
                     </div>
-                    ${skinCondition ? `
+                    ${finalCondition ? `
                     <div style="display:flex; justify-content:space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
                         <span style="color: rgba(255,255,255,0.5); font-size: 12px;">Качество:</span>
-                        <span style="font-weight: 800; font-size: 12px; color: #b0c3d9;">${skinCondition}</span>
+                        <span style="font-weight: 800; font-size: 12px; color: #b0c3d9;">${finalCondition}</span>
                     </div>` : ''}
                     <div style="display:flex; justify-content:space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
                         <span style="color: rgba(255,255,255,0.5); font-size: 12px;">Источник:</span>
