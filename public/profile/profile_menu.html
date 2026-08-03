@@ -1139,11 +1139,13 @@
                     `;
                     setTimeout(() => { if (typeof initCountdown === 'function') initCountdown(timerElementId, item.updated_at); }, 50);
                 } else {
+                    } else {
                     // Available / Pending
                     panelContent = `
                         <button onclick="exchangeItem(${historyId}, ${ticketVal}); toggleActionPanel('${historyId}', false, event);" style="box-sizing:border-box; background:rgba(255,149,0,0.1); border:1px solid rgba(255,149,0,0.3); color:#ff9f0a; border-radius:6px; font-size:8px; font-weight:800; padding:4px; width:100%; margin-bottom:4px; line-height:1.3;">ПРОДАТЬ ЗА<br>${ticketVal} <i class="fa-solid fa-ticket"></i></button>
                         <button id="withdraw-btn-${historyId}" onclick="withdrawItem(${historyId}, '${safeNameStr}'); toggleActionPanel('${historyId}', false, event);" style="box-sizing:border-box; background:rgba(10,132,255,0.1); border:1px solid rgba(10,132,255,0.3); color:#0a84ff; border-radius:6px; font-size:8px; font-weight:800; padding:4px; width:100%; line-height:1.3;">ЗАБРАТЬ В<br>STEAM</button>
                     `;
+                } // <--- ВОТ ЭТА СКОБКА ТЕРЯЛАСЬ!
 
                 const el = document.createElement('div');
                 // Карточка-квадрат
