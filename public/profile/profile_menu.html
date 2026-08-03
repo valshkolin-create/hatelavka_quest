@@ -65,8 +65,9 @@
         }
 
         /* ЕДИНЫЙ КОНТЕЙНЕР ДЛЯ ШАПКИ И НАВИГАЦИИ */
+        /* ЕДИНЫЙ КОНТЕЙНЕР ДЛЯ ШАПКИ И НАВИГАЦИИ */
         .header-nav-wrapper {
-            position: absolute; /* ВАЖНО: теперь шапка висит поверх всего контента */
+            position: absolute; 
             top: 0;
             left: 0;
             width: 100%;
@@ -75,8 +76,8 @@
             backdrop-filter: var(--glass-blur);
             -webkit-backdrop-filter: var(--glass-blur);
             border-bottom: 1px solid var(--glass-border);
-            box-shadow: var(--glass-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.15); /* Блик стекла */
-            z-index: 10;
+            box-shadow: var(--glass-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.15); 
+            z-index: 1000; /* ВАЖНО: подняли до 1000, чтобы перекрыть все кнопки инвентаря */
             padding-top: var(--safe-top-gap);
         }
 
@@ -224,15 +225,15 @@
             flex-grow: 1;
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
-            padding: 15px; /* Боковые и нижние отступы */
+            padding: 15px; 
             
-            /* ВАЖНО: Сдвигаем начало контента из-под парящей шапки вниз */
-            padding-top: calc(var(--safe-top-gap) + 135px); 
+            /* УВЕЛИЧИЛИ ОТСТУП: теперь сортировка и кнопка "Продать всё" не прячутся под шапкой */
+            padding-top: calc(var(--safe-top-gap) + 175px); 
             
             position: relative;
             box-sizing: border-box;
             width: 100%;
-            height: 100vh; /* Растягиваем на весь экран */
+            height: 100vh;
         }
 
         .tab-loader {
