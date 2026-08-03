@@ -1421,14 +1421,14 @@
                     const lowerSkinName = `<div style="position:absolute; bottom: 8px; left: 0; width: 100%; text-align: center; font-size: ${fsTitle}; font-weight: 800; color: rgba(255,255,255,0.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 4px; box-sizing: border-box; z-index: 6;">${cleanName}</div>`;
 
                     if (status === 'received') {
-                        cardBgColor = 'rgba(52, 199, 89, 0.05)';
-                        centerOverlay = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:${fsOverlay}; font-weight:900; color:#32d74b; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5; transform: translateY(-10px);">Выведен</div>` + lowerSkinName;
+                        cardBgColor = 'rgba(255, 255, 255, 0.05)';
+                        centerOverlay = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:${fsOverlay}; font-weight:900; color:#b0b0b0; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5; transform: translateY(-10px);">Выведен</div>` + lowerSkinName;
                     } else if (status === 'exchanged') {
-                        cardBgColor = 'rgba(255, 149, 0, 0.05)';
-                        centerOverlay = `<div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:${fsOverlay}; font-weight:900; color:#fff; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5; line-height: 1.3;"><span>Продан за</span><span style="color:#fff; font-size:${fsPrice}; opacity:0.8;">${ticketVal} <i class="fa-solid fa-ticket"></i></span></div>`;
+                        cardBgColor = 'rgba(255, 255, 255, 0.05)';
+                        centerOverlay = `<div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:${fsOverlay}; font-weight:900; color:#b0b0b0; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5; line-height: 1.3;"><span>Продан за</span><span style="color:#b0b0b0; font-size:${fsPrice}; opacity:0.8;">${ticketVal} <i class="fa-solid fa-ticket"></i></span></div>`;
                     } else if (status === 'exchanged_swap') {
-                        cardBgColor = 'rgba(255, 215, 0, 0.05)';
-                        centerOverlay = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:${fsOverlay}; font-weight:900; color:#ffd700; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5; transform: translateY(-10px);">В свапе</div>` + lowerSkinName;
+                        cardBgColor = 'rgba(255, 255, 255, 0.05)';
+                        centerOverlay = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:${fsOverlay}; font-weight:900; color:#b0b0b0; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5; transform: translateY(-10px);">В свапе</div>` + lowerSkinName;
                     } else if (status === 'failed') {
                         cardBgColor = 'rgba(255, 69, 58, 0.05)';
                         centerOverlay = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:${fsOverlay}; font-weight:900; color:#ff453a; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5; transform: translateY(-10px);">Ошибка</div>` + lowerSkinName;
