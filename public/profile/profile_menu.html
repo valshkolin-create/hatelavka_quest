@@ -1204,14 +1204,13 @@
                     sellAllBtn.style.fontSize = '9px';
                     sellAllBtn.style.padding = '0 8px';
                     sellAllBtn.style.height = '24px';
-                    sellAllBtn.style.color = '#ffffff'; // <--- ВЕРНУЛИ ЗАКОННЫЙ БЕЛЫЙ!
                     sellAllBtn.dataset.amount = totalSellTickets.toFixed(2);
                     sellAllBtn.dataset.count = availableSellCount;
                 } else {
                     sellAllBtn.style.display = 'none';
                 }
             }
-        } // <--- И ВОТ ЭТА СКОБКА ЗАКРЫВАЕТ ФУНКЦИЮ renderInventory
+        }
 
         // --- УТИЛИТА ПОДТВЕРЖДЕНИЯ (CUSTOM CONFIRM) ---
         // --- УТИЛИТА ПОДТВЕРЖДЕНИЯ (CUSTOM CONFIRM) ---
