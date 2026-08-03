@@ -12900,10 +12900,13 @@ async def cron_leaderboard_issue(request: Request, source: str = Query(...), per
 
     # 🔥 ЗАЩИТА ОТ РАННЕГО ЗАПУСКА ДЛЯ МЕСЯЧНЫХ НАГРАД
     if period == "month":
-        now = datetime.now(timezone.utc)
+        # Создаем часовой пояс МСК (UTC + 3 часа)
+        msk_tz = timezone(timedelta(hours=3))
+        now = datetime.now(msk_tz)
+        
         # Если прибавить 1 день, и это НЕ 1-е число, значит сегодня НЕ последний день месяца
         if (now + timedelta(days=1)).day != 1:
-            return {"success": True, "details": "Сегодня не последний день месяца, выдача наград отложена."}
+            return {"success": True, "details": "Сегодня не последний день месяца (по МСК), выдача наград отложена."}
 
     # 2. Формируем список ключей для проверки (ТГ или Твич)
     keys_to_check = []
