@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>  
+    <meta charset="UTF-8" />
+    <title>Профиль пользователей</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    
+    <!-- Твои старые библиотеки -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    
+    <style>
+        :root {
+            --bg-color: #000000;
+            --text-color: #ffffff;
+            --text-color-muted: #b0b0b0;
+            --primary-color: #34c759;
+            --action-color: #007aff;
+            --danger-color: #ff3b30;
+            --nav-bg: #1c1c1e;
+            --safe-top-gap: max(env(safe-area-inset-top, 24px) + 20px, 40px);
+        }
+
+        html, body {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            overflow: hidden; /* Железобетонный фикс скролла */
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* --- НОВЫЙ ДИЗАЙН ШАПКИ --- */
+        .profile-skeleton {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .profile-header {
+            display: flex;
+            align-items: center;
+            padding: var(--safe-top-gap) 15px 20px 15px;
+            gap: 15px;
+        }
+
+        .avatar-container {
+            width: 75px;
+            height: 75px;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+            flex-shrink: 0;
+        }
+
+        .avatar-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .user-info {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            flex-grow: 1;
+        }
+
+        .user-icons {
+            font-size: 14px;
+            color: #fff;
+            margin-bottom: 2px;
+            display: flex;
+            gap: 5px;
+        }
+
+        .nickname {
+            color: var(--danger-color);
+            font-size: 18px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 2px;
+        }
+
+        .user-id {
+            color: var(--text-color-muted);
+            font-size: 11px;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .settings-btn {
+            background-color: #2c2c2e;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 4px 10px;
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            cursor: pointer;
+            width: fit-content;
+            transition: transform 0.1s;
+        }
+        .settings-btn:active { transform: scale(0.95); }
+
+        .history-block {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .history-title {
+            font-size: 12px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .history-slots {
+            display: flex;
+            gap: 5px;
+        }
+
+        .h-slot {
+            width: 35px;
+            height: 35px;
+            background-color: #151515;
+            border-radius: 6px;
+            border: 1px solid #222;
+        }
+
+        /* --- НАВИГАЦИЯ (ВКЛАДКИ) --- */
+        .nav-bar {
+            display: flex;
+            background-color: var(--nav-bg);
+            padding: 0 10px;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #2c2c2e;
+            border-top: 1px solid #2c2c2e;
+        }
+
+        .nav-item {
+            flex: 1;
+            text-align: center;
+            font-size: 10px;
+            font-weight: 800;
+            color: #fff;
+            padding: 12px 2px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: color 0.2s;
+            line-height: 1.1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 40px;
+        }
+
+        .nav-item.active {
+            color: var(--danger-color);
+        }
+
+        /* --- КОНТЕЙНЕР ДЛЯ ПОДГРУЗКИ КОНТЕНТА --- */
+        #content-area {
+            flex-grow: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            padding: 15px;
+            position: relative;
+        }
+
+        /* Лоадер для бесшовного перехода */
+        .tab-loader {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100px;
+            color: var(--action-color);
+            font-size: 24px;
+        }
+        
+        /* Глобальные уведомления (из старого кода) */
+        #notification-area {
+            position: fixed;
+            top: calc(var(--safe-top-gap) + 10px);
+            left: 10px;
+            right: 10px;
+            z-index: 99999;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Глобальные элементы -->
+    <div id="notification-area"></div>
+
+    <!-- Скелет страницы -->
+    <div class="profile-skeleton">
+        
+        <!-- Шапка (Статика, никогда не перезагружается) -->
+        <header class="profile-header">
+            <div class="avatar-container">
+                <!-- Заглушка аватара, потом подставим реальную ссылку -->
+                <img id="user-avatar" src="https://placehold.co/150x150/18181b/ffffff?text=AVATAR" alt="Avatar">
+            </div>
+            
+            <div class="user-info">
+                <div class="user-icons">
+                    <i class="fa-brands fa-steam"></i>
+                    <i class="fa-brands fa-twitch"></i>
+                </div>
+                <div class="nickname" id="user-nickname">NICKNAME</div>
+                <div class="user-id" id="user-id">ID 1680028</div>
+                <button class="settings-btn" id="btn-global-settings">НАСТРОЙКИ</button>
+            </div>
+
+            <div class="history-block">
+                <div class="history-title">ИСТОРИЯ</div>
+                <div class="history-slots">
+                    <div class="h-slot"></div>
+                    <div class="h-slot"></div>
+                    <div class="h-slot"></div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Меню навигации (Статика) -->
+        <nav class="nav-bar">
+            <!-- data-target - это имя HTML файла из будущей папки -->
+            <div class="nav-item" data-target="inventory">ИНВЕНТАРЬ</div>
+            <div class="nav-item" data-target="events">СОБЫТИЯ</div>
+            <div class="nav-item" data-target="promocodes">ПРОМОКОДЫ</div>
+            <div class="nav-item active" data-target="referral">РЕФЕРАЛЬНЫЙ<br>КАБИНЕТ</div>
+        </nav>
+
+        <!-- Динамическое мясо (Сюда будут влетать другие HTML файлы) -->
+        <main id="content-area">
+            <!-- Контент первой активной вкладки загрузится сюда при старте -->
+        </main>
+    </div>
+
+    <!-- 
+        ТВОЙ ОСНОВНОЙ ФАЙЛ СКРИПТОВ 
+        Сюда мы вынесем ВСЕ твои старые функции без изменений 
+    -->
+    <!-- <script src="/js/core_functions.js"></script> -->
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+        
+        // --- ЛОГИКА БЕСШОВНОЙ ПОДГРУЗКИ (SPA РОУТЕР) ---
+        const navItems = document.querySelectorAll('.nav-item');
+        const contentArea = document.getElementById('content-area');
+
+        // Функция загрузки контента
+        async function loadTab(tabName) {
+            // Включаем крутилку загрузки внутри контейнера
+            contentArea.innerHTML = '<div class="tab-loader"><i class="fa-solid fa-circle-notch fa-spin"></i></div>';
+            
+            try {
+                // БОЕВОЙ ВАРИАНТ (Раскомментируем, когда создадим папку с файлами):
+                // const response = await fetch(`/profile_sections/${tabName}.html`);
+                // const html = await response.text();
+                // contentArea.innerHTML = html;
+
+                // ТЕСТОВЫЙ ВАРИАНТ (Пока файлов нет, просто выводим текст)
+                setTimeout(() => {
+                    contentArea.innerHTML = `<div style="text-align:center; padding-top: 50px; color: #888;">Здесь будет загружен раздел <b>${tabName}.html</b></div>`;
+                }, 300); // Имитация задержки сети
+
+            } catch (error) {
+                contentArea.innerHTML = '<div style="text-align:center; color:#ff3b30; padding-top: 50px;">Ошибка загрузки раздела</div>';
+                console.error("Ошибка SPA роутера:", error);
+            }
+        }
+
+        // Вешаем клики на кнопки меню
+        navItems.forEach(item => {
+            item.addEventListener('click', function() {
+                // 1. Убираем красный цвет у всех кнопок
+                navItems.forEach(nav => nav.classList.remove('active'));
+                
+                // 2. Красим нажатую кнопку
+                this.classList.add('active');
+                
+                // 3. Достаем название раздела (inventory, referral и т.д.)
+                const targetTab = this.getAttribute('data-target');
+                
+                // 4. Подгружаем контент
+                loadTab(targetTab);
+                
+                // Легкая вибрация при переключении вкладок
+                if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+            });
+        });
+
+        // Запускаем загрузку стартовой вкладки при открытии профиля
+        // На скриншоте активен "РЕФЕРАЛЬНЫЙ КАБИНЕТ", грузим его
+        loadTab('referral');
+
+        // --- ДЕЛЕГИРОВАНИЕ СОБЫТИЙ ДЛЯ СТАРЫХ ФУНКЦИЙ ---
+        // Так как новые кнопки будут появляться "из воздуха", обычный onclick работать не будет.
+        // Мы вешаем глобальный слушатель на contentArea:
+        contentArea.addEventListener('click', (e) => {
+            // Пример: Если кликнули по новой подгруженной кнопке удаления
+            const deleteBtn = e.target.closest('.reward-card-delete-btn');
+            if (deleteBtn) {
+                // Вызываем твою старую функцию, которую мы не трогали
+                // deleteReward(deleteBtn.dataset.id, 'promocode', deleteBtn);
+            }
+        });
+
+        // Клик по старой кнопке "Настройки" в шапке
+        document.getElementById('btn-global-settings').addEventListener('click', () => {
+            alert('Открываем модалку настроек (тут будет твоя старая функция)');
+        });
+
+    </script>
+</body>
+</html>
