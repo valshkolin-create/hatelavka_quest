@@ -1052,7 +1052,7 @@
                 let centerOverlay = '';
                 
                 // Исправленный размер скина: масштаб от центра, без багованных margin-bottom
-                let imageStyles = `width:100%; height:100%; object-fit:contain; filter:drop-shadow(0 10px 15px rgba(0,0,0,0.5)); transition: all 0.4s ease; transform: scale(1.35);`;
+                let imageStyles = `width:100%; height:100%; object-fit:contain; filter:drop-shadow(0 5px 10px rgba(0,0,0,0.5)); transition: all 0.4s ease; transform: scale(1.05);`;
 
                 // Статусные изменения (Архив и Ошибки)
                 if (isArchived) {
@@ -1151,7 +1151,7 @@
                 el.style.cssText = `position: relative; aspect-ratio: 1 / 1; display: flex; flex-direction: column; border-radius: 12px; border: ${cardBorder}; background: ${cardBgColor}; box-shadow: ${cardShadow}; overflow: hidden; transition: all 0.3s ease; box-sizing: border-box;`;
                 
                 el.innerHTML = `
-                    <!-- 2. Выезжающее меню "Действие" -->
+                    <!-- Выезжающее меню "Действие" -->
                     ${panelContent ? `
                     <div id="action-panel-${historyId}" style="position:absolute; bottom:-100%; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); backdrop-filter:blur(10px); z-index:40; opacity:0; pointer-events:none; transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1); display:flex; flex-direction:column; justify-content:flex-end; padding:4px; box-sizing:border-box;">
                         <div onclick="toggleActionPanel('${historyId}', false, event)" style="position:absolute; top:0; left:0; width:100%; height:100%; z-index:-1; cursor:pointer;"></div>
@@ -1160,29 +1160,30 @@
                     </div>
                     ` : ''}
 
-                    <!-- Кнопка вызова модалки Поддержки (!) ЗЕРКАЛЬНО СЛЕВА -->
+                    <!-- Кнопка вызова модалки Поддержки (!) -->
                     <div onclick="openSupportModal('${historyId}', event)" style="position:absolute; top:4px; left:4px; width:22px; height:22px; border-radius:50%; background:rgba(0,0,0,0.4); color:rgba(255,255,255,0.6); font-weight:900; display:flex; justify-content:center; align-items:center; z-index:20; font-size:10px; border:1px solid rgba(255,255,255,0.1); cursor:pointer;">!</div>
 
-                    <!-- Оружие ПОЛНОСТЬЮ НА ВЕСЬ КВАДРАТ (уходит под блюр) -->
-                    <div style="position:absolute; inset:0; display:flex; justify-content:center; align-items:center; overflow:hidden; z-index:1; padding-bottom:15px;" onclick="${!isArchived ? `openFullscreenWeapon('${imageUrl}', '${safeNameStr}')` : ''}">
+                    <!-- Оружие (сжали за счет padding-bottom, теперь оно не огромное) -->
+                    <div style="position:absolute; inset:0; display:flex; justify-content:center; align-items:center; overflow:hidden; z-index:1; padding-bottom: 55px; padding-top: 5px;" onclick="${!isArchived ? `openFullscreenWeapon('${imageUrl}', '${safeNameStr}')` : ''}">
                         <img src="${imageUrl}" style="${imageStyles}">
                         ${centerOverlay}
                     </div>
 
                     <!-- НИЖНЯЯ ПАНЕЛЬ С БЛЮРОМ ПОВЕРХ СКИНА -->
-                    <div style="position:absolute; bottom:0; left:0; width:100%; background:rgba(0,0,0,0.55); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); border-top:1px solid rgba(255,255,255,0.05); z-index:10; display:flex; flex-direction:column;">
-                        <!-- Информация -->
-                        <div style="padding: 4px 6px; display:flex; flex-direction:column; gap:1px; pointer-events:none;">
-                            <div style="font-size:8px; font-weight:900; color:rgba(255,255,255,0.9); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${cleanName}</div>
+                    <div style="position:absolute; bottom:0; left:0; width:100%; background:rgba(0,0,0,0.65); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); border-top:1px solid rgba(255,255,255,0.05); z-index:10; display:flex; flex-direction:column;">
+                        
+                        <!-- Информация (выравнивание по левому краю как на скрине) -->
+                        <div style="padding: 6px 8px; display:flex; flex-direction:column; gap:2px; pointer-events:none;">
+                            <div style="font-size:9px; font-weight:900; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${cleanName}</div>
                             ${!isArchived ? `
-                                <div style="font-size:8px; font-weight:800; color:#ffd700;">${rawPrice} ₽</div>
+                                <div style="font-size:9px; font-weight:900; color:#ffd700;">${rawPrice} ₽</div>
                                 ${expirationHtml}
                             ` : ''}
                         </div>
                         
                         <!-- Кнопка ДЕЙСТВИЕ -->
                         ${bottomBtnText ? `
-                        <div ${bottomBtnAction} style="display:flex; justify-content:center; align-items:center; background:rgba(255,255,255,0.03); border-top:1px solid rgba(255,255,255,0.05); color:#fff; font-size:7px; font-weight:800; padding:6px 2px; cursor:pointer; transition:0.2s; white-space:nowrap; overflow:hidden;">${bottomBtnText}</div>
+                        <div ${bottomBtnAction} style="display:flex; justify-content:center; align-items:center; background:rgba(255,255,255,0.03); border-top:1px solid rgba(255,255,255,0.05); color:#fff; font-size:8px; font-weight:800; padding:8px 2px; cursor:pointer; transition:0.2s; white-space:nowrap; overflow:hidden;">${bottomBtnText}</div>
                         ` : ''}
                     </div>
                 `;
