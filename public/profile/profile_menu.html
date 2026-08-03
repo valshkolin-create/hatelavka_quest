@@ -1047,8 +1047,9 @@
                 let imgTransform = 'scale(1.3) translateX(15%) translateY(0%)'; 
 
                 if (isSmallItem) {
-                    // Делаем еще меньше (0.65) и ставим !important, чтобы статусы это не перебивали
-                    imgTransform = 'scale(0.65) translateY(-5%) translateX(0) !important'; 
+                    // scale(0.9) - чуть увеличили размер
+                    // translateX(20%) - сдвинули вправо за границу карточки
+                    imgTransform = 'scale(0.9) translateX(20%) translateY(0%) !important'; 
                 }
 
                 let imageStyles = `width:90%; height:90%; object-fit:contain; filter:drop-shadow(0 8px 15px rgba(0,0,0,0.6)) brightness(1.2); transition: all 0.4s ease; transform: ${imgTransform};`;
