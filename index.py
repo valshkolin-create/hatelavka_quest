@@ -12843,16 +12843,19 @@ async def setup_cron_schedule(req: CronSetupRequest, supabase: httpx.AsyncClient
         "timezone": "Europe/Moscow",
         "hours": [hour],      
         "minutes": [minute],  
-        "mdays": [-1],    
+        "mdays": [-1],    # Оставляем -1 (каждый день)
         "months": [-1],   
         "wdays": [-1]     
     }
 
+    # Для недели оставляем как было (например, по понедельникам)
     if req.period == "week":
         schedule["wdays"] = [1]
-    elif req.period == "month":
-        schedule["mdays"] = [1]
-
+        
+    # Блок 'elif req.period == "month":' мы полностью удаляем!
+    # Теперь при включении месячного крона, API получит mdays: [-1] 
+    # и настроит задачу на ежедневный запуск, как нам и нужно.
+    
     # 3. Отправляем запрос КОНКРЕТНО В НУЖНУЮ ЗАДАЧУ
     url = f"https://api.cron-job.org/jobs/{job_id}"
     headers = {
