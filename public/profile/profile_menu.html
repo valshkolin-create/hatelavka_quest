@@ -1204,7 +1204,7 @@
                     sellAllBtn.style.fontSize = '9px';
                     sellAllBtn.style.padding = '0 8px';
                     sellAllBtn.style.height = '24px';
-                    sellAllBtn.style.color = '#000000'; // <-- Добавили черный цвет
+                    sellAllBtn.style.color = '#ffffff'; // <--- ВЕРНУЛИ ЗАКОННЫЙ БЕЛЫЙ!
                     sellAllBtn.dataset.amount = totalSellTickets.toFixed(2);
                     sellAllBtn.dataset.count = availableSellCount;
                 } else {
@@ -1214,7 +1214,8 @@
         } // <--- И ВОТ ЭТА СКОБКА ЗАКРЫВАЕТ ФУНКЦИЮ renderInventory
 
         // --- УТИЛИТА ПОДТВЕРЖДЕНИЯ (CUSTOM CONFIRM) ---
-        function showCustomConfirmHTML(text, onConfirmCallback, btnText = 'Да', btnColor = '#0a84ff') {
+        // --- УТИЛИТА ПОДТВЕРЖДЕНИЯ (CUSTOM CONFIRM) ---
+        function showCustomConfirmHTML(text, onConfirmCallback, btnText = 'Да', btnColor = '#0a84ff', btnTextColor = '#fff') {
             const overlay = document.createElement('div'); 
             overlay.className = 'modal-overlay visible'; 
             overlay.style.alignItems = 'center';
@@ -1226,7 +1227,7 @@
                 <h3 style="margin: 0 0 20px; font-size: 18px; font-weight: 800; line-height: 1.4;">${text}</h3>
                 <div style="display: flex; gap: 12px;">
                     <button id="custom-cancel-btn" style="flex: 1; padding: 12px; border: none; border-radius: 14px; background: rgba(255,255,255,0.1); color: white; font-size: 14px; font-weight: 700; cursor: pointer;">Отмена</button>
-                    <button id="custom-confirm-btn" style="flex: 1; padding: 12px; border: none; border-radius: 14px; background: ${btnColor}; color: #fff; font-size: 14px; font-weight: 800; cursor: pointer; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">${btnText}</button>
+                    <button id="custom-confirm-btn" style="flex: 1; padding: 12px; border: none; border-radius: 14px; background: ${btnColor}; color: ${btnTextColor}; font-size: 14px; font-weight: 800; cursor: pointer; text-shadow: ${btnTextColor === '#000000' ? 'none' : '0 1px 2px rgba(0,0,0,0.3)'};">${btnText}</button>
                 </div>`;
                 
             overlay.appendChild(box); 
@@ -1292,7 +1293,7 @@
             const amount = btn.dataset.amount;
             const count = btn.dataset.count;
             
-            // Заменили эмодзи на иконку билета
+            // В самом конце мы передали "#000000", чтобы текст на желтой кнопке стал черным!
             showCustomConfirmHTML(`Продать ВСЕ доступные скины (${count} шт.) за ${amount} <i class="fa-solid fa-ticket" style="color:#ffd700;"></i> ?`, async (close) => {
                 document.getElementById('global-loader').classList.add('active');
                 try {
@@ -1307,7 +1308,7 @@
                 } finally {
                     document.getElementById('global-loader').classList.remove('active');
                 }
-            }, "ПРОДАТЬ ВСЁ", "#ffd700");
+            }, "ПРОДАТЬ ВСЁ", "#ffd700", "#000000"); 
         }
 
         window.exchangeItem = function(historyId, amount) {
