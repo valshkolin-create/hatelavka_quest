@@ -1533,7 +1533,7 @@
                             <i class="fa-solid fa-xmark" style="color:var(--text-color-muted); font-size:${closeBtnIcon}; line-height:1; display:flex; margin-top:0.5px;"></i>
                         </div>
                         
-                        <div style="text-align:center; margin-bottom:8px; padding:0 ${namePadding};">
+                        <div style="text-align:center; margin-bottom:${currentGridSize === '2' ? '16px' : '8px'}; padding:0 ${namePadding};">
                             <div style="font-size:${fsTitle}; font-weight:800; color:#fff; overflow:hidden; text-overflow:ellipsis; line-height:1.2; ${nameDisplayStyle}">
                                 ${cleanName}
                             </div>
