@@ -684,6 +684,7 @@
         }
 
         // --- ГЛОБАЛЬНЫЕ UI ПЕРЕКЛЮЧАТЕЛИ ---
+        // --- ДЕТАЛЬНАЯ ИНФОРМАЦИЯ И ПОДДЕРЖКА (ЗАМЕНА toggleTechInfo) ---
         window.openSupportModal = function(historyId, event) {
             if (event) event.stopPropagation();
             if (typeof tg !== 'undefined' && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
@@ -701,9 +702,35 @@
             }
             if (!displayName) displayName = "Секретный приз";
 
+            // 1. Вытаскиваем качество скина (все, что в скобках в конце названия)
+            const conditionMatch = displayName.match(/\(([^)]+)\)$/);
+            const skinCondition = conditionMatch ? conditionMatch[1] : null;
+
+            // 2. Чистим название от приписки с качеством, чтобы было аккуратно
             let cleanName = displayName.includes('|') ? displayName.split('|').slice(1).join('|').trim() : displayName;
+            if (conditionMatch) {
+                cleanName = cleanName.replace(/\s*\([^)]+\)$/, '').trim(); 
+            }
+
             const rData = getRarityData(item.rarity);
-            const status = (item.status || 'available').toLowerCase();
+            
+            // 3. Словарь русских статусов
+            const rawStatus = (item.status || 'available').toLowerCase();
+            const statusMap = {
+                'available': 'Доступен 🟢',
+                'pending': 'Ожидание ⏳',
+                'market_pending': 'На продаже 🛒',
+                'auto_queued': 'Поиск трейда 🔍',
+                'offer_sent': 'Оффер отправлен 📩',
+                'sent': 'Отправлен 📩',
+                'processing': 'В обработке ⚙️',
+                'failed': 'Ошибка / Заморожен 🔴',
+                'canceled': 'Отменен ❌',
+                'received': 'Успешно выведен ✅',
+                'exchanged': 'Продан 🎟️',
+                'exchanged_swap': 'Объединен в свапе 🔄'
+            };
+            const statusRu = statusMap[rawStatus] || rawStatus;
             
             let imageUrl = item.image_url;
             if (!imageUrl || imageUrl.includes('null')) imageUrl = 'https://placehold.co/100x100/18181b/3f3f46?text=?';
@@ -728,8 +755,9 @@
             let supportText = `🚨 Запрос в поддержку (Инвентарь)\n\n`;
             supportText += `👤 Пользователь: ${usernameStr} (ID: ${userIdStr})\n`;
             supportText += `📦 Предмет: ${displayName}\n`;
-            supportText += `🧾 ID Операции (History ID): #${historyId}\n`;
-            supportText += `📊 Текущий статус: ${status}\n`;
+            supportText += `🧾 ID Операции (History): #${historyId}\n`;
+            supportText += `📊 Текущий статус: ${statusRu}\n`;
+            if (skinCondition) supportText += `✨ Качество: ${skinCondition}\n`;
             supportText += `📅 Получен: ${dateFormatted}\n`;
             supportText += `🛠 Источник: ${sourceText}\n`;
             if (item.error_log) supportText += `❌ Лог ошибки: ${item.error_log}\n`;
@@ -743,11 +771,21 @@
             overlay.className = 'modal-overlay visible'; 
             overlay.style.cssText = `align-items: flex-end; justify-content: center; background-color: transparent; transition: background-color 0.3s ease; padding: 0; z-index: 9999;`;
             
+            // Логика плавного закрытия
+            const closeSupport = () => {
+                overlay.style.backgroundColor = 'transparent';
+                box.style.transform = 'translateY(100%)';
+                setTimeout(() => overlay.remove(), 300);
+            };
+
             const box = document.createElement('div'); 
-            box.style.cssText = `background: var(--glass-bg, rgba(20,20,22,0.95)); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border-top: 1px solid rgba(255,255,255,0.1); border-radius: 24px 24px 0 0; padding: 24px 20px 35px 20px; width: 100%; box-sizing: border-box; color: white; box-shadow: 0 -10px 40px rgba(0,0,0,0.8); transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); display: flex; flex-direction: column; gap: 15px;`;
+            box.style.cssText = `position: relative; background: var(--glass-bg, rgba(20,20,22,0.95)); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border-top: 1px solid rgba(255,255,255,0.1); border-radius: 24px 24px 0 0; padding: 30px 20px 35px 20px; width: 100%; box-sizing: border-box; color: white; box-shadow: 0 -10px 40px rgba(0,0,0,0.8); transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); display: flex; flex-direction: column; gap: 15px;`;
             
             box.innerHTML = `
-                <div style="width: 40px; height: 5px; background: rgba(255,255,255,0.2); border-radius: 10px; margin: -10px auto 10px auto;"></div>
+                <!-- Круглый крестик закрытия вместо палочки -->
+                <div id="close-modal-btn-${historyId}" style="position:absolute; top:12px; right:15px; width:28px; height:28px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.1); border-radius:50%; display:flex; justify-content:center; align-items:center; cursor:pointer; transition:0.2s;">
+                    <i class="fa-solid fa-xmark" style="color:rgba(255,255,255,0.6); font-size:14px;"></i>
+                </div>
                 
                 <div style="display:flex; align-items:center; gap: 15px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); padding: 12px; border-radius: 16px;">
                     <img src="${imageUrl}" style="width: 60px; height: 60px; object-fit: contain; filter: drop-shadow(0 5px 10px rgba(0,0,0,0.5));">
@@ -763,6 +801,11 @@
                         <span style="color: rgba(255,255,255,0.5); font-size: 12px;">ID Предмета:</span>
                         <span style="font-weight: 800; font-size: 12px;">#${historyId}</span>
                     </div>
+                    ${skinCondition ? `
+                    <div style="display:flex; justify-content:space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
+                        <span style="color: rgba(255,255,255,0.5); font-size: 12px;">Качество:</span>
+                        <span style="font-weight: 800; font-size: 12px; color: #b0c3d9;">${skinCondition}</span>
+                    </div>` : ''}
                     <div style="display:flex; justify-content:space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
                         <span style="color: rgba(255,255,255,0.5); font-size: 12px;">Источник:</span>
                         <span style="font-weight: 800; font-size: 12px;">${sourceText}</span>
@@ -772,8 +815,8 @@
                         <span style="font-weight: 800; font-size: 12px;">${dateFormatted}</span>
                     </div>
                     <div style="display:flex; justify-content:space-between;">
-                        <span style="color: rgba(255,255,255,0.5); font-size: 12px;">Статус системы:</span>
-                        <span style="font-weight: 800; font-size: 12px; text-transform: uppercase;">${status}</span>
+                        <span style="color: rgba(255,255,255,0.5); font-size: 12px;">Статус:</span>
+                        <span style="font-weight: 800; font-size: 12px;">${statusRu}</span>
                     </div>
                     ${item.error_log ? `
                     <div style="background: rgba(255,69,58,0.1); border: 1px solid rgba(255,69,58,0.3); padding: 8px; border-radius: 8px; margin-top: 5px;">
@@ -790,17 +833,17 @@
             overlay.appendChild(box); 
             document.body.appendChild(overlay);
             
+            // Назначаем закрытие на наш новый крестик
+            document.getElementById(`close-modal-btn-${historyId}`).onclick = closeSupport;
+
             setTimeout(() => {
                 overlay.style.backgroundColor = 'rgba(0,0,0,0.6)';
                 box.style.transform = 'translateY(0)';
             }, 10);
 
+            // Закрытие при клике мимо окна
             overlay.onclick = (e) => {
-                if (e.target === overlay) {
-                    overlay.style.backgroundColor = 'transparent';
-                    box.style.transform = 'translateY(100%)';
-                    setTimeout(() => overlay.remove(), 300);
-                }
+                if (e.target === overlay) closeSupport();
             };
         };
 
