@@ -1151,8 +1151,7 @@
                     ` : ''}
 
                     <!-- Кнопка вызова Поддержки (!) УМЕНЬШЕННАЯ -->
-                    <div onclick="openSupportModal('${historyId}', event)" style="position:absolute; top:4px; left:4px; width:18px; height:18px; border-radius:50%; background:rgba(255,255,255,0.25); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); color:#fff; font-weight:900; display:flex; justify-content:center; align-items:center; z-index:20; font-size:10px; box-shadow: 0 2px 8px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.3); cursor:pointer;">!</div>
-
+<div onclick="openSupportModal('${historyId}', event)" style="position:absolute; top:4px; left:4px; width:18px; height:18px; border-radius:50%; background:rgba(0,0,0,0.4); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); color:rgba(255,255,255,0.8); font-weight:900; display:flex; justify-content:center; align-items:center; z-index:20; font-size:10px; box-shadow: 0 2px 8px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.15); cursor:pointer;">!</div>
                     <!-- Оружие -->
                     <div style="position:absolute; inset:0; display:flex; justify-content:center; align-items:center; overflow:hidden; z-index:1; padding-bottom: 10px;" onclick="${!isArchived ? `openFullscreenWeapon('${imageUrl}', '${safeNameStr}')` : ''}">
                         <img src="${imageUrl}" style="${imageStyles}">
