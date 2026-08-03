@@ -802,8 +802,9 @@
                     if (timeLeftMs > 0) {
                         const days = Math.floor(timeLeftMs / (1000 * 60 * 60 * 24));
                         const hours = Math.floor((timeLeftMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                        let timeStr = days > 0 ? `${days}д ${hours}ч` : `${hours}ч`;
-                        if (days === 0 && hours === 0) timeStr = `${Math.floor((timeLeftMs % (1000 * 60 * 60)) / (1000 * 60))}м`;
+                        const minutes = Math.floor((timeLeftMs % (1000 * 60 * 60)) / (1000 * 60));
+                        let timeStr = days > 0 ? `${days}д ${hours}ч ${minutes}м` : `${hours}ч ${minutes}м`;
+                        if (days === 0 && hours === 0) timeStr = `${minutes}м`;
                         modalExpireText = `
                         <div style="display:flex; justify-content:space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">
                             <span style="color: rgba(255,255,255,0.5); font-size: 12px;">Сгорание:</span>
@@ -1159,7 +1160,7 @@
                     </div>
 
                     <!-- РАЗДЕЛЬНЫЕ ПЛАШКИ С ТЕКСТОМ (Приподняты над кнопкой) -->
-                    <div style="position:absolute; bottom: 30px; ${isArchived ? 'left:0; width:100%; align-items:center;' : 'left:4px; align-items:flex-start;'} z-index:10; display:flex; flex-direction:column; gap:0; pointer-events:none;">
+                    <div style="position:absolute; bottom: ${isArchived ? '8px' : '30px'}; ${isArchived ? 'left:0; width:100%; align-items:center;' : 'left:4px; align-items:flex-start;'} z-index:10; display:flex; flex-direction:column; gap:0; pointer-events:none;">
                         <!-- Плашка названия -->
                         <div style="background:rgba(0,0,0,0.5); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); border:1px solid rgba(255,255,255,0.05); padding: 2px 5px; border-radius: 4px; font-size:9px; font-weight:900; color:#fff; white-space:nowrap; max-width:80px; overflow:hidden; text-overflow:ellipsis; margin-bottom: 1px;">
                             ${cleanName}
