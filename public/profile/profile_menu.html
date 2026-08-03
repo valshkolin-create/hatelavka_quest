@@ -1456,7 +1456,7 @@
                             const minutes = Math.floor((timeLeftMs % (1000 * 60 * 60)) / (1000 * 60));
                             let timeStr = days > 0 ? `${days}д ${hours}ч ${minutes}м` : `${hours}ч ${minutes}м`;
                             if (days === 0 && hours === 0) timeStr = `${minutes}м`;
-                            expirationHtml = `Сгорит через ${timeStr}`;
+                            expirationHtml = `<span style="color: rgba(255,255,255,0.5); font-weight: 600;">Сгорит через</span> <span style="color: #ff3b30; font-weight: 900;">${timeStr}</span>`;
                         } else {
                             isExpired = true;
                             expirationHtml = `СГОРЕЛ`;
@@ -1509,9 +1509,9 @@
                     
                     // Кнопки действий переделаны под единый стиль стекла
                     panelContent = `
-                        <button onclick="exchangeItem(${historyId}, ${ticketVal}); toggleActionPanel('${historyId}', false, event);" style="box-sizing:border-box; background:rgba(255,255,255,0.05); border:1px solid var(--glass-border); color:#fff; border-radius:6px; font-size:${fsBtn}; font-weight:800; padding:4px; width:100%; margin-bottom:4px; line-height:1.3; transition:0.2s; backdrop-filter:blur(5px);">
-                            ПРОДАТЬ ЗА<br>${ticketVal} <i class="fa-solid fa-ticket"></i>
-                        </button>
+                        <button onclick="exchangeItem(${historyId}, ${ticketVal}); toggleActionPanel('${historyId}', false, event);" style="box-sizing:border-box; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:#b0b0b0; border-radius:6px; font-size:${fsBtn}; font-weight:800; padding:4px; width:100%; margin-bottom:4px; line-height:1.3; transition:0.2s;">
+    ПРОДАТЬ ЗА<br><span style="color:#fff;">${ticketVal}</span> <i class="fa-solid fa-ticket" style="color:#ffd700; opacity:0.8;"></i>
+</button>
                         <button id="withdraw-btn-${historyId}" onclick="withdrawItem(${historyId}, '${safeNameStr}'); toggleActionPanel('${historyId}', false, event);" style="box-sizing:border-box; background:rgba(255,255,255,0.15); border:1px solid var(--glass-border); color:#fff; border-radius:6px; font-size:${fsBtn}; font-weight:800; padding:4px; width:100%; line-height:1.3; transition:0.2s; backdrop-filter:blur(5px);">
                             ЗАБРАТЬ В<br>STEAM
                         </button>
@@ -1558,7 +1558,7 @@
                     
                     ${bottomBtnText ? `
                     <div ${bottomBtnAction} style="position:absolute; bottom:0; left:0; width:100%; display:flex; flex-direction:column; justify-content:center; align-items:center; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); font-size:${fsAction}; font-weight:800; padding:2px 0; cursor:pointer; transition:0.2s; z-index:15; ${bottomBtnStyle}">
-                        ${expirationHtml && !isExpired ? `<span style="color:var(--text-color-muted); font-size:${fsExp}; font-weight:900; margin-bottom:1px;">${expirationHtml}</span>` : ''}
+                        ${expirationHtml && !isExpired ? `<div style="font-size:${fsExp}; margin-bottom:2px;">${expirationHtml}</div>` : ''}
                         <span style="display:flex; align-items:center; gap: 3px;">${bottomBtnText}</span>
                     </div>
                     ` : ''}
