@@ -1203,13 +1203,13 @@
                     sellAllBtn.style.fontSize = '9px';
                     sellAllBtn.style.padding = '0 8px';
                     sellAllBtn.style.height = '24px';
+                    sellAllBtn.style.color = '#000000'; // <-- Добавили черный цвет
                     sellAllBtn.dataset.amount = totalSellTickets.toFixed(2);
                     sellAllBtn.dataset.count = availableSellCount;
                 } else {
                     sellAllBtn.style.display = 'none';
                 }
             }
-        }
 
         // --- УТИЛИТА ПОДТВЕРЖДЕНИЯ (CUSTOM CONFIRM) ---
         function showCustomConfirmHTML(text, onConfirmCallback, btnText = 'Да', btnColor = '#0a84ff') {
