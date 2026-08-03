@@ -339,6 +339,40 @@
         .fa-spin-fast {
             animation: fa-spin 0.8s linear infinite;
         }
+        /* --- КРЕАТИВНЫЙ ЛОАДЕР ДЛЯ ВЫВОДА В STEAM --- */
+        .withdraw-loader-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
+            z-index: 999999; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; opacity: 0;
+            pointer-events: none; transition: opacity 0.3s ease;
+        }
+        .withdraw-loader-overlay.active {
+            opacity: 1; pointer-events: auto;
+        }
+        .withdraw-loader-icon {
+            font-size: 50px; color: var(--primary-color);
+            margin-bottom: 20px; filter: drop-shadow(0 0 15px rgba(52, 199, 89, 0.6));
+            animation: pulse-spin 2s infinite ease-in-out;
+        }
+        .withdraw-loader-title {
+            color: rgba(255,255,255,0.5); font-size: 11px; font-weight: 800; 
+            text-transform: uppercase; margin-bottom: 5px;
+        }
+        .withdraw-loader-item {
+            color: #ffd700; font-size: 16px; font-weight: 900; 
+            text-align: center; margin-bottom: 20px; max-width: 80%;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.4);
+        }
+        .withdraw-loader-msg {
+            color: #fff; font-size: 14px; font-weight: 800; text-transform: uppercase;
+            letter-spacing: 1px; text-align: center; transition: opacity 0.3s ease;
+        }
+        @keyframes pulse-spin {
+            0% { transform: scale(0.9); opacity: 0.7; }
+            50% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(0.9); opacity: 0.7; }
+        }
     </style>
 </head>
 <body>
@@ -1511,7 +1545,63 @@
             }
         }
 
-        // --- ДЕЙСТВИЯ С ИНВЕНТАРЕМ (ИСПОЛЬЗУЮТ ТИХОЕ ОБНОВЛЕНИЕ) ---
+        // --- ЛОГИКА КРЕАТИВНОГО ЛОАДЕРА ВЫВОДА ---
+        let withdrawLoaderInterval;
+        
+        function showWithdrawLoader(itemName) {
+            let loader = document.getElementById('withdraw-creative-loader');
+            if (!loader) {
+                loader = document.createElement('div');
+                loader.id = 'withdraw-creative-loader';
+                loader.className = 'withdraw-loader-overlay';
+                loader.innerHTML = `
+                    <i class="fa-solid fa-radar withdraw-loader-icon"></i>
+                    <div class="withdraw-loader-title">Закупка предмета</div>
+                    <div id="withdraw-loader-item" class="withdraw-loader-item"></div>
+                    <div id="withdraw-loader-msg" class="withdraw-loader-msg">Инициализация...</div>
+                `;
+                document.body.appendChild(loader);
+            }
+            
+            document.getElementById('withdraw-loader-item').innerText = itemName;
+            loader.classList.add('active');
+            
+            // Массив крутых фраз
+            const messages = [
+                "Связываемся с маркетом...",
+                "Ищем подходящий скин...",
+                "Проверяем Float и качество...",
+                "Договариваемся с продавцом...",
+                "Выкупаем предмет...",
+                "Создаем Steam Trade...",
+                "Ожидаем ответа сети..."
+            ];
+            
+            let msgIdx = 0;
+            const msgEl = document.getElementById('withdraw-loader-msg');
+            msgEl.innerText = messages[0];
+            msgEl.style.opacity = '1';
+            
+            // Меняем текст каждые 2.5 секунды
+            withdrawLoaderInterval = setInterval(() => {
+                msgIdx = (msgIdx + 1) % messages.length;
+                msgEl.style.opacity = '0'; // Плавно гасим
+                setTimeout(() => {
+                    msgEl.innerText = messages[msgIdx];
+                    msgEl.style.opacity = '1'; // Плавно проявляем
+                }, 300);
+            }, 2500);
+        }
+
+        function hideWithdrawLoader() {
+            const loader = document.getElementById('withdraw-creative-loader');
+            if (loader) {
+                loader.classList.remove('active');
+                if (withdrawLoaderInterval) clearInterval(withdrawLoaderInterval);
+            }
+        }
+
+        // --- ФУНКЦИЯ "ЗАБРАТЬ" (С КРЕАТИВНЫМ ЛОАДЕРОМ) ---
         window.withdrawItem = function(historyId, itemName) {
             if (isUpdating) return;
             const lockKey = `claim_lock_${historyId}`;
@@ -1526,17 +1616,16 @@
                 if (isUpdating) return; 
                 isUpdating = true;
                 
-                const btn = document.getElementById(`withdraw-btn-${historyId}`);
-                const originalText = btn ? btn.innerHTML : "ЗАБРАТЬ";
-
-                if (btn) {
-                    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin-fast"></i> ЖДЕМ...';
-                    btn.style.opacity = '0.7';
-                }
+                // 1. Мгновенно закрываем окно подтверждения и выезжающую менюшку скина
+                closeConfirm();
+                toggleActionPanel(historyId, false);
+                
+                // 2. Врубаем наш крутой креативный лоадер
+                showWithdrawLoader(itemName);
 
                 try {
+                    // Передаем true в конце, чтобы стандартный тихий лоадер не мешал нашему
                     const res = await apiRequest('/api/v1/user/inventory/withdraw', 'POST', { history_id: historyId }, true);
-                    closeConfirm();
 
                     if (res && res.status === 'offer_replacement') {
                         if (typeof openReplacementModal === 'function') {
@@ -1545,20 +1634,30 @@
                     } else if (res && res.success) {
                         localStorage.setItem(lockKey, Date.now());
                         if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
-                        tg.showPopup({message: res.message});
+                        
+                        // Меняем текст лоадера на успех перед его скрытием для красоты
+                        document.getElementById('withdraw-loader-msg').innerText = "ТРЕЙД УСПЕШНО СОЗДАН!";
+                        document.querySelector('.withdraw-loader-icon').className = "fa-solid fa-check-circle withdraw-loader-icon";
+                        
+                        setTimeout(() => tg.showPopup({message: res.message}), 500);
                     }
                     await refreshInventoryList();
                 } catch (e) {
-                    closeConfirm();
                     if (e.message !== 'Activity Lock') tg.showAlert("Ошибка: " + e.message);
-                    if (btn) btn.innerHTML = originalText;
                 } finally {
-                    if (btn) btn.style.opacity = '1';
-                    isUpdating = false;
+                    // 3. Выключаем наш лоадер (с небольшой задержкой, чтобы юзер увидел успех)
+                    setTimeout(() => {
+                        hideWithdrawLoader();
+                        isUpdating = false;
+                        
+                        // Возвращаем иконку радара обратно для следующих трейдов
+                        const icon = document.querySelector('.withdraw-loader-icon');
+                        if (icon) icon.className = "fa-solid fa-radar withdraw-loader-icon";
+                    }, 500);
                 }
             }, "ВЫВЕСТИ", "#34c759", "#000");
         }
-
+        
         window.sellAllItems = function() {
             const btn = document.getElementById('sell-all-btn');
             const amount = btn.dataset.amount;
