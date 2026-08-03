@@ -599,8 +599,8 @@
             loadTab('inventory');
         });
 
-        // =========================================================
-        // ЛОГИКА ИНВЕНТАРЯ (NEW PREMIUM DESIGN - 3 COLUMNS)
+// =========================================================
+        // ЛОГИКА ИНВЕНТАРЯ (NEW DARK PREMIUM - 3 COLUMNS SQUARES)
         // =========================================================
 
         let isUpdating = false;
@@ -624,6 +624,7 @@
             return { color: '#b0c3d9', name: 'Ширпотреб' };
         }
 
+        // Делаем цвета более тусклыми и глубокими (alpha 0.05 - 0.1)
         function hexToRgba(hex, alpha) {
             let r = 0, g = 0, b = 0;
             hex = hex.replace('#', '');
@@ -652,7 +653,7 @@
             if (!dateStr.endsWith('Z') && !dateStr.includes('+')) dateStr += 'Z';
             
             const updateTime = new Date(dateStr).getTime();
-            if (isNaN(updateTime)) { el.innerHTML = "ОБРАБОТКА..."; return; }
+            if (isNaN(updateTime)) { el.innerHTML = "ОБРАБОТКА"; return; }
             
             const expireTime = updateTime + (30 * 60 * 1000); 
             const historyId = elementId.replace('timer-', '');
@@ -682,14 +683,27 @@
             el.dataset.intervalId = setInterval(updateTimer, 1000);
         }
 
-        // Показ технической информации (по кнопке "!")
-        window.toggleTechInfo = function(btn) {
-            if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
-            const overlay = btn.parentElement.querySelector('.tech-info-overlay');
-            if (overlay) {
-                overlay.style.display = overlay.style.display === 'none' ? 'flex' : 'none';
+        // --- ГЛОБАЛЬНЫЕ UI ПЕРЕКЛЮЧАТЕЛИ ---
+        window.toggleTechInfo = function(id, show, event) {
+            if (event) event.stopPropagation();
+            if(tg.HapticFeedback && show) tg.HapticFeedback.impactOccurred('light');
+            const el = document.getElementById(`tech-info-${id}`);
+            if (el) {
+                el.style.opacity = show ? '1' : '0';
+                el.style.pointerEvents = show ? 'auto' : 'none';
             }
-        }
+        };
+
+        window.toggleActionPanel = function(id, show, event) {
+            if (event) event.stopPropagation();
+            if(tg.HapticFeedback && show) tg.HapticFeedback.impactOccurred('light');
+            const el = document.getElementById(`action-panel-${id}`);
+            if (el) {
+                el.style.bottom = show ? '0' : '-100%';
+                el.style.opacity = show ? '1' : '0';
+                el.style.pointerEvents = show ? 'auto' : 'none';
+            }
+        };
 
         window.openFullscreenWeapon = function(url, name) {
             document.getElementById('fullscreen-weapon-img').src = url;
@@ -697,6 +711,7 @@
             document.getElementById('fullscreen-weapon-modal').classList.add('visible');
             if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
         }
+        
         window.closeFullscreenWeapon = function() {
             document.getElementById('fullscreen-weapon-modal').classList.remove('visible');
         }
@@ -709,13 +724,13 @@
             if (!isSorting) window.currentInventoryItems = items || [];
             const itemsToRender = [...window.currentInventoryItems];
 
-            // Принудительно делаем 3 в ряд (переписываем CSS сетку)
+            // Принудительно 3 в ряд
             container.style.display = 'grid';
             container.style.gridTemplateColumns = 'repeat(3, 1fr)';
             container.style.gap = '8px';
             container.style.width = '100%';
             
-            // Сжимаем выпадающий список сортировки
+            // Сортировка со значками
             const sortSelect = document.getElementById('inventory-sort-select');
             if (sortSelect && !sortSelect.dataset.minified) {
                 sortSelect.innerHTML = `
@@ -744,7 +759,6 @@
             }
 
             const sortType = sortSelect ? sortSelect.value : 'date_desc';
-
             const statusWeight = { 
                 'auto_queued': 1, 'market_pending': 2, 'sent': 3, 'offer_sent': 4, 'pending': 5,
                 'available': 6, 'processing': 7, 'failed': 8, 'canceled': 9,
@@ -795,13 +809,8 @@
                 }
                 if (!displayName) displayName = "Секретный приз";
 
-                let itemType = '';
                 let cleanName = displayName;
-                if (displayName.includes('|')) {
-                    const parts = displayName.split('|');
-                    itemType = parts[0].trim();
-                    cleanName = parts.slice(1).join('|').trim();
-                }
+                if (displayName.includes('|')) cleanName = displayName.split('|').slice(1).join('|').trim();
                 
                 let imageUrl = item.image_url;
                 if (!imageUrl || imageUrl.includes('null')) imageUrl = 'https://placehold.co/100x100/18181b/3f3f46?text=?';
@@ -812,46 +821,59 @@
                 let parsedReplPrice = parseFloat(strReplaced) || 0;
                 const rawPrice = (isReplaced || isSwapped) && parsedReplPrice > 0 ? parsedReplPrice : parsedBasePrice;
                 const ticketVal = parseFloat((rawPrice * 0.5).toFixed(2));
+                const safeNameStr = displayName.replace(/'/g, "\\'");
 
                 if (['available', 'pending', 'failed', 'canceled'].includes(status)) {
                     availableSellCount++;
                     totalSellTickets += ticketVal;
                 }
 
-                // Цвета заливки карточки (нежные, на всю карточку)
-                let cardBgColor = hexToRgba(rData.color, 0.25);
+                // --- ТЁМНЫЙ ПРЕМИУМ ДИЗАЙН ---
+                let cardBgColor = hexToRgba(rData.color, 0.05); 
+                let cardBorder = `1px solid rgba(255,255,255, 0.05)`;
+                let cardShadow = `inset 0 0 20px rgba(0,0,0,0.6), 0 4px 10px rgba(0,0,0,0.5)`;
+                
                 let isArchived = ['received', 'exchanged', 'exchanged_swap', 'failed'].includes(status);
-
-                if (status === 'received' || status === 'exchanged') cardBgColor = 'rgba(52, 199, 89, 0.2)';
-                else if (status === 'failed') cardBgColor = 'rgba(255, 69, 58, 0.2)';
-                else if (status === 'exchanged_swap') cardBgColor = 'rgba(255, 215, 0, 0.2)';
-
-                // Логика текста поверх картинки (Архив)
                 let centerOverlay = '';
-                let imgOpacity = isArchived ? '0.2' : '1';
-                let imgBlur = isArchived ? 'blur(2px) grayscale(50%)' : 'drop-shadow(0 10px 15px rgba(0,0,0,0.6))';
+                let imageStyles = `max-width:85%; max-height:85%; object-fit:contain; filter:drop-shadow(0 10px 15px rgba(0,0,0,0.5)); transition: all 0.4s ease;`;
 
-                if (status === 'received') {
-                    centerOverlay = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:900; color:#32d74b; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5;">Успешно<br>выведен</div>`;
-                } else if (status === 'exchanged') {
-                    centerOverlay = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:900; color:#fff; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5;">Продан за<br><span style="color:#ffd700; font-size:11px;">${ticketVal} 🎟️</span></div>`;
-                } else if (status === 'exchanged_swap') {
-                    centerOverlay = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:900; color:#ffd700; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5;">В свапе</div>`;
-                } else if (status === 'failed') {
-                    centerOverlay = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:900; color:#ff453a; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5;">Ошибка</div>`;
+                // Статусные изменения (Архив и Ошибки)
+                if (isArchived) {
+                    imageStyles += ` opacity: 0.15; filter: blur(2px) grayscale(100%);`;
+                    if (status === 'received') {
+                        cardBgColor = 'rgba(52, 199, 89, 0.05)';
+                        centerOverlay = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:900; color:#32d74b; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5;">Успешно<br>выведен</div>`;
+                    } else if (status === 'exchanged') {
+                        cardBgColor = 'rgba(255, 149, 0, 0.05)';
+                        centerOverlay = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:900; color:#fff; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5;">Продан за<br><span style="color:#ffd700; font-size:11px;">${ticketVal} 🎟️</span></div>`;
+                    } else if (status === 'exchanged_swap') {
+                        cardBgColor = 'rgba(255, 215, 0, 0.05)';
+                        centerOverlay = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:900; color:#ffd700; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5;">В свапе</div>`;
+                    } else if (status === 'failed') {
+                        cardBgColor = 'rgba(255, 69, 58, 0.05)';
+                        centerOverlay = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:900; color:#ff453a; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5;">Ошибка</div>`;
+                    }
+                } 
+                // Статусные изменения (Процесс)
+                else if (status === 'auto_queued') {
+                    cardBorder = `1px solid rgba(10, 132, 255, 0.3)`;
+                    imageStyles += ` opacity: 0.5; filter: grayscale(50%);`;
+                } else if (status === 'market_pending') {
+                    cardBorder = `1px solid rgba(191, 90, 242, 0.3)`;
+                    imageStyles += ` opacity: 0.5; filter: grayscale(50%);`;
+                } else if (status === 'offer_sent' || status === 'sent') {
+                    cardBorder = `1px solid rgba(52, 199, 89, 0.4)`;
+                    cardShadow = `inset 0 0 20px rgba(52, 199, 89, 0.05), 0 4px 15px rgba(52, 199, 89, 0.1)`;
                 }
 
-                // Сгорание и кнопки
+                // Сгорание
                 let expirationHtml = '';
-                let actionButtonsHtml = '';
                 let isExpired = false;
-                const safeNameStr = displayName.replace(/'/g, "\\'");
+                const updateTimeMs = parseSafeDate(item.updated_at || item.created_at);
 
                 if (['available', 'pending', 'canceled'].includes(status)) {
-                    const updateTimeMs = parseSafeDate(item.updated_at || item.created_at);
                     const source = item.source || 'shop';
                     const amnestyTimestamp = new Date('2026-07-15T00:00:00+03:00').getTime();
-                    
                     let expireTimeMs = updateTimeMs < amnestyTimestamp 
                         ? amnestyTimestamp + (14 * 24 * 60 * 60 * 1000) 
                         : updateTimeMs + ((['raffle', 'auction', 'twitch'].includes(source) ? 3 : 14) * 24 * 60 * 60 * 1000);
@@ -863,90 +885,106 @@
                             const hours = Math.floor((timeLeftMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
                             let timeStr = days > 0 ? `${days}д ${hours}ч` : `${hours}ч`;
                             if (days === 0 && hours === 0) timeStr = `${Math.floor((timeLeftMs % (1000 * 60 * 60)) / (1000 * 60))}м`;
-                            expirationHtml = `<div style="font-size: 8px; color: ${days < 1 ? '#ff453a' : '#ff9f0a'};">Сгорит: ${timeStr}</div>`;
+                            expirationHtml = `<div style="font-size:7px; font-weight:700; color:${days < 1 ? '#ff453a' : 'rgba(255,255,255,0.4)'};">Сгорит: ${timeStr}</div>`;
                         } else {
                             isExpired = true;
-                            expirationHtml = `<div style="font-size: 8px; color: #ff453a;">СГОРЕЛ</div>`;
+                            expirationHtml = `<div style="font-size:7px; font-weight:700; color:#ff453a;">СГОРЕЛ</div>`;
                         }
                     }
+                }
 
-                    if (!isExpired) {
-                        // Одинаковый премиальный стиль кнопок
-                        actionButtonsHtml = `
-                            <div style="display:flex; gap:4px; width:100%; margin-top:4px;">
-                                <button onclick="exchangeItem(${historyId}, ${ticketVal})" style="flex:1; background:rgba(255,149,0,0.85); border:none; border-radius:6px; color:#fff; font-size:8px; font-weight:800; padding:6px 0; cursor:pointer; box-shadow:0 2px 5px rgba(255,149,0,0.3);">ПРОДАТЬ</button>
-                                <button id="withdraw-btn-${historyId}" onclick="withdrawItem(${historyId}, '${safeNameStr}')" style="flex:1; background:rgba(10,132,255,0.85); border:none; border-radius:6px; color:#fff; font-size:8px; font-weight:800; padding:6px 0; cursor:pointer; box-shadow:0 2px 5px rgba(10,132,255,0.3);">ПОЛУЧИТЬ</button>
-                            </div>
-                        `;
-                    }
-                } else if (status === 'auto_queued') {
-                    actionButtonsHtml = `<div style="width:100%; text-align:center; background:rgba(10,132,255,0.5); border-radius:6px; color:#fff; font-size:8px; font-weight:800; padding:6px 0; margin-top:4px;">ПОИСК...</div>`;
-                } else if (status === 'processing') {
-                    actionButtonsHtml = `<div style="width:100%; text-align:center; background:rgba(255,204,0,0.5); border-radius:6px; color:#000; font-size:8px; font-weight:800; padding:6px 0; margin-top:4px;">ОБРАБОТКА...</div>`;
+                // Нижняя кнопка-триггер и выезжающее меню (Action Panel)
+                let bottomBtnText = 'ДЕЙСТВИЕ <i class="fa-solid fa-chevron-up" style="font-size:7px; margin-left:2px;"></i>';
+                let bottomBtnAction = `onclick="toggleActionPanel('${historyId}', true, event)"`;
+                let panelContent = '';
+                
+                if (isArchived) {
+                    bottomBtnText = ''; // В архиве кнопки нет
+                } else if (isExpired) {
+                    bottomBtnText = 'СГОРЕЛ';
+                    bottomBtnAction = '';
                 } else if (status === 'market_pending') {
-                    actionButtonsHtml = `
-                        <div style="font-size:8px; color:#bf5af2; text-align:center; font-weight:800; margin-top:2px; margin-bottom:2px;"><i class="fa-solid fa-spinner fa-spin"></i> Сборка...</div>
-                        <button id="check-btn-${historyId}" onclick="checkTradeStatus(${historyId})" style="width:100%; background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.3); border-radius:6px; color:#fff; font-size:8px; font-weight:800; padding:6px 0; cursor:pointer;">ОБНОВИТЬ</button>
-                    `;
+                    bottomBtnText = 'ОБНОВИТЬ СТАТУС';
+                    bottomBtnAction = `onclick="checkTradeStatus(${historyId})"`;
+                } else if (status === 'processing') {
+                    bottomBtnText = 'ОБРАБОТКА...';
+                    bottomBtnAction = '';
+                } else if (status === 'auto_queued') {
+                    bottomBtnText = 'ПОИСК...';
+                    bottomBtnAction = '';
                 } else if (status === 'offer_sent' || status === 'sent') {
                     const timerElementId = `timer-${historyId}`;
-                    actionButtonsHtml = `
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px; margin-bottom:2px;">
-                            <div id="${timerElementId}" style="font-size:9px; color:#ffd700; font-weight:800;">--:--</div>
-                            <button id="check-btn-${historyId}" onclick="checkTradeStatus(${historyId})" style="background:transparent; border:none; color:#0a84ff; font-size:9px; cursor:pointer; padding:0;"><i class="fa-solid fa-rotate"></i> Чек</button>
-                        </div>
-                        <button onclick="window.open('https://steamcommunity.com/my/tradeoffers/', '_blank')" style="width:100%; background:rgba(52,199,89,0.85); border:none; border-radius:6px; color:#fff; font-size:8px; font-weight:800; padding:6px 0; cursor:pointer; box-shadow:0 2px 5px rgba(52,199,89,0.3);">ПРИНЯТЬ ТРЕЙД</button>
+                    bottomBtnText = `<span id="${timerElementId}">--:--</span> <i class="fa-solid fa-chevron-up" style="font-size:7px; margin-left:2px;"></i>`;
+                    
+                    panelContent = `
+                        <div style="font-size:8px; font-weight:800; color:rgba(255,255,255,0.4); margin-bottom:4px; text-align:center;">ОФФЕР ОТПРАВЛЕН</div>
+                        <button onclick="window.open('https://steamcommunity.com/my/tradeoffers/', '_blank'); toggleActionPanel('${historyId}', false, event);" style="background:rgba(52,199,89,0.1); border:1px solid rgba(52,199,89,0.3); color:#32d74b; border-radius:6px; font-size:9px; font-weight:800; padding:8px; width:100%; margin-bottom:6px;">ОТКРЫТЬ STEAM</button>
+                        <button id="check-btn-${historyId}" onclick="checkTradeStatus(${historyId}); toggleActionPanel('${historyId}', false, event);" style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); color:#fff; border-radius:6px; font-size:9px; font-weight:800; padding:8px; width:100%;">ОБНОВИТЬ СТАТУС</button>
                     `;
                     setTimeout(() => { if (typeof initCountdown === 'function') initCountdown(timerElementId, item.updated_at); }, 50);
+                } else {
+                    // Available / Pending
+                    panelContent = `
+                        <div style="font-size:8px; font-weight:800; color:rgba(255,255,255,0.4); margin-bottom:4px; text-align:center;">ВЫБЕРИТЕ ДЕЙСТВИЕ</div>
+                        <button onclick="exchangeItem(${historyId}, ${ticketVal}); toggleActionPanel('${historyId}', false, event);" style="background:rgba(255,149,0,0.1); border:1px solid rgba(255,149,0,0.3); color:#ff9f0a; border-radius:6px; font-size:9px; font-weight:800; padding:8px; width:100%; margin-bottom:6px;">ПРОДАТЬ ЗА ${ticketVal} 🎟️</button>
+                        <button id="withdraw-btn-${historyId}" onclick="withdrawItem(${historyId}, '${safeNameStr}'); toggleActionPanel('${historyId}', false, event);" style="background:rgba(10,132,255,0.1); border:1px solid rgba(10,132,255,0.3); color:#0a84ff; border-radius:6px; font-size:9px; font-weight:800; padding:8px; width:100%;">ЗАБРАТЬ В STEAM</button>
+                    `;
                 }
 
                 const el = document.createElement('div');
-                // Инлайн стили для карточки (сохраняем Premium вид в формате 3 в ряд)
-                el.style.cssText = `position: relative; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; overflow: hidden; background: ${cardBgColor}; min-height: 155px; box-shadow: inset 0 0 20px rgba(0,0,0,0.3), 0 5px 15px rgba(0,0,0,0.2); transition: transform 0.2s;`;
+                el.style.cssText = `position: relative; aspect-ratio: 1 / 1; display: flex; flex-direction: column; border-radius: 12px; border: ${cardBorder}; background: ${cardBgColor}; box-shadow: ${cardShadow}; overflow: hidden; transition: all 0.3s ease;`;
                 
                 el.innerHTML = `
-                    <!-- Скрытая техническая информация -->
-                    <div class="tech-info-overlay" style="display:none; position:absolute; inset:0; background:rgba(0,0,0,0.85); backdrop-filter:blur(8px); z-index:30; padding:10px; color:#fff; font-size:9px; flex-direction:column; justify-content:center; align-items:center; text-align:center;">
-                        <i class="fa-solid fa-microchip" style="font-size:16px; margin-bottom:8px; color:rgba(255,255,255,0.5);"></i>
-                        <b>Тех. Данные</b><br><br>
-                        ID: #${historyId}<br>
-                        Статус: ${status}<br>
-                        Тип: ${rData.name}
+                    <!-- 1. Матовое окно с тех. данными (Увеличенный !, закрытие по клику в любое место) -->
+                    <div id="tech-info-${historyId}" onclick="toggleTechInfo('${historyId}', false, event)" style="position:absolute; inset:0; background:rgba(0,0,0,0.95); backdrop-filter:blur(10px); z-index:50; opacity:0; pointer-events:none; transition:0.2s; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; padding:10px;">
+                        <i class="fa-solid fa-xmark" style="position:absolute; top:8px; right:8px; font-size:16px; color:#fff;"></i>
+                        <div style="color:#fff; font-weight:900; font-size:11px; margin-bottom:8px; text-transform:uppercase;">Тех. Данные</div>
+                        <div style="font-size:9px; color:rgba(255,255,255,0.6); margin-bottom:4px;">ID: <span style="color:#fff;">#${historyId}</span></div>
+                        <div style="font-size:9px; color:rgba(255,255,255,0.6); margin-bottom:4px;">Цена Steam: <span style="color:#fff;">${parsedBasePrice} ₽</span></div>
+                        <div style="font-size:9px; color:rgba(255,255,255,0.6); margin-bottom:4px;">Редкость:<br><span style="color:${rData.color};">${rData.name}</span></div>
+                        <div style="font-size:9px; color:rgba(255,255,255,0.6);">Статус:<br><span style="color:#fff;">${status}</span></div>
                     </div>
 
-                    <!-- Увеличенный восклицательный знак -->
-                    <div onclick="toggleTechInfo(this)" style="position:absolute; top:6px; right:6px; width:26px; height:26px; border-radius:50%; background:rgba(0,0,0,0.6); color:#fff; font-weight:900; display:flex; justify-content:center; align-items:center; z-index:20; font-size:12px; border:1px solid rgba(255,255,255,0.2); cursor:pointer; backdrop-filter:blur(5px);">!</div>
+                    <!-- 2. Выезжающее меню "Действие" -->
+                    ${panelContent ? `
+                    <div id="action-panel-${historyId}" style="position:absolute; bottom:-100%; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); backdrop-filter:blur(10px); z-index:40; opacity:0; pointer-events:none; transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1); display:flex; flex-direction:column; justify-content:flex-end; padding:8px;">
+                        <i class="fa-solid fa-chevron-down" onclick="toggleActionPanel('${historyId}', false, event)" style="position:absolute; top:8px; right:8px; font-size:14px; color:#fff; padding:6px; cursor:pointer;"></i>
+                        ${panelContent}
+                    </div>
+                    ` : ''}
 
-                    <!-- Оружие по центру с затуханием при продаже -->
-                    <div style="flex-grow:1; display:flex; justify-content:center; align-items:center; position:relative; min-height:75px; margin-top:15px; cursor:pointer;" onclick="${!isArchived ? `openFullscreenWeapon('${imageUrl}', '${safeNameStr}')` : ''}">
-                        <img src="${imageUrl}" style="max-width:85%; max-height:65px; object-fit:contain; opacity:${imgOpacity}; filter:${imgBlur}; transition: all 0.3s ease;">
+                    <!-- Увеличенный восклицательный знак (Вызов тех инфы) -->
+                    <div onclick="toggleTechInfo('${historyId}', true, event)" style="position:absolute; top:4px; right:4px; width:24px; height:24px; border-radius:50%; background:rgba(0,0,0,0.4); color:rgba(255,255,255,0.6); font-weight:900; display:flex; justify-content:center; align-items:center; z-index:20; font-size:11px; border:1px solid rgba(255,255,255,0.1); cursor:pointer;">!</div>
+
+                    <!-- Оружие по центру (Затухает при продаже) -->
+                    <div style="flex-grow:1; display:flex; justify-content:center; align-items:center; position:relative; overflow:hidden;" onclick="${!isArchived ? `openFullscreenWeapon('${imageUrl}', '${safeNameStr}')` : ''}">
+                        <img src="${imageUrl}" style="${imageStyles}">
                         ${centerOverlay}
                     </div>
 
-                    <!-- Информация и кнопки снизу -->
-                    <div style="padding: 6px; z-index:10; background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%);">
-                        ${itemType ? `<div style="font-size:8px; color:rgba(255,255,255,0.6); text-transform:uppercase; font-weight:700;">${itemType}</div>` : ''}
-                        <div style="font-size:10px; font-weight:900; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:4px; text-shadow:0 1px 2px rgba(0,0,0,0.8);">${cleanName}</div>
-                        
+                    <!-- Информация внизу (Название, Цена над сгоранием) -->
+                    <div style="padding: 6px; display:flex; flex-direction:column; gap:2px; background:linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%); pointer-events:none; z-index:10;">
+                        <div style="font-size:9px; font-weight:900; color:rgba(255,255,255,0.9); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${cleanName}</div>
                         ${!isArchived ? `
-                        <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:4px;">
-                            <div style="font-size:11px; font-weight:900; color:#ffd700; text-shadow:0 1px 2px rgba(0,0,0,0.8);">${rawPrice} ₽</div>
+                            <div style="font-size:9px; font-weight:800; color:#ffd700;">${rawPrice} ₽</div>
                             ${expirationHtml}
-                        </div>
                         ` : ''}
-                        
-                        ${actionButtonsHtml}
                     </div>
+                    
+                    <!-- Кнопка ДЕЙСТВИЕ -->
+                    ${bottomBtnText ? `
+                    <div ${bottomBtnAction} style="background:rgba(255,255,255,0.03); border-top:1px solid rgba(255,255,255,0.05); color:#fff; font-size:8px; font-weight:800; padding:6px 0; text-align:center; text-transform:uppercase; cursor:pointer; width:100%; transition:0.2s; z-index:15;">${bottomBtnText}</div>
+                    ` : ''}
                 `;
                 container.appendChild(el);
             });
 
-            // Кнопка ПРОДАТЬ ВСЁ (выводим количество и билеты)
+            // Обновляем кнопку ПРОДАТЬ ВСЁ 
             const sellAllBtn = document.getElementById('sell-all-btn');
             if (sellAllBtn) {
                 if (availableSellCount > 0) {
                     sellAllBtn.style.display = 'block';
-                    sellAllBtn.innerHTML = `<i class="fa-solid fa-tags"></i> ПРОДАТЬ ВСЁ (${availableSellCount} шт)`;
+                    sellAllBtn.innerHTML = `<i class="fa-solid fa-tags"></i> ПРОДАТЬ ВСЁ (Доступные: ${availableSellCount})`;
                     sellAllBtn.dataset.amount = totalSellTickets.toFixed(2);
                     sellAllBtn.dataset.count = availableSellCount;
                 } else {
@@ -1005,7 +1043,7 @@
             showCustomConfirmHTML(`Вывести "${itemName}" в Steam?`, async (closeConfirm) => {
                 isUpdating = true;
                 const btn = document.getElementById(`withdraw-btn-${historyId}`);
-                if (btn) { btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>'; btn.style.opacity = '0.7'; }
+                if (btn) btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
 
                 try {
                     const res = await apiRequest('/api/v1/user/inventory/withdraw', 'POST', { history_id: historyId });
@@ -1022,7 +1060,7 @@
                 } catch (e) {
                     closeConfirm();
                     tg.showAlert("Ошибка: " + e.message);
-                    if (btn) { btn.innerHTML = 'ПОЛУЧИТЬ'; btn.style.opacity = '1'; }
+                    if (btn) btn.innerHTML = 'ПОЛУЧИТЬ В STEAM';
                 } finally {
                     isUpdating = false;
                 }
@@ -1099,7 +1137,7 @@
                 if (!isAuto) tg.showAlert("Ошибка: " + e.message);
             } finally {
                 if (btn) {
-                    btn.innerHTML = 'ОБНОВИТЬ';
+                    btn.innerHTML = 'ОБНОВИТЬ СТАТУС';
                     btn.style.opacity = '1';
                 }
             }
