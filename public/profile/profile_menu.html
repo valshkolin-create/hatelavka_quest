@@ -600,620 +600,640 @@
         });
 
 // =========================================================
-        // ЛОГИКА ИНВЕНТАРЯ (NEW DARK PREMIUM - 3 COLUMNS SQUARES)
-        // =========================================================
+// ЛОГИКА ИНВЕНТАРЯ (NEW DARK PREMIUM - 3 COLUMNS SQUARES)
+// =========================================================
 
-        let isUpdating = false;
-        let inventoryRefreshInterval = null;
-        window.currentInventoryItems = [];
-        const checkCooldowns = {};
+let isUpdating = false;
+let inventoryRefreshInterval = null;
+window.currentInventoryItems = [];
+const checkCooldowns = {};
 
-        function applyInventorySort() {
-            renderInventory(window.currentInventoryItems, true);
+function applyInventorySort() {
+    renderInventory(window.currentInventoryItems, true);
+}
+
+function getRarityData(rarity) {
+    const r = (rarity || '').toLowerCase();
+    if (r.includes('gold') || r.includes('крайне') || r.includes('knife')) return { color: '#ffd700', name: 'Крайне редкий' };
+    if (r.includes('contraband') || r.includes('контрабандное')) return { color: '#e4ae39', name: 'Контрабандное' };
+    if (r.includes('red') || r.includes('covert') || r.includes('ancient') || r.includes('тайное')) return { color: '#eb4b4b', name: 'Тайное' };
+    if (r.includes('pink') || r.includes('classified') || r.includes('legendary') || r.includes('засекреченное')) return { color: '#d32ce6', name: 'Засекреченное' };
+    if (r.includes('purple') || r.includes('restricted') || r.includes('mythical') || r.includes('запрещенное')) return { color: '#8847ff', name: 'Запрещённое' };
+    if (r.includes('industrial') || r.includes('light_blue') || r.includes('промышленное')) return { color: '#5e98d9', name: 'Промышленное качество' };
+    if (r.includes('blue') || r.includes('mil-spec') || r.includes('rare') || r.includes('армейское')) return { color: '#4b69ff', name: 'Армейское качество' };
+    return { color: '#b0c3d9', name: 'Ширпотреб' };
+}
+
+// Делаем цвета более тусклыми и глубокими (alpha 0.05 - 0.1)
+function hexToRgba(hex, alpha) {
+    let r = 0, g = 0, b = 0;
+    hex = hex.replace('#', '');
+    if (hex.length === 3) { r = parseInt(hex[0]+hex[0], 16); g = parseInt(hex[1]+hex[1], 16); b = parseInt(hex[2]+hex[2], 16); }
+    else if (hex.length === 6) { r = parseInt(hex.substring(0,2), 16); g = parseInt(hex.substring(2,4), 16); b = parseInt(hex.substring(4,6), 16); }
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function parseSafeDate(dateStr) {
+    if (!dateStr) return 0;
+    if (typeof dateStr === 'number') return dateStr;
+    let ms = new Date(dateStr).getTime();
+    if (!isNaN(ms)) return ms;
+    try {
+        let cleanPart = String(dateStr).split('.')[0].split('+')[0];
+        let safe = cleanPart.replace(' ', 'T');
+        ms = new Date(safe).getTime();
+        return isNaN(ms) ? 0 : ms;
+    } catch(e) { return 0; }
+}
+
+function initCountdown(elementId, updatedAtStr) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    let dateStr = updatedAtStr.replace(' ', 'T');
+    if (!dateStr.endsWith('Z') && !dateStr.includes('+')) dateStr += 'Z';
+    
+    const updateTime = new Date(dateStr).getTime();
+    if (isNaN(updateTime)) { el.innerHTML = "ОБРАБОТКА"; return; }
+    
+    const expireTime = updateTime + (30 * 60 * 1000); 
+    const historyId = elementId.replace('timer-', '');
+    const getDistance = () => expireTime - new Date().getTime();
+
+    if (getDistance() < 0) {
+        el.innerHTML = `ВРЕМЯ ВЫШЛО`;
+        if (el.dataset.intervalId) clearInterval(el.dataset.intervalId);
+        return;
+    }
+
+    const updateTimer = () => {
+        const distance = getDistance();
+        if (distance < 0) {
+            el.innerHTML = `ПРОВЕРКА...`;
+            clearInterval(el.dataset.intervalId);
+            checkTradeStatus(historyId, true);
+            return;
+        }
+        const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+        el.innerHTML = `${minutes}:${seconds < 10 ? '0' + seconds : seconds}`;
+    };
+
+    if (el.dataset.intervalId) clearInterval(el.dataset.intervalId);
+    updateTimer();
+    el.dataset.intervalId = setInterval(updateTimer, 1000);
+}
+
+// --- ГЛОБАЛЬНЫЕ UI ПЕРЕКЛЮЧАТЕЛИ ---
+window.toggleTechInfo = function(id, show, event) {
+    if (event) event.stopPropagation();
+    if(tg.HapticFeedback && show) tg.HapticFeedback.impactOccurred('light');
+    const el = document.getElementById(`tech-info-${id}`);
+    if (el) {
+        el.style.opacity = show ? '1' : '0';
+        el.style.pointerEvents = show ? 'auto' : 'none';
+    }
+};
+
+window.toggleActionPanel = function(id, show, event) {
+    if (event) event.stopPropagation();
+    if(tg.HapticFeedback && show) tg.HapticFeedback.impactOccurred('light');
+    const el = document.getElementById(`action-panel-${id}`);
+    if (el) {
+        el.style.bottom = show ? '0' : '-100%';
+        el.style.opacity = show ? '1' : '0';
+        el.style.pointerEvents = show ? 'auto' : 'none';
+    }
+};
+
+window.openFullscreenWeapon = function(url, name) {
+    document.getElementById('fullscreen-weapon-img').src = url;
+    document.getElementById('fullscreen-weapon-name').innerText = name;
+    document.getElementById('fullscreen-weapon-modal').classList.add('visible');
+    if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+}
+
+window.closeFullscreenWeapon = function() {
+    document.getElementById('fullscreen-weapon-modal').classList.remove('visible');
+}
+
+// --- ГЛАВНЫЙ РЕНДЕР ИНВЕНТАРЯ ---
+function renderInventory(items, isSorting = false) {
+    const container = document.getElementById('inventory-list-container');
+    if(!container) return; 
+
+    if (!isSorting) window.currentInventoryItems = items || [];
+    const itemsToRender = [...window.currentInventoryItems];
+
+    // Принудительно 3 в ряд
+    container.style.display = 'grid';
+    container.style.gridTemplateColumns = 'repeat(3, 1fr)';
+    container.style.gap = '8px';
+    container.style.width = '100%';
+    
+    // Умная сортировка: Значок в шапке, Название в списке
+    const sortSelect = document.getElementById('inventory-sort-select');
+    if (sortSelect && !sortSelect.dataset.minified) {
+        sortSelect.innerHTML = `
+            <option value="date_desc" data-icon="✨" data-text="Новые">✨ Новые</option>
+            <option value="date_asc" data-icon="⌛" data-text="Старые">⌛ Старые</option>
+            <option value="price_desc" data-icon="💎" data-text="Дорогие">💎 Дорогие</option>
+            <option value="price_asc" data-icon="📉" data-text="Дешевые">📉 Дешевые</option>
+            <option value="status" data-icon="🎯" data-text="Статус">🎯 Статус</option>
+        `;
+        sortSelect.dataset.minified = 'true';
+        
+        const updateSelectDisplay = () => {
+            Array.from(sortSelect.options).forEach(opt => {
+                opt.text = opt.dataset.text; 
+            });
+            const sel = sortSelect.options[sortSelect.selectedIndex];
+            if (sel) sel.text = sel.dataset.icon; 
+        };
+        sortSelect.addEventListener('change', updateSelectDisplay);
+        updateSelectDisplay();
+    }
+
+    container.innerHTML = '';
+
+    let availableSellCount = 0;
+    let totalSellCoins = 0.0;
+
+    if (itemsToRender.length === 0) {
+        container.style.display = 'block';
+        container.innerHTML = `
+            <div style="text-align:center; padding-top: 50px;">
+                <i class="fa-solid fa-box-open" style="font-size: 40px; margin-bottom: 15px; opacity: 0.3; color: #fff;"></i>
+                <p style="font-size: 14px; color: rgba(255,255,255,0.6); font-weight: 600;">Инвентарь пуст</p>
+            </div>`;
+        return;
+    }
+
+    const sortType = sortSelect ? sortSelect.value : 'date_desc';
+    const statusWeight = { 
+        'auto_queued': 1, 'market_pending': 2, 'sent': 3, 'offer_sent': 4, 'pending': 5,
+        'available': 6, 'processing': 7, 'failed': 8, 'canceled': 9,
+        'received': 10, 'exchanged': 11, 'exchanged_swap': 12
+    };
+
+    itemsToRender.sort((a, b) => {
+       const dateA = parseSafeDate(a.created_at || a.updated_at || a.date);
+       const dateB = parseSafeDate(b.created_at || b.updated_at || b.date);
+       const priceA = parseFloat(a.price_rub || a.price || 0);
+       const priceB = parseFloat(b.price_rub || b.price || 0);
+       const statA = (a.status || 'available').toLowerCase();
+       const statB = (b.status || 'available').toLowerCase();
+       const weightA = statusWeight[statA] || 99;
+       const weightB = statusWeight[statB] || 99;
+
+        if (sortType === 'status') {
+            if (weightA !== weightB) return weightA - weightB;
+            return dateB - dateA; 
+        }
+        const isAArchived = weightA >= 10;
+        const isBArchived = weightB >= 10;
+        if (isAArchived && !isBArchived) return 1;
+        if (!isAArchived && isBArchived) return -1;
+
+        if (sortType === 'date_desc') return dateB - dateA;
+        if (sortType === 'date_asc') return dateA - dateB;
+        if (sortType === 'price_desc') return priceB - priceA;
+        if (sortType === 'price_asc') return priceA - priceB;
+        return dateB - dateA;
+    });
+
+    itemsToRender.forEach(item => {
+        const status = (item.status || 'available').toLowerCase();
+        const historyId = item.id || item.history_id; 
+
+        if (['available', 'pending', 'failed', 'canceled', 'received'].includes(status)) {
+            localStorage.removeItem(`claim_lock_${historyId}`);
         }
 
-        function getRarityData(rarity) {
-            const r = (rarity || '').toLowerCase();
-            if (r.includes('gold') || r.includes('крайне') || r.includes('knife')) return { color: '#ffd700', name: 'Крайне редкий' };
-            if (r.includes('contraband') || r.includes('контрабандное')) return { color: '#e4ae39', name: 'Контрабандное' };
-            if (r.includes('red') || r.includes('covert') || r.includes('ancient') || r.includes('тайное')) return { color: '#eb4b4b', name: 'Тайное' };
-            if (r.includes('pink') || r.includes('classified') || r.includes('legendary') || r.includes('засекреченное')) return { color: '#d32ce6', name: 'Засекреченное' };
-            if (r.includes('purple') || r.includes('restricted') || r.includes('mythical') || r.includes('запрещенное')) return { color: '#8847ff', name: 'Запрещённое' };
-            if (r.includes('industrial') || r.includes('light_blue') || r.includes('промышленное')) return { color: '#5e98d9', name: 'Промышленное качество' };
-            if (r.includes('blue') || r.includes('mil-spec') || r.includes('rare') || r.includes('армейское')) return { color: '#4b69ff', name: 'Армейское качество' };
-            return { color: '#b0c3d9', name: 'Ширпотреб' };
+        const rData = getRarityData(item.rarity); 
+        const isSwapped = item.is_swapped === true;
+        const isReplaced = !!item.replaced_name && !isSwapped; 
+        
+        let displayName = (isReplaced || isSwapped) ? item.replaced_name : item.name;
+        if (!displayName && item.details && item.details.includes('Выигрыш:')) {
+            displayName = item.details.replace('Выигрыш:', '').split('||')[0].trim();
+        }
+        if (!displayName) displayName = "Секретный приз";
+
+        let cleanName = displayName;
+        if (displayName.includes('|')) cleanName = displayName.split('|').slice(1).join('|').trim();
+        
+        let imageUrl = item.image_url;
+        if (!imageUrl || imageUrl.includes('null')) imageUrl = 'https://placehold.co/100x100/18181b/3f3f46?text=?';
+        
+        let strPrice = String(item.price_rub || item.price || "0").replace(',', '.');
+        let strReplaced = String(item.replaced_price || "0").replace(',', '.');
+        let parsedBasePrice = parseFloat(strPrice) || 0;
+        let parsedReplPrice = parseFloat(strReplaced) || 0;
+        const rawPrice = (isReplaced || isSwapped) && parsedReplPrice > 0 ? parsedReplPrice : parsedBasePrice;
+        
+        // ВНИМАНИЕ: Изменено на монеты, как обсуждалось ранее
+        const coinVal = parseFloat((rawPrice * 0.5).toFixed(2));
+        const safeNameStr = displayName.replace(/'/g, "\\'");
+
+        if (['available', 'pending', 'failed', 'canceled'].includes(status)) {
+            availableSellCount++;
+            totalSellCoins += coinVal;
         }
 
-        // Делаем цвета более тусклыми и глубокими (alpha 0.05 - 0.1)
-        function hexToRgba(hex, alpha) {
-            let r = 0, g = 0, b = 0;
-            hex = hex.replace('#', '');
-            if (hex.length === 3) { r = parseInt(hex[0]+hex[0], 16); g = parseInt(hex[1]+hex[1], 16); b = parseInt(hex[2]+hex[2], 16); }
-            else if (hex.length === 6) { r = parseInt(hex.substring(0,2), 16); g = parseInt(hex.substring(2,4), 16); b = parseInt(hex.substring(4,6), 16); }
-            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-        }
+        // --- ТЁМНЫЙ ПРЕМИУМ ДИЗАЙН ---
+        let cardBgColor = hexToRgba(rData.color, 0.05); 
+        let cardBorder = `1px solid rgba(255,255,255, 0.05)`;
+        let cardShadow = `inset 0 0 20px rgba(0,0,0,0.6), 0 4px 10px rgba(0,0,0,0.5)`;
+        
+        let isArchived = ['received', 'exchanged', 'exchanged_swap', 'failed'].includes(status);
+        let centerOverlay = '';
+        
+        // Новые стили для позиционирования оружия (почти на весь квадрат, прижато вправо)
+        let imageStyles = `position: absolute; right: -5%; top: 5%; width: 105%; height: 90%; object-fit: contain; object-position: right center; filter: drop-shadow(0 10px 15px rgba(0,0,0,0.5)); transition: all 0.4s ease;`;
 
-        function parseSafeDate(dateStr) {
-            if (!dateStr) return 0;
-            if (typeof dateStr === 'number') return dateStr;
-            let ms = new Date(dateStr).getTime();
-            if (!isNaN(ms)) return ms;
-            try {
-                let cleanPart = String(dateStr).split('.')[0].split('+')[0];
-                let safe = cleanPart.replace(' ', 'T');
-                ms = new Date(safe).getTime();
-                return isNaN(ms) ? 0 : ms;
-            } catch(e) { return 0; }
-        }
-
-        function initCountdown(elementId, updatedAtStr) {
-            const el = document.getElementById(elementId);
-            if (!el) return;
-            let dateStr = updatedAtStr.replace(' ', 'T');
-            if (!dateStr.endsWith('Z') && !dateStr.includes('+')) dateStr += 'Z';
-            
-            const updateTime = new Date(dateStr).getTime();
-            if (isNaN(updateTime)) { el.innerHTML = "ОБРАБОТКА"; return; }
-            
-            const expireTime = updateTime + (30 * 60 * 1000); 
-            const historyId = elementId.replace('timer-', '');
-            const getDistance = () => expireTime - new Date().getTime();
-
-            if (getDistance() < 0) {
-                el.innerHTML = `ВРЕМЯ ВЫШЛО`;
-                if (el.dataset.intervalId) clearInterval(el.dataset.intervalId);
-                return;
+        // Статусные изменения (Архив и Ошибки)
+        if (isArchived) {
+            imageStyles += ` opacity: 0.15; filter: blur(2px) grayscale(100%);`;
+            if (status === 'received') {
+                cardBgColor = 'rgba(52, 199, 89, 0.05)';
+                centerOverlay = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:900; color:#32d74b; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5;">Успешно<br>выведен</div>`;
+            } else if (status === 'exchanged') {
+                cardBgColor = 'rgba(255, 149, 0, 0.05)';
+                centerOverlay = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:900; color:#fff; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5;">Продан за<br><span style="color:#ffd700; font-size:11px;">${coinVal} 🪙</span></div>`;
+            } else if (status === 'exchanged_swap') {
+                cardBgColor = 'rgba(255, 215, 0, 0.05)';
+                centerOverlay = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:900; color:#ffd700; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5;">В свапе</div>`;
+            } else if (status === 'failed') {
+                cardBgColor = 'rgba(255, 69, 58, 0.05)';
+                centerOverlay = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:900; color:#ff453a; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5;">Ошибка</div>`;
             }
+        } 
+        // Статусные изменения (Процесс)
+        else if (status === 'auto_queued') {
+            cardBorder = `1px solid rgba(10, 132, 255, 0.3)`;
+            imageStyles += ` opacity: 0.5; filter: grayscale(50%);`;
+        } else if (status === 'market_pending') {
+            cardBorder = `1px solid rgba(191, 90, 242, 0.3)`;
+            imageStyles += ` opacity: 0.5; filter: grayscale(50%);`;
+        } else if (status === 'offer_sent' || status === 'sent') {
+            cardBorder = `1px solid rgba(52, 199, 89, 0.4)`;
+            cardShadow = `inset 0 0 20px rgba(52, 199, 89, 0.05), 0 4px 15px rgba(52, 199, 89, 0.1)`;
+        }
 
-            const updateTimer = () => {
-                const distance = getDistance();
-                if (distance < 0) {
-                    el.innerHTML = `ПРОВЕРКА...`;
-                    clearInterval(el.dataset.intervalId);
-                    checkTradeStatus(historyId, true);
-                    return;
+        // Сгорание
+        let expirationHtml = '';
+        let isExpired = false;
+        const updateTimeMs = parseSafeDate(item.updated_at || item.created_at);
+
+        if (['available', 'pending', 'canceled'].includes(status)) {
+            const source = item.source || 'shop';
+            const amnestyTimestamp = new Date('2026-07-15T00:00:00+03:00').getTime();
+            let expireTimeMs = updateTimeMs < amnestyTimestamp 
+                ? amnestyTimestamp + (14 * 24 * 60 * 60 * 1000) 
+                : updateTimeMs + ((['raffle', 'auction', 'twitch'].includes(source) ? 3 : 14) * 24 * 60 * 60 * 1000);
+            
+            if (updateTimeMs > 0) {
+                const timeLeftMs = expireTimeMs - Date.now();
+                if (timeLeftMs > 0) {
+                    const days = Math.floor(timeLeftMs / (1000 * 60 * 60 * 24));
+                    const hours = Math.floor((timeLeftMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                    let timeStr = days > 0 ? `${days}д ${hours}ч` : `${hours}ч`;
+                    if (days === 0 && hours === 0) timeStr = `${Math.floor((timeLeftMs % (1000 * 60 * 60)) / (1000 * 60))}м`;
+                    
+                    // Красный цвет всегда, как и просили
+                    expirationHtml = `<div style="font-size:7px; font-weight:700; color:#ff453a;">Сгорит: ${timeStr}</div>`;
+                } else {
+                    isExpired = true;
+                    expirationHtml = `<div style="font-size:7px; font-weight:700; color:#ff453a;">СГОРЕЛ</div>`;
                 }
-                const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-                const seconds = Math.floor((distance % (1000 * 60)) / 1000);
-                el.innerHTML = `${minutes}:${seconds < 10 ? '0' + seconds : seconds}`;
-            };
-
-            if (el.dataset.intervalId) clearInterval(el.dataset.intervalId);
-            updateTimer();
-            el.dataset.intervalId = setInterval(updateTimer, 1000);
+            }
         }
 
-        // --- ГЛОБАЛЬНЫЕ UI ПЕРЕКЛЮЧАТЕЛИ ---
-        window.toggleTechInfo = function(id, show, event) {
-            if (event) event.stopPropagation();
-            if(tg.HapticFeedback && show) tg.HapticFeedback.impactOccurred('light');
-            const el = document.getElementById(`tech-info-${id}`);
-            if (el) {
-                el.style.opacity = show ? '1' : '0';
-                el.style.pointerEvents = show ? 'auto' : 'none';
-            }
-        };
+        // Нижняя кнопка-триггер и выезжающее меню (Action Panel)
+        let bottomBtnText = 'ДЕЙСТВИЕ <i class="fa-solid fa-chevron-up" style="font-size:7px; margin-left:2px;"></i>';
+        let bottomBtnAction = `onclick="toggleActionPanel('${historyId}', true, event)"`;
+        let panelContent = '';
+        
+        if (isArchived) {
+            bottomBtnText = ''; 
+        } else if (isExpired) {
+            bottomBtnText = 'СГОРЕЛ';
+            bottomBtnAction = '';
+        } else if (status === 'market_pending') {
+            bottomBtnText = 'ОБНОВИТЬ СТАТУС';
+            bottomBtnAction = `onclick="checkTradeStatus(${historyId})"`;
+        } else if (status === 'processing') {
+            bottomBtnText = 'ОБРАБОТКА...';
+            bottomBtnAction = '';
+        } else if (status === 'auto_queued') {
+            bottomBtnText = 'ПОИСК...';
+            bottomBtnAction = '';
+        } else if (status === 'offer_sent' || status === 'sent') {
+            const timerElementId = `timer-${historyId}`;
+            bottomBtnText = `<span id="${timerElementId}">--:--</span> <i class="fa-solid fa-chevron-up" style="font-size:7px; margin-left:2px;"></i>`;
+            
+            // Уменьшенные кнопки
+            panelContent = `
+                <div style="font-size:8px; font-weight:800; color:rgba(255,255,255,0.4); margin-bottom:4px; text-align:center;">ОФФЕР ОТПРАВЛЕН</div>
+                <button onclick="window.open('https://steamcommunity.com/my/tradeoffers/', '_blank'); toggleActionPanel('${historyId}', false, event);" style="background:rgba(52,199,89,0.1); border:1px solid rgba(52,199,89,0.3); color:#32d74b; border-radius:4px; font-size:8px; font-weight:800; padding:5px 6px; width:100%; margin-bottom:4px;">ОТКРЫТЬ STEAM</button>
+                <button id="check-btn-${historyId}" onclick="checkTradeStatus(${historyId}); toggleActionPanel('${historyId}', false, event);" style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); color:#fff; border-radius:4px; font-size:8px; font-weight:800; padding:5px 6px; width:100%;">ОБНОВИТЬ СТАТУС</button>
+            `;
+            setTimeout(() => { if (typeof initCountdown === 'function') initCountdown(timerElementId, item.updated_at); }, 50);
+        } else {
+            // Уменьшенные кнопки
+            panelContent = `
+                <div style="font-size:8px; font-weight:800; color:rgba(255,255,255,0.4); margin-bottom:4px; text-align:center;">ВЫБЕРИТЕ ДЕЙСТВИЕ</div>
+                <button onclick="exchangeItem(${historyId}, ${coinVal}); toggleActionPanel('${historyId}', false, event);" style="background:rgba(255,149,0,0.1); border:1px solid rgba(255,149,0,0.3); color:#ff9f0a; border-radius:4px; font-size:8px; font-weight:800; padding:5px 6px; width:100%; margin-bottom:4px;">ПРОДАТЬ ЗА ${coinVal} 🪙</button>
+                <button id="withdraw-btn-${historyId}" onclick="withdrawItem(${historyId}, '${safeNameStr}'); toggleActionPanel('${historyId}', false, event);" style="background:rgba(10,132,255,0.1); border:1px solid rgba(10,132,255,0.3); color:#0a84ff; border-radius:4px; font-size:8px; font-weight:800; padding:5px 6px; width:100%;">ЗАБРАТЬ В STEAM</button>
+            `;
+        }
 
-        window.toggleActionPanel = function(id, show, event) {
-            if (event) event.stopPropagation();
-            if(tg.HapticFeedback && show) tg.HapticFeedback.impactOccurred('light');
-            const el = document.getElementById(`action-panel-${id}`);
-            if (el) {
-                el.style.bottom = show ? '0' : '-100%';
-                el.style.opacity = show ? '1' : '0';
-                el.style.pointerEvents = show ? 'auto' : 'none';
-            }
-        };
+        const el = document.createElement('div');
+        el.style.cssText = `position: relative; aspect-ratio: 1 / 1; display: flex; flex-direction: column; border-radius: 12px; border: ${cardBorder}; background: ${cardBgColor}; box-shadow: ${cardShadow}; overflow: hidden; transition: all 0.3s ease;`;
+        
+        el.innerHTML = `
+            <!-- 1. Матовое окно с тех. данными (Удалено слово Тех. данные по запросу) -->
+            <div id="tech-info-${historyId}" onclick="toggleTechInfo('${historyId}', false, event)" style="position:absolute; inset:0; background:rgba(0,0,0,0.95); backdrop-filter:blur(10px); z-index:50; opacity:0; pointer-events:none; transition:0.2s; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; padding:10px;">
+                <i class="fa-solid fa-xmark" style="position:absolute; top:8px; right:8px; font-size:16px; color:#fff;"></i>
+                <div style="font-size:9px; color:rgba(255,255,255,0.6); margin-bottom:4px;">ID: <span style="color:#fff;">#${historyId}</span></div>
+                <div style="font-size:9px; color:rgba(255,255,255,0.6); margin-bottom:4px;">Цена Steam: <span style="color:#fff;">${parsedBasePrice} ₽</span></div>
+                <div style="font-size:9px; color:rgba(255,255,255,0.6); margin-bottom:4px;">Редкость:<br><span style="color:${rData.color};">${rData.name}</span></div>
+                <div style="font-size:9px; color:rgba(255,255,255,0.6);">Статус:<br><span style="color:#fff;">${status}</span></div>
+            </div>
 
-        window.openFullscreenWeapon = function(url, name) {
-            document.getElementById('fullscreen-weapon-img').src = url;
-            document.getElementById('fullscreen-weapon-name').innerText = name;
-            document.getElementById('fullscreen-weapon-modal').classList.add('visible');
-            if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+            <!-- 2. Выезжающее меню "Действие" -->
+            ${panelContent ? `
+            <div id="action-panel-${historyId}" style="position:absolute; bottom:-100%; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); backdrop-filter:blur(10px); z-index:40; opacity:0; pointer-events:none; transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1); display:flex; flex-direction:column; justify-content:flex-end; padding:8px;">
+                <i class="fa-solid fa-chevron-down" onclick="toggleActionPanel('${historyId}', false, event)" style="position:absolute; top:8px; right:8px; font-size:14px; color:#fff; padding:6px; cursor:pointer;"></i>
+                ${panelContent}
+            </div>
+            ` : ''}
+
+            <!-- Увеличенный восклицательный знак (Вызов тех инфы) -->
+            <div onclick="toggleTechInfo('${historyId}', true, event)" style="position:absolute; top:4px; right:4px; width:24px; height:24px; border-radius:50%; background:rgba(0,0,0,0.4); color:rgba(255,255,255,0.6); font-weight:900; display:flex; justify-content:center; align-items:center; z-index:20; font-size:11px; border:1px solid rgba(255,255,255,0.1); cursor:pointer;">!</div>
+
+            <!-- Оружие -->
+            <div style="flex-grow:1; display:flex; position:relative; overflow:hidden;" onclick="${!isArchived ? `openFullscreenWeapon('${imageUrl}', '${safeNameStr}')` : ''}">
+                <img src="${imageUrl}" style="${imageStyles}">
+                ${centerOverlay}
+            </div>
+
+            <!-- Информация внизу (Название, Цена над сгоранием) -->
+            <div style="padding: 6px; display:flex; flex-direction:column; gap:2px; background:linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%); pointer-events:none; z-index:10;">
+                <div style="font-size:9px; font-weight:900; color:rgba(255,255,255,0.9); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${cleanName}</div>
+                ${!isArchived ? `
+                    <div style="font-size:9px; font-weight:800; color:#ffd700;">${rawPrice} ₽</div>
+                    ${expirationHtml}
+                ` : ''}
+            </div>
+            
+            <!-- Кнопка ДЕЙСТВИЕ -->
+            ${bottomBtnText ? `
+            <div ${bottomBtnAction} style="background:rgba(255,255,255,0.03); border-top:1px solid rgba(255,255,255,0.05); color:#fff; font-size:8px; font-weight:800; padding:6px 0; text-align:center; text-transform:uppercase; cursor:pointer; width:100%; transition:0.2s; z-index:15;">${bottomBtnText}</div>
+            ` : ''}
+        `;
+        container.appendChild(el);
+    });
+
+    // Обновляем кнопку ПРОДАТЬ ВСЁ (убрано количество скинов, стили сделаны компактнее)
+    const sellAllBtn = document.getElementById('sell-all-btn');
+    if (sellAllBtn) {
+        if (availableSellCount > 0) {
+            sellAllBtn.style.display = 'block';
+            // Делаем саму кнопку меньше через инлайн-стили
+            sellAllBtn.style.padding = '8px 12px';
+            sellAllBtn.style.fontSize = '12px';
+            sellAllBtn.style.borderRadius = '8px';
+            
+            sellAllBtn.innerHTML = `<i class="fa-solid fa-tags"></i> ПРОДАТЬ ВСЁ`;
+            sellAllBtn.dataset.amount = totalSellCoins.toFixed(2);
+            sellAllBtn.dataset.count = availableSellCount;
+        } else {
+            sellAllBtn.style.display = 'none';
+        }
+    }
+}
+
+// --- УТИЛИТА ПОДТВЕРЖДЕНИЯ (CUSTOM CONFIRM) ---
+function showCustomConfirmHTML(text, onConfirmCallback, btnText = 'Да', btnColor = '#0a84ff') {
+    const overlay = document.createElement('div'); 
+    overlay.className = 'modal-overlay visible'; 
+    overlay.style.alignItems = 'center';
+    
+    const box = document.createElement('div'); 
+    box.style.cssText = `background: var(--glass-bg); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border: 1px solid var(--glass-border); border-radius: 24px; padding: 24px; width: 85%; max-width: 320px; text-align: center; color: white; box-shadow: var(--glass-shadow); transform: scale(0.95); animation: popIn 0.2s forwards;`;
+    
+    box.innerHTML = `
+        <h3 style="margin: 0 0 20px; font-size: 18px; font-weight: 800; line-height: 1.4;">${text}</h3>
+        <div style="display: flex; gap: 12px;">
+            <button id="custom-cancel-btn" style="flex: 1; padding: 12px; border: none; border-radius: 14px; background: rgba(255,255,255,0.1); color: white; font-size: 14px; font-weight: 700; cursor: pointer;">Отмена</button>
+            <button id="custom-confirm-btn" style="flex: 1; padding: 12px; border: none; border-radius: 14px; background: ${btnColor}; color: #fff; font-size: 14px; font-weight: 800; cursor: pointer; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">${btnText}</button>
+        </div>`;
+        
+    overlay.appendChild(box); 
+    document.body.appendChild(overlay);
+    
+    const close = () => { overlay.style.opacity = '0'; setTimeout(() => overlay.remove(), 300); };
+    overlay.querySelector('#custom-cancel-btn').onclick = close;
+    
+    const confirmBtn = overlay.querySelector('#custom-confirm-btn');
+    confirmBtn.onclick = () => {
+        if (confirmBtn.dataset.clicked) return;
+        confirmBtn.dataset.clicked = "true";
+        confirmBtn.style.transform = "scale(0.95)";
+        onConfirmCallback(close);
+    };
+}
+
+// --- ДЕЙСТВИЯ С ИНВЕНТАРЕМ ---
+window.acknowledgeCancel = function(historyId) {
+    localStorage.setItem(`ack_cancel_${historyId}`, 'true');
+    if (typeof loadData === 'function') loadData(true);
+};
+
+window.withdrawItem = function(historyId, itemName) {
+    if (isUpdating) return;
+    const lockKey = `claim_lock_${historyId}`;
+    const lockTimestamp = localStorage.getItem(lockKey);
+    
+    if (lockTimestamp && (Date.now() - lockTimestamp < 30 * 60 * 1000)) {
+        tg.showAlert("⏳ Трейд уже в очереди! Steam может тупить, подождите еще немного.");
+        return;
+    }
+
+    showCustomConfirmHTML(`Вывести "${itemName}" в Steam?`, async (closeConfirm) => {
+        isUpdating = true;
+        const btn = document.getElementById(`withdraw-btn-${historyId}`);
+        if (btn) btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
+
+        try {
+            const res = await apiRequest('/api/v1/user/inventory/withdraw', 'POST', { history_id: historyId });
+            closeConfirm();
+
+            if (res && res.status === 'offer_replacement') {
+                if (typeof openReplacementModal === 'function') openReplacementModal(historyId, res.options);
+            } else if (res && res.success) {
+                localStorage.setItem(lockKey, Date.now());
+                if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+                tg.showPopup({message: res.message});
+            }
+            if (typeof loadData === 'function') await loadData(true);
+        } catch (e) {
+            closeConfirm();
+            tg.showAlert("Ошибка: " + e.message);
+            if (btn) btn.innerHTML = 'ПОЛУЧИТЬ В STEAM';
+        } finally {
+            isUpdating = false;
+        }
+    }, "ВЫВЕСТИ", "#34c759");
+}
+
+window.sellAllItems = function() {
+    const btn = document.getElementById('sell-all-btn');
+    const amount = btn.dataset.amount;
+    
+    showCustomConfirmHTML(`Продать ВСЕ доступные скины за ${amount} 🪙?`, async (close) => {
+        document.getElementById('global-loader').classList.add('active');
+        try {
+            const res = await apiRequest('/api/v1/user/inventory/sell_all', 'POST');
+            tg.showAlert(res.message || `Успешно! +${amount} монет.`);
+            if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+            close();
+            if (typeof loadData === 'function') await loadData(true);
+        } catch (e) {
+            tg.showAlert(e.message || "Ошибка при массовой продаже");
+            close();
+        } finally {
+            document.getElementById('global-loader').classList.remove('active');
+        }
+    }, "ПРОДАТЬ ВСЁ", "#ffd700");
+}
+
+window.exchangeItem = function(historyId, amount) {
+    showCustomConfirmHTML(`Продать скин за ${amount} 🪙?`, async (close) => {
+        document.getElementById('global-loader').classList.add('active');
+        try {
+            const res = await apiRequest('/api/v1/user/inventory/sell', 'POST', { history_id: historyId });
+            tg.showAlert(res.message || `Успешно! +${amount} монет.`);
+            if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+            close();
+            if (typeof loadData === 'function') await loadData(true);
+        } catch (e) {
+            tg.showAlert(e.message || "Ошибка обмена");
+            close();
+        } finally {
+            document.getElementById('global-loader').classList.remove('active');
+        }
+    }, "ПРОДАТЬ", "#34c759");
+}
+
+window.checkTradeStatus = async function(historyId, isAuto = false) {
+    const btn = document.getElementById(`check-btn-${historyId}`);
+    if (btn && btn.style.opacity === '0.5') return; 
+
+    const now = Date.now();
+    if (checkCooldowns[historyId] && (now - checkCooldowns[historyId] < 55000)) { 
+        if (!isAuto) tg.showPopup({message: "⏳ Проверять статус можно раз в минуту. Подождите немного."});
+        return;
+    }
+    
+    checkCooldowns[historyId] = now;
+    
+    if (btn) {
+        btn.style.opacity = '0.5';
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
+    }
+
+    try {
+        const res = await apiRequest('/api/v1/user/inventory/check_trade', 'POST', { history_id: historyId });
+        if (res && res.success) {
+            if (!isAuto) tg.showPopup({message: res.message});
+        } else {
+            if (!isAuto) tg.showPopup({message: res.message || "Оффер еще не принят. Посмотрите в Steam."});
         }
         
-        window.closeFullscreenWeapon = function() {
-            document.getElementById('fullscreen-weapon-modal').classList.remove('visible');
+        if (typeof loadData === 'function') await loadData(true);
+    } catch (e) {
+        if (!isAuto) tg.showAlert("Ошибка: " + e.message);
+    } finally {
+        if (btn) {
+            btn.innerHTML = 'ОБНОВИТЬ СТАТУС';
+            btn.style.opacity = '1';
         }
+    }
+}
 
-        // --- ГЛАВНЫЙ РЕНДЕР ИНВЕНТАРЯ ---
-        function renderInventory(items, isSorting = false) {
-            const container = document.getElementById('inventory-list-container');
-            if(!container) return; 
+// --- ОКНО ЗАМЕНЫ (REPLACEMENT MODAL) ---
+window.openReplacementModal = function(historyId, options) {
+    const modal = document.getElementById('replacement-modal');
+    const container = document.getElementById('replacement-options-list');
+    if(!modal || !container) return;
+    
+    container.innerHTML = options.map(item => {
+        let r = (item.rarity || '').toLowerCase();
+        let rClass = 'blue';
+        if (r.includes('purple')) rClass = 'purple';
+        else if (r.includes('pink')) rClass = 'pink';
+        else if (r.includes('red')) rClass = 'red';
+        else if (r.includes('gold')) rClass = 'gold';
 
-            if (!isSorting) window.currentInventoryItems = items || [];
-            const itemsToRender = [...window.currentInventoryItems];
+        const nameParts = item.name_ru.split('|');
+        const itemType = nameParts.length > 1 ? nameParts[0].trim() : '';
+        const cleanName = nameParts.length > 1 ? nameParts.slice(1).join('|').trim() : item.name_ru.trim();
+        const safeName = item.name_ru.replace(/'/g, "");
+        const lowerType = itemType.toLowerCase();
+        let sizeClass = (lowerType.includes('наклейка') || lowerType.includes('граффити') || lowerType.includes('нашивка') || lowerType.includes('значок')) ? 'is-small-item' : '';
 
-            // Принудительно 3 в ряд
-            container.style.display = 'grid';
-            container.style.gridTemplateColumns = 'repeat(3, 1fr)';
-            container.style.gap = '8px';
-            container.style.width = '100%';
-            
-            // Сортировка со значками
-            const sortSelect = document.getElementById('inventory-sort-select');
-            if (sortSelect && !sortSelect.dataset.minified) {
-                sortSelect.innerHTML = `
-                    <option value="date_desc">🆕 Новые</option>
-                    <option value="date_asc">⏳ Старые</option>
-                    <option value="price_desc">📈 Дорогие</option>
-                    <option value="price_asc">📉 Дешевые</option>
-                    <option value="status">📊 Статус</option>
-                `;
-                sortSelect.dataset.minified = 'true';
-            }
+        return `
+            <div class="replacement-card ${rClass} ${sizeClass}" onclick="initiateReplacementConfirm(${historyId}, '${item.assetid}', '${safeName}')">
+                <div class="replacement-img-wrapper"><img src="${item.icon_url}" loading="lazy"></div>
+                <div class="replacement-text-zone">
+                    ${itemType ? `<div class="replacement-type">${itemType}</div>` : ''}
+                    <div class="replacement-name">${cleanName}</div>
+                    <div class="replacement-condition">${item.condition || '-'}</div>
+                </div>
+            </div>
+        `;
+    }).join('');
 
-            container.innerHTML = '';
+    modal.classList.add('visible');
+}
 
-            let availableSellCount = 0;
-            let totalSellTickets = 0.0;
+window.closeReplacementModal = function() {
+    const modal = document.getElementById('replacement-modal');
+    if(modal) modal.classList.remove('visible');
+}
 
-            if (itemsToRender.length === 0) {
-                container.style.display = 'block';
-                container.innerHTML = `
-                    <div style="text-align:center; padding-top: 50px;">
-                        <i class="fa-solid fa-box-open" style="font-size: 40px; margin-bottom: 15px; opacity: 0.3; color: #fff;"></i>
-                        <p style="font-size: 14px; color: rgba(255,255,255,0.6); font-weight: 600;">Инвентарь пуст</p>
-                    </div>`;
-                return;
-            }
+window.initiateReplacementConfirm = function(historyId, assetid, itemName) {
+    showCustomConfirmHTML(`Забрать "${itemName}"?`, async (closeConfirmWindow) => {
+        if (isUpdating) return;
+        isUpdating = true;     
+        
+        closeConfirmWindow(); 
+        closeReplacementModal();
+        document.getElementById('global-loader').classList.add('active');
 
-            const sortType = sortSelect ? sortSelect.value : 'date_desc';
-            const statusWeight = { 
-                'auto_queued': 1, 'market_pending': 2, 'sent': 3, 'offer_sent': 4, 'pending': 5,
-                'available': 6, 'processing': 7, 'failed': 8, 'canceled': 9,
-                'received': 10, 'exchanged': 11, 'exchanged_swap': 12
-            };
-
-            itemsToRender.sort((a, b) => {
-               const dateA = parseSafeDate(a.created_at || a.updated_at || a.date);
-               const dateB = parseSafeDate(b.created_at || b.updated_at || b.date);
-               const priceA = parseFloat(a.price_rub || a.price || 0);
-               const priceB = parseFloat(b.price_rub || b.price || 0);
-               const statA = (a.status || 'available').toLowerCase();
-               const statB = (b.status || 'available').toLowerCase();
-               const weightA = statusWeight[statA] || 99;
-               const weightB = statusWeight[statB] || 99;
-
-                if (sortType === 'status') {
-                    if (weightA !== weightB) return weightA - weightB;
-                    return dateB - dateA; 
-                }
-                const isAArchived = weightA >= 10;
-                const isBArchived = weightB >= 10;
-                if (isAArchived && !isBArchived) return 1;
-                if (!isAArchived && isBArchived) return -1;
-
-                if (sortType === 'date_desc') return dateB - dateA;
-                if (sortType === 'date_asc') return dateA - dateB;
-                if (sortType === 'price_desc') return priceB - priceA;
-                if (sortType === 'price_asc') return priceA - priceB;
-                return dateB - dateA;
-            });
-
-            itemsToRender.forEach(item => {
-                const status = (item.status || 'available').toLowerCase();
-                const historyId = item.id || item.history_id; 
-
-                if (['available', 'pending', 'failed', 'canceled', 'received'].includes(status)) {
-                    localStorage.removeItem(`claim_lock_${historyId}`);
-                }
-
-                const rData = getRarityData(item.rarity); 
-                const isSwapped = item.is_swapped === true;
-                const isReplaced = !!item.replaced_name && !isSwapped; 
-                
-                let displayName = (isReplaced || isSwapped) ? item.replaced_name : item.name;
-                if (!displayName && item.details && item.details.includes('Выигрыш:')) {
-                    displayName = item.details.replace('Выигрыш:', '').split('||')[0].trim();
-                }
-                if (!displayName) displayName = "Секретный приз";
-
-                let cleanName = displayName;
-                if (displayName.includes('|')) cleanName = displayName.split('|').slice(1).join('|').trim();
-                
-                let imageUrl = item.image_url;
-                if (!imageUrl || imageUrl.includes('null')) imageUrl = 'https://placehold.co/100x100/18181b/3f3f46?text=?';
-                
-                let strPrice = String(item.price_rub || item.price || "0").replace(',', '.');
-                let strReplaced = String(item.replaced_price || "0").replace(',', '.');
-                let parsedBasePrice = parseFloat(strPrice) || 0;
-                let parsedReplPrice = parseFloat(strReplaced) || 0;
-                const rawPrice = (isReplaced || isSwapped) && parsedReplPrice > 0 ? parsedReplPrice : parsedBasePrice;
-                const ticketVal = parseFloat((rawPrice * 0.5).toFixed(2));
-                const safeNameStr = displayName.replace(/'/g, "\\'");
-
-                if (['available', 'pending', 'failed', 'canceled'].includes(status)) {
-                    availableSellCount++;
-                    totalSellTickets += ticketVal;
-                }
-
-                // --- ТЁМНЫЙ ПРЕМИУМ ДИЗАЙН ---
-                let cardBgColor = hexToRgba(rData.color, 0.05); 
-                let cardBorder = `1px solid rgba(255,255,255, 0.05)`;
-                let cardShadow = `inset 0 0 20px rgba(0,0,0,0.6), 0 4px 10px rgba(0,0,0,0.5)`;
-                
-                let isArchived = ['received', 'exchanged', 'exchanged_swap', 'failed'].includes(status);
-                let centerOverlay = '';
-                let imageStyles = `max-width:85%; max-height:85%; object-fit:contain; filter:drop-shadow(0 10px 15px rgba(0,0,0,0.5)); transition: all 0.4s ease;`;
-
-                // Статусные изменения (Архив и Ошибки)
-                if (isArchived) {
-                    imageStyles += ` opacity: 0.15; filter: blur(2px) grayscale(100%);`;
-                    if (status === 'received') {
-                        cardBgColor = 'rgba(52, 199, 89, 0.05)';
-                        centerOverlay = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:900; color:#32d74b; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5;">Успешно<br>выведен</div>`;
-                    } else if (status === 'exchanged') {
-                        cardBgColor = 'rgba(255, 149, 0, 0.05)';
-                        centerOverlay = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:900; color:#fff; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5;">Продан за<br><span style="color:#ffd700; font-size:11px;">${ticketVal} 🎟️</span></div>`;
-                    } else if (status === 'exchanged_swap') {
-                        cardBgColor = 'rgba(255, 215, 0, 0.05)';
-                        centerOverlay = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:900; color:#ffd700; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5;">В свапе</div>`;
-                    } else if (status === 'failed') {
-                        cardBgColor = 'rgba(255, 69, 58, 0.05)';
-                        centerOverlay = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:900; color:#ff453a; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5;">Ошибка</div>`;
-                    }
-                } 
-                // Статусные изменения (Процесс)
-                else if (status === 'auto_queued') {
-                    cardBorder = `1px solid rgba(10, 132, 255, 0.3)`;
-                    imageStyles += ` opacity: 0.5; filter: grayscale(50%);`;
-                } else if (status === 'market_pending') {
-                    cardBorder = `1px solid rgba(191, 90, 242, 0.3)`;
-                    imageStyles += ` opacity: 0.5; filter: grayscale(50%);`;
-                } else if (status === 'offer_sent' || status === 'sent') {
-                    cardBorder = `1px solid rgba(52, 199, 89, 0.4)`;
-                    cardShadow = `inset 0 0 20px rgba(52, 199, 89, 0.05), 0 4px 15px rgba(52, 199, 89, 0.1)`;
-                }
-
-                // Сгорание
-                let expirationHtml = '';
-                let isExpired = false;
-                const updateTimeMs = parseSafeDate(item.updated_at || item.created_at);
-
-                if (['available', 'pending', 'canceled'].includes(status)) {
-                    const source = item.source || 'shop';
-                    const amnestyTimestamp = new Date('2026-07-15T00:00:00+03:00').getTime();
-                    let expireTimeMs = updateTimeMs < amnestyTimestamp 
-                        ? amnestyTimestamp + (14 * 24 * 60 * 60 * 1000) 
-                        : updateTimeMs + ((['raffle', 'auction', 'twitch'].includes(source) ? 3 : 14) * 24 * 60 * 60 * 1000);
-                    
-                    if (updateTimeMs > 0) {
-                        const timeLeftMs = expireTimeMs - Date.now();
-                        if (timeLeftMs > 0) {
-                            const days = Math.floor(timeLeftMs / (1000 * 60 * 60 * 24));
-                            const hours = Math.floor((timeLeftMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                            let timeStr = days > 0 ? `${days}д ${hours}ч` : `${hours}ч`;
-                            if (days === 0 && hours === 0) timeStr = `${Math.floor((timeLeftMs % (1000 * 60 * 60)) / (1000 * 60))}м`;
-                            expirationHtml = `<div style="font-size:7px; font-weight:700; color:${days < 1 ? '#ff453a' : 'rgba(255,255,255,0.4)'};">Сгорит: ${timeStr}</div>`;
-                        } else {
-                            isExpired = true;
-                            expirationHtml = `<div style="font-size:7px; font-weight:700; color:#ff453a;">СГОРЕЛ</div>`;
-                        }
-                    }
-                }
-
-                // Нижняя кнопка-триггер и выезжающее меню (Action Panel)
-                let bottomBtnText = 'ДЕЙСТВИЕ <i class="fa-solid fa-chevron-up" style="font-size:7px; margin-left:2px;"></i>';
-                let bottomBtnAction = `onclick="toggleActionPanel('${historyId}', true, event)"`;
-                let panelContent = '';
-                
-                if (isArchived) {
-                    bottomBtnText = ''; // В архиве кнопки нет
-                } else if (isExpired) {
-                    bottomBtnText = 'СГОРЕЛ';
-                    bottomBtnAction = '';
-                } else if (status === 'market_pending') {
-                    bottomBtnText = 'ОБНОВИТЬ СТАТУС';
-                    bottomBtnAction = `onclick="checkTradeStatus(${historyId})"`;
-                } else if (status === 'processing') {
-                    bottomBtnText = 'ОБРАБОТКА...';
-                    bottomBtnAction = '';
-                } else if (status === 'auto_queued') {
-                    bottomBtnText = 'ПОИСК...';
-                    bottomBtnAction = '';
-                } else if (status === 'offer_sent' || status === 'sent') {
-                    const timerElementId = `timer-${historyId}`;
-                    bottomBtnText = `<span id="${timerElementId}">--:--</span> <i class="fa-solid fa-chevron-up" style="font-size:7px; margin-left:2px;"></i>`;
-                    
-                    panelContent = `
-                        <div style="font-size:8px; font-weight:800; color:rgba(255,255,255,0.4); margin-bottom:4px; text-align:center;">ОФФЕР ОТПРАВЛЕН</div>
-                        <button onclick="window.open('https://steamcommunity.com/my/tradeoffers/', '_blank'); toggleActionPanel('${historyId}', false, event);" style="background:rgba(52,199,89,0.1); border:1px solid rgba(52,199,89,0.3); color:#32d74b; border-radius:6px; font-size:9px; font-weight:800; padding:8px; width:100%; margin-bottom:6px;">ОТКРЫТЬ STEAM</button>
-                        <button id="check-btn-${historyId}" onclick="checkTradeStatus(${historyId}); toggleActionPanel('${historyId}', false, event);" style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.15); color:#fff; border-radius:6px; font-size:9px; font-weight:800; padding:8px; width:100%;">ОБНОВИТЬ СТАТУС</button>
-                    `;
-                    setTimeout(() => { if (typeof initCountdown === 'function') initCountdown(timerElementId, item.updated_at); }, 50);
-                } else {
-                    // Available / Pending
-                    panelContent = `
-                        <div style="font-size:8px; font-weight:800; color:rgba(255,255,255,0.4); margin-bottom:4px; text-align:center;">ВЫБЕРИТЕ ДЕЙСТВИЕ</div>
-                        <button onclick="exchangeItem(${historyId}, ${ticketVal}); toggleActionPanel('${historyId}', false, event);" style="background:rgba(255,149,0,0.1); border:1px solid rgba(255,149,0,0.3); color:#ff9f0a; border-radius:6px; font-size:9px; font-weight:800; padding:8px; width:100%; margin-bottom:6px;">ПРОДАТЬ ЗА ${ticketVal} 🎟️</button>
-                        <button id="withdraw-btn-${historyId}" onclick="withdrawItem(${historyId}, '${safeNameStr}'); toggleActionPanel('${historyId}', false, event);" style="background:rgba(10,132,255,0.1); border:1px solid rgba(10,132,255,0.3); color:#0a84ff; border-radius:6px; font-size:9px; font-weight:800; padding:8px; width:100%;">ЗАБРАТЬ В STEAM</button>
-                    `;
-                }
-
-                const el = document.createElement('div');
-                el.style.cssText = `position: relative; aspect-ratio: 1 / 1; display: flex; flex-direction: column; border-radius: 12px; border: ${cardBorder}; background: ${cardBgColor}; box-shadow: ${cardShadow}; overflow: hidden; transition: all 0.3s ease;`;
-                
-                el.innerHTML = `
-                    <!-- 1. Матовое окно с тех. данными (Увеличенный !, закрытие по клику в любое место) -->
-                    <div id="tech-info-${historyId}" onclick="toggleTechInfo('${historyId}', false, event)" style="position:absolute; inset:0; background:rgba(0,0,0,0.95); backdrop-filter:blur(10px); z-index:50; opacity:0; pointer-events:none; transition:0.2s; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; padding:10px;">
-                        <i class="fa-solid fa-xmark" style="position:absolute; top:8px; right:8px; font-size:16px; color:#fff;"></i>
-                        <div style="color:#fff; font-weight:900; font-size:11px; margin-bottom:8px; text-transform:uppercase;">Тех. Данные</div>
-                        <div style="font-size:9px; color:rgba(255,255,255,0.6); margin-bottom:4px;">ID: <span style="color:#fff;">#${historyId}</span></div>
-                        <div style="font-size:9px; color:rgba(255,255,255,0.6); margin-bottom:4px;">Цена Steam: <span style="color:#fff;">${parsedBasePrice} ₽</span></div>
-                        <div style="font-size:9px; color:rgba(255,255,255,0.6); margin-bottom:4px;">Редкость:<br><span style="color:${rData.color};">${rData.name}</span></div>
-                        <div style="font-size:9px; color:rgba(255,255,255,0.6);">Статус:<br><span style="color:#fff;">${status}</span></div>
-                    </div>
-
-                    <!-- 2. Выезжающее меню "Действие" -->
-                    ${panelContent ? `
-                    <div id="action-panel-${historyId}" style="position:absolute; bottom:-100%; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); backdrop-filter:blur(10px); z-index:40; opacity:0; pointer-events:none; transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1); display:flex; flex-direction:column; justify-content:flex-end; padding:8px;">
-                        <i class="fa-solid fa-chevron-down" onclick="toggleActionPanel('${historyId}', false, event)" style="position:absolute; top:8px; right:8px; font-size:14px; color:#fff; padding:6px; cursor:pointer;"></i>
-                        ${panelContent}
-                    </div>
-                    ` : ''}
-
-                    <!-- Увеличенный восклицательный знак (Вызов тех инфы) -->
-                    <div onclick="toggleTechInfo('${historyId}', true, event)" style="position:absolute; top:4px; right:4px; width:24px; height:24px; border-radius:50%; background:rgba(0,0,0,0.4); color:rgba(255,255,255,0.6); font-weight:900; display:flex; justify-content:center; align-items:center; z-index:20; font-size:11px; border:1px solid rgba(255,255,255,0.1); cursor:pointer;">!</div>
-
-                    <!-- Оружие по центру (Затухает при продаже) -->
-                    <div style="flex-grow:1; display:flex; justify-content:center; align-items:center; position:relative; overflow:hidden;" onclick="${!isArchived ? `openFullscreenWeapon('${imageUrl}', '${safeNameStr}')` : ''}">
-                        <img src="${imageUrl}" style="${imageStyles}">
-                        ${centerOverlay}
-                    </div>
-
-                    <!-- Информация внизу (Название, Цена над сгоранием) -->
-                    <div style="padding: 6px; display:flex; flex-direction:column; gap:2px; background:linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%); pointer-events:none; z-index:10;">
-                        <div style="font-size:9px; font-weight:900; color:rgba(255,255,255,0.9); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${cleanName}</div>
-                        ${!isArchived ? `
-                            <div style="font-size:9px; font-weight:800; color:#ffd700;">${rawPrice} ₽</div>
-                            ${expirationHtml}
-                        ` : ''}
-                    </div>
-                    
-                    <!-- Кнопка ДЕЙСТВИЕ -->
-                    ${bottomBtnText ? `
-                    <div ${bottomBtnAction} style="background:rgba(255,255,255,0.03); border-top:1px solid rgba(255,255,255,0.05); color:#fff; font-size:8px; font-weight:800; padding:6px 0; text-align:center; text-transform:uppercase; cursor:pointer; width:100%; transition:0.2s; z-index:15;">${bottomBtnText}</div>
-                    ` : ''}
-                `;
-                container.appendChild(el);
-            });
-
-            // Обновляем кнопку ПРОДАТЬ ВСЁ 
-            const sellAllBtn = document.getElementById('sell-all-btn');
-            if (sellAllBtn) {
-                if (availableSellCount > 0) {
-                    sellAllBtn.style.display = 'block';
-                    sellAllBtn.innerHTML = `<i class="fa-solid fa-tags"></i> ПРОДАТЬ ВСЁ (Доступные: ${availableSellCount})`;
-                    sellAllBtn.dataset.amount = totalSellTickets.toFixed(2);
-                    sellAllBtn.dataset.count = availableSellCount;
-                } else {
-                    sellAllBtn.style.display = 'none';
-                }
-            }
-        }
-
-        // --- УТИЛИТА ПОДТВЕРЖДЕНИЯ (CUSTOM CONFIRM) ---
-        function showCustomConfirmHTML(text, onConfirmCallback, btnText = 'Да', btnColor = '#0a84ff') {
-            const overlay = document.createElement('div'); 
-            overlay.className = 'modal-overlay visible'; 
-            overlay.style.alignItems = 'center';
-            
-            const box = document.createElement('div'); 
-            box.style.cssText = `background: var(--glass-bg); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border: 1px solid var(--glass-border); border-radius: 24px; padding: 24px; width: 85%; max-width: 320px; text-align: center; color: white; box-shadow: var(--glass-shadow); transform: scale(0.95); animation: popIn 0.2s forwards;`;
-            
-            box.innerHTML = `
-                <h3 style="margin: 0 0 20px; font-size: 18px; font-weight: 800; line-height: 1.4;">${text}</h3>
-                <div style="display: flex; gap: 12px;">
-                    <button id="custom-cancel-btn" style="flex: 1; padding: 12px; border: none; border-radius: 14px; background: rgba(255,255,255,0.1); color: white; font-size: 14px; font-weight: 700; cursor: pointer;">Отмена</button>
-                    <button id="custom-confirm-btn" style="flex: 1; padding: 12px; border: none; border-radius: 14px; background: ${btnColor}; color: #fff; font-size: 14px; font-weight: 800; cursor: pointer; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">${btnText}</button>
-                </div>`;
-                
-            overlay.appendChild(box); 
-            document.body.appendChild(overlay);
-            
-            const close = () => { overlay.style.opacity = '0'; setTimeout(() => overlay.remove(), 300); };
-            overlay.querySelector('#custom-cancel-btn').onclick = close;
-            
-            const confirmBtn = overlay.querySelector('#custom-confirm-btn');
-            confirmBtn.onclick = () => {
-                if (confirmBtn.dataset.clicked) return;
-                confirmBtn.dataset.clicked = "true";
-                confirmBtn.style.transform = "scale(0.95)";
-                onConfirmCallback(close);
-            };
-        }
-
-        // --- ДЕЙСТВИЯ С ИНВЕНТАРЕМ ---
-        window.acknowledgeCancel = function(historyId) {
-            localStorage.setItem(`ack_cancel_${historyId}`, 'true');
-            if (typeof loadData === 'function') loadData(true);
-        };
-
-        window.withdrawItem = function(historyId, itemName) {
-            if (isUpdating) return;
-            const lockKey = `claim_lock_${historyId}`;
-            const lockTimestamp = localStorage.getItem(lockKey);
-            
-            if (lockTimestamp && (Date.now() - lockTimestamp < 30 * 60 * 1000)) {
-                tg.showAlert("⏳ Трейд уже в очереди! Steam может тупить, подождите еще немного.");
-                return;
-            }
-
-            showCustomConfirmHTML(`Вывести "${itemName}" в Steam?`, async (closeConfirm) => {
-                isUpdating = true;
-                const btn = document.getElementById(`withdraw-btn-${historyId}`);
-                if (btn) btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
-
-                try {
-                    const res = await apiRequest('/api/v1/user/inventory/withdraw', 'POST', { history_id: historyId });
-                    closeConfirm();
-
-                    if (res && res.status === 'offer_replacement') {
-                        if (typeof openReplacementModal === 'function') openReplacementModal(historyId, res.options);
-                    } else if (res && res.success) {
-                        localStorage.setItem(lockKey, Date.now());
-                        if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
-                        tg.showPopup({message: res.message});
-                    }
-                    if (typeof loadData === 'function') await loadData(true);
-                } catch (e) {
-                    closeConfirm();
-                    tg.showAlert("Ошибка: " + e.message);
-                    if (btn) btn.innerHTML = 'ПОЛУЧИТЬ В STEAM';
-                } finally {
-                    isUpdating = false;
-                }
-            }, "ВЫВЕСТИ", "#34c759");
-        }
-
-        window.sellAllItems = function() {
-            const btn = document.getElementById('sell-all-btn');
-            const amount = btn.dataset.amount;
-            const count = btn.dataset.count;
-            
-            showCustomConfirmHTML(`Продать ВСЕ доступные скины (${count} шт.) за ${amount} 🎟️?`, async (close) => {
-                document.getElementById('global-loader').classList.add('active');
-                try {
-                    const res = await apiRequest('/api/v1/user/inventory/sell_all', 'POST');
-                    tg.showAlert(res.message || `Успешно! +${amount} билетов.`);
-                    if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
-                    close();
-                    if (typeof loadData === 'function') await loadData(true);
-                } catch (e) {
-                    tg.showAlert(e.message || "Ошибка при массовой продаже");
-                    close();
-                } finally {
-                    document.getElementById('global-loader').classList.remove('active');
-                }
-            }, "ПРОДАТЬ ВСЁ", "#ffd700");
-        }
-
-        window.exchangeItem = function(historyId, amount) {
-            showCustomConfirmHTML(`Продать скин за ${amount} 🎟️?`, async (close) => {
-                document.getElementById('global-loader').classList.add('active');
-                try {
-                    const res = await apiRequest('/api/v1/user/inventory/sell', 'POST', { history_id: historyId });
-                    tg.showAlert(res.message || `Успешно! +${amount} билетов.`);
-                    if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
-                    close();
-                    if (typeof loadData === 'function') await loadData(true);
-                } catch (e) {
-                    tg.showAlert(e.message || "Ошибка обмена");
-                    close();
-                } finally {
-                    document.getElementById('global-loader').classList.remove('active');
-                }
-            }, "ПРОДАТЬ", "#34c759");
-        }
-
-        window.checkTradeStatus = async function(historyId, isAuto = false) {
-            const btn = document.getElementById(`check-btn-${historyId}`);
-            if (btn && btn.style.opacity === '0.5') return; 
-
-            const now = Date.now();
-            if (checkCooldowns[historyId] && (now - checkCooldowns[historyId] < 55000)) { 
-                if (!isAuto) tg.showPopup({message: "⏳ Проверять статус можно раз в минуту. Подождите немного."});
-                return;
-            }
-            
-            checkCooldowns[historyId] = now;
-            
-            if (btn) {
-                btn.style.opacity = '0.5';
-                btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
-            }
-
-            try {
-                const res = await apiRequest('/api/v1/user/inventory/check_trade', 'POST', { history_id: historyId });
-                if (res && res.success) {
-                    if (!isAuto) tg.showPopup({message: res.message});
-                } else {
-                    if (!isAuto) tg.showPopup({message: res.message || "Оффер еще не принят. Посмотрите в Steam."});
-                }
-                
+        try {
+            const res = await apiRequest('/api/v1/user/inventory/confirm_replacement', 'POST', { history_id: historyId, assetid: assetid });
+            if (res && res.success) {
+                if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+                tg.showPopup({message: 'Замена успешно выбрана!'});
                 if (typeof loadData === 'function') await loadData(true);
-            } catch (e) {
-                if (!isAuto) tg.showAlert("Ошибка: " + e.message);
-            } finally {
-                if (btn) {
-                    btn.innerHTML = 'ОБНОВИТЬ СТАТУС';
-                    btn.style.opacity = '1';
-                }
+            } else {
+                tg.showAlert("❌ " + (res.message || "Ошибка замены"));
             }
+        } catch (e) {
+            tg.showAlert("Ошибка: " + e.message);
+        } finally {
+            document.getElementById('global-loader').classList.remove('active');
+            isUpdating = false; 
         }
+    }, "ЗАБРАТЬ", "#ffd700"); 
+}
 
-        // --- ОКНО ЗАМЕНЫ (REPLACEMENT MODAL) ---
-        window.openReplacementModal = function(historyId, options) {
-            const modal = document.getElementById('replacement-modal');
-            const container = document.getElementById('replacement-options-list');
-            if(!modal || !container) return;
-            
-            container.innerHTML = options.map(item => {
-                let r = (item.rarity || '').toLowerCase();
-                let rClass = 'blue';
-                if (r.includes('purple')) rClass = 'purple';
-                else if (r.includes('pink')) rClass = 'pink';
-                else if (r.includes('red')) rClass = 'red';
-                else if (r.includes('gold')) rClass = 'gold';
-
-                const nameParts = item.name_ru.split('|');
-                const itemType = nameParts.length > 1 ? nameParts[0].trim() : '';
-                const cleanName = nameParts.length > 1 ? nameParts.slice(1).join('|').trim() : item.name_ru.trim();
-                const safeName = item.name_ru.replace(/'/g, "");
-                const lowerType = itemType.toLowerCase();
-                let sizeClass = (lowerType.includes('наклейка') || lowerType.includes('граффити') || lowerType.includes('нашивка') || lowerType.includes('значок')) ? 'is-small-item' : '';
-
-                return `
-                    <div class="replacement-card ${rClass} ${sizeClass}" onclick="initiateReplacementConfirm(${historyId}, '${item.assetid}', '${safeName}')">
-                        <div class="replacement-img-wrapper"><img src="${item.icon_url}" loading="lazy"></div>
-                        <div class="replacement-text-zone">
-                            ${itemType ? `<div class="replacement-type">${itemType}</div>` : ''}
-                            <div class="replacement-name">${cleanName}</div>
-                            <div class="replacement-condition">${item.condition || '-'}</div>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-
-            modal.classList.add('visible');
-        }
-
-        window.closeReplacementModal = function() {
-            const modal = document.getElementById('replacement-modal');
-            if(modal) modal.classList.remove('visible');
-        }
-
-        window.initiateReplacementConfirm = function(historyId, assetid, itemName) {
-            showCustomConfirmHTML(`Забрать "${itemName}"?`, async (closeConfirmWindow) => {
-                if (isUpdating) return;
-                isUpdating = true;     
-                
-                closeConfirmWindow(); 
-                closeReplacementModal();
-                document.getElementById('global-loader').classList.add('active');
-
-                try {
-                    const res = await apiRequest('/api/v1/user/inventory/confirm_replacement', 'POST', { history_id: historyId, assetid: assetid });
-                    if (res && res.success) {
-                        if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
-                        tg.showPopup({message: 'Замена успешно выбрана!'});
-                        if (typeof loadData === 'function') await loadData(true);
-                    } else {
-                        tg.showAlert("❌ " + (res.message || "Ошибка замены"));
-                    }
-                } catch (e) {
-                    tg.showAlert("Ошибка: " + e.message);
-                } finally {
-                    document.getElementById('global-loader').classList.remove('active');
-                    isUpdating = false; 
-                }
-            }, "ЗАБРАТЬ", "#ffd700"); 
-        }
-
-        // =========================================================
-        // КОНЕЦ ЛОГИКИ ИНВЕНТАРЯ
-        // =========================================================
+// =========================================================
+// КОНЕЦ ЛОГИКИ ИНВЕНТАРЯ
+// =========================================================
 
     </script>
 </body>
