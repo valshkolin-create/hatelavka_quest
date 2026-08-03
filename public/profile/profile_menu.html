@@ -1163,16 +1163,10 @@
                     ` : ''}
 
                     <!-- Кнопка вызова Поддержки (!) -->
-                    <div onclick="openSupportModal('${historyId}', event)" style="position:absolute; top:4px; left:4px; width:22px; height:22px; border-radius:50%; background:rgba(0,0,0,0.3); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); color:rgba(255,255,255,0.8); font-weight:900; display:flex; justify-content:center; align-items:center; z-index:20; font-size:10px; cursor:pointer;">!</div>
+                    <!-- ОБРАТИ ВНИМАНИЕ: добавил передачу expirationHtml вторым аргументом, чтобы ты мог вывести таймер внутри самой модалки -->
+                    <div onclick="openSupportModal('${historyId}', '${expirationHtml ? expirationHtml : ''}', event)" style="position:absolute; top:4px; left:4px; width:22px; height:22px; border-radius:50%; background:rgba(0,0,0,0.3); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); color:rgba(255,255,255,0.8); font-weight:900; display:flex; justify-content:center; align-items:center; z-index:20; font-size:10px; cursor:pointer;">!</div>
 
-                    <!-- Плашка таймера (сгорание) -->
-                    ${expirationHtml ? `
-                    <div style="position:absolute; top:4px; right:4px; background:rgba(0,0,0,0.3); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); padding:2px 5px; border-radius:4px; z-index:20; display:flex; align-items:center; justify-content:center; border:1px solid rgba(255,255,255,0.05);">
-                        ${expirationHtml}
-                    </div>
-                    ` : ''}
-
-                    <!-- Оружие -->
+                    <!-- Оружие (Таймер из правого угла удален для разгрузки) -->
                     <div style="position:absolute; inset:0; display:flex; justify-content:center; align-items:center; overflow:hidden; z-index:1; padding-bottom: 10px;" onclick="${!isArchived ? `openFullscreenWeapon('${imageUrl}', '${safeNameStr}')` : ''}">
                         <img src="${imageUrl}" style="${imageStyles}">
                         ${centerOverlay}
@@ -1194,9 +1188,12 @@
                         ` : ''}
                     </div>
                     
-                    <!-- Кнопка ДЕЙСТВИЕ в самом низу (С БЛЮРОМ) -->
+                    <!-- Кнопка ДЕЙСТВИЕ в самом низу (ТЕПЕРЬ С ТАЙМЕРОМ ВНУТРИ) -->
                     ${bottomBtnText ? `
-                    <div ${bottomBtnAction} style="position:absolute; bottom:0; left:0; width:100%; display:flex; justify-content:center; align-items:center; background:rgba(0,0,0,0.4); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); border-top:1px solid rgba(255,255,255,0.05); color:#fff; font-size:8px; font-weight:800; padding:6px 0; cursor:pointer; transition:0.2s; z-index:15;">${bottomBtnText}</div>
+                    <div ${bottomBtnAction} style="position:absolute; bottom:0; left:0; width:100%; display:flex; justify-content:center; align-items:center; gap:4px; background:rgba(0,0,0,0.4); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); border-top:1px solid rgba(255,255,255,0.05); color:#fff; font-size:8px; font-weight:800; padding:6px 0; cursor:pointer; transition:0.2s; z-index:15;">
+                        <span>${bottomBtnText}</span>
+                        ${expirationHtml ? `<span style="color:#ff4c4c; padding-left:2px;">• ${expirationHtml}</span>` : ''}
+                    </div>
                     ` : ''}
                 `;
                 container.appendChild(el);
