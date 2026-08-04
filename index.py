@@ -25857,7 +25857,12 @@ async def check_trade_status_endpoint(
             # ОБРАБОТКА ОШИБОК И ЗАДЕРЖКИ ИНДЕКСАЦИИ МАРКЕТА
             # =========================================================
             if not tm_data.get("success"):
-                if tm_data.get("error") == "not found":
+                # Получаем текст ошибки, приводим в нижний регистр и убираем лишние пробелы. 
+                # Если ключа "error" нет, ищем "message". Если и его нет — оставляем пустую строку.
+                tm_error = str(tm_data.get("error") or tm_data.get("message") or "").strip().lower()
+                
+                # Если маркет пишет "not found", пустой ответ или какую-то дичь — считаем, что сделка еще формируется
+                if tm_error in ["not found", "bad request", "null", "none", ""] or "not found" in tm_error:
                     
                     # ЗАЩИТА 48 ЧАСОВ (Замораживаем древние баги)
                     if db_hours_passed > 48:
@@ -25905,15 +25910,17 @@ async def check_trade_status_endpoint(
                             "new_status": "available"
                         }
                 
+                    return {
+                        "success": False, 
+                        "message": "⌛ Маркет обрабатывает сделку. Информация появится в течении 15 минут..."
+                    }
+            
+                # Если это реальная серьезная ошибка маркета (например, Invalid API Key или баланс пуст)
+                actual_error = tm_data.get('error') or tm_data.get('message') or 'Неизвестная ошибка'
                 return {
                     "success": False, 
-                    "message": "⌛ Маркет обрабатывает сделку. Информация появится в течении 15 минут..."
+                    "message": f"Ошибка Маркета: {actual_error}"
                 }
-            
-            return {
-                "success": False, 
-                "message": f"Ошибка Маркета: {tm_data.get('error', 'Неизвестно')}"
-            }
         
             # =========================================================
             # ИСПОЛНЕНИЕ СДЕЛКИ (Только подтвержденные данные TM)
