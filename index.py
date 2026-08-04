@@ -25985,9 +25985,9 @@ async def check_trade_status_endpoint(
                     "new_status": "available"
                 }
                 
-            # 🔥 ОЖИДАНИЕ (Stage 1) - ФИКС СТАТУСА (Отправляем сигнал UI)
+            # 🔥 ОЖИДАНИЕ (Stage 1) - Даем ровно 4 минуты (240 секунд) на принятие
             elif stage == "1":
-                time_left = max(0, int((1800 - seconds_passed) / 60))
+                time_left = max(0, int((240 - seconds_passed) / 60))
                 
                 # 🔥 ОБНОВЛЯЕМ СТАТУС В БАЗЕ ДО offer_sent
                 if current_status in ["market_pending", "processing"]:
