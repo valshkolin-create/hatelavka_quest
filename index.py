@@ -16092,22 +16092,18 @@ async def claim_free_ticket(
 
     try:
         # 1. Забираем билет через твою SQL-функцию
-        # Она проверит 24ч кулдаун и начислит +1 (или +2, если сработала логика в SQL)
         response = await supabase.post("/rpc/claim_daily_ticket", json={"p_user_id": telegram_id})
         response.raise_for_status()
         
-        # 🔥 ИСПРАВЛЕНИЕ ОШИБКИ ТИПОВ 🔥
-        # Твой SQL возвращает JSON: {"new_ticket_balance": 123}
         rpc_data = response.json()
         
-        # Достаем число из словаря. Если вдруг вернется просто число — обработаем и это.
+        # Достаем число из словаря
         if isinstance(rpc_data, dict):
             base_balance = rpc_data.get("new_ticket_balance", 0)
         else:
-            base_balance = int(rpc_data) # На случай, если SQL изменится
+            base_balance = int(rpc_data)
 
-        # 2. Теперь проверяем Twitch-статус для ДОПОЛНИТЕЛЬНОГО бонуса
-        # (Параллельно грузим статус и настройки)
+        # 2. Проверяем Twitch-статус
         user_task = supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "twitch_status"})
         settings_task = get_grind_settings_async_global()
         
@@ -16121,28 +16117,32 @@ async def claim_free_ticket(
             
         # 3. Начисляем бонус за Twitch (VIP/Sub)
         if twitch_status in ['subscriber', 'vip']:
-            twitch_bonus = grind_settings.twitch_status_free_tickets # Обычно 5
+            twitch_bonus = grind_settings.twitch_status_free_tickets 
             
             if twitch_bonus > 0:
                 logging.info(f"💎 [FreeTicket] User {telegram_id} is {twitch_status}! Adding bonus +{twitch_bonus} tickets.")
                 await supabase.post("/rpc/increment_tickets", json={"p_user_id": telegram_id, "p_amount": twitch_bonus})
 
         # 4. Итоговый баланс
-        # (Баланс из SQL + Наш бонус сверху)
         final_balance = base_balance + twitch_bonus
 
         msg = "✅ Бесплатный билет получен!"
+        
+        # 🔥 УМНОЕ ФОРМИРОВАНИЕ ТЕКСТА ДЛЯ ЛОГА 🔥
+        desc_log = "Вы получили 1 бесплатный билет 🎟️"
+        
         if twitch_bonus > 0:
             msg += f"\n🎁 Бонус за статус ({twitch_status}): +{twitch_bonus} шт."
+            desc_log += f" (+{twitch_bonus} за Twitch {twitch_status.upper()})"
 
         # 🔥 ПИШЕМ СОБЫТИЕ В ИСТОРИЮ 🔥
         await log_user_event(
             supabase=supabase,
             user_id=telegram_id,
-            event_type="system",
+            event_type="grind", # Используем иконку молнии (гринд)
             title="Бесплатный билет",
-            description=f"Вы забрали билет. Бонус Twitch: +{twitch_bonus}",
-            coins_reward=0
+            description=desc_log,
+            coins_reward=0 # Оставляем 0, так как это билеты!
         )
 
         return {
@@ -16151,7 +16151,6 @@ async def claim_free_ticket(
         }
 
     except httpx.HTTPStatusError as e:
-        # Если SQL вернул ошибку (например, COOLDOWN)
         try:
             error_details = e.response.json().get("message", "Не удалось получить билет.")
         except:
