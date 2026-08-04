@@ -1025,40 +1025,56 @@
         }
 
         function initCountdown(elementId, updatedAtStr) {
-            const el = document.getElementById(elementId);
-            if (!el) return;
+            const historyId = elementId.replace('timer-', '');
+            const timerEl = document.getElementById(elementId);
+            const wrapperEl = document.getElementById(`timer-wrapper-${historyId}`);
+            const actionBtn = document.getElementById(`bottom-btn-${historyId}`);
+
+            if (!timerEl || !wrapperEl) return;
+
             let dateStr = updatedAtStr.replace(' ', 'T');
             if (!dateStr.endsWith('Z') && !dateStr.includes('+')) dateStr += 'Z';
             
             const updateTime = new Date(dateStr).getTime();
-            if (isNaN(updateTime)) { el.innerHTML = "ОБРАБОТКА"; return; }
+            if (isNaN(updateTime)) { wrapperEl.innerHTML = "ОБРАБОТКА"; return; }
             
-            const expireTime = updateTime + (4 * 60 * 1000); // 4 минуты на принятие трейда в Steam 
-            const historyId = elementId.replace('timer-', '');
+            const expireTime = updateTime + (4 * 60 * 1000); // 4 минуты на принятие
             const getDistance = () => expireTime - new Date().getTime();
 
+            // Функция заморозки карточки
+            const setCheckingState = () => {
+                wrapperEl.innerHTML = `<i class="fa-solid fa-spinner fa-spin-fast"></i> ПРОВЕРКА...`;
+                if (actionBtn) {
+                    actionBtn.onclick = null; // Отключаем открытие меню
+                    actionBtn.style.background = 'rgba(255,255,255,0.05)';
+                    actionBtn.style.animation = 'none'; // Убираем мигание
+                }
+                const panel = document.getElementById(`action-panel-${historyId}`);
+                if (panel) panel.style.display = 'none'; // Жестко прячем меню, если было открыто
+            };
+
             if (getDistance() < 0) {
-                el.innerHTML = `ВРЕМЯ ВЫШЛО`;
-                if (el.dataset.intervalId) clearInterval(el.dataset.intervalId);
+                setCheckingState();
+                if (timerEl.dataset.intervalId) clearInterval(timerEl.dataset.intervalId);
                 return;
             }
 
             const updateTimer = () => {
                 const distance = getDistance();
                 if (distance < 0) {
-                    el.innerHTML = `ПРОВЕРКА...`;
-                    clearInterval(el.dataset.intervalId);
-                    checkTradeStatus(historyId, true);
+                    setCheckingState();
+                    clearInterval(timerEl.dataset.intervalId);
+                    checkTradeStatus(historyId, true); // Делаем контрольный чек
                     return;
                 }
                 const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
                 const seconds = Math.floor((distance % (1000 * 60)) / 1000);
-                el.innerHTML = `${minutes}:${seconds < 10 ? '0' + seconds : seconds}`;
+                timerEl.innerHTML = `${minutes}:${seconds < 10 ? '0' + seconds : seconds}`;
             };
 
-            if (el.dataset.intervalId) clearInterval(el.dataset.intervalId);
+            if (timerEl.dataset.intervalId) clearInterval(timerEl.dataset.intervalId);
             updateTimer();
-            el.dataset.intervalId = setInterval(updateTimer, 1000);
+            timerEl.dataset.intervalId = setInterval(updateTimer, 1000);
         }
 
         window.openSupportModal = function(historyId, event) {
@@ -1515,19 +1531,17 @@
                     bottomBtnStyle = 'background: rgba(255,255,255,0.05); color: #fff; border-top: 1px solid var(--glass-border);';
                 } else if (status === 'offer_sent' || status === 'sent') {
                     const timerElementId = `timer-${historyId}`;
-                    // ДОБАВИЛИ НАДПИСЬ "ЗАБРАТЬ"
-                    bottomBtnText = `ЗАБРАТЬ <span id="${timerElementId}" style="margin-left:3px; color:#ffd700;">--:--</span> <i class="fa-solid fa-chevron-up" style="font-size:${fsChevron}; margin-left:2px;"></i>`;
+                    // Обернули весь текст в id="timer-wrapper-..."
+                    bottomBtnText = `<span id="timer-wrapper-${historyId}">ЗАБРАТЬ <span id="${timerElementId}" style="margin-left:3px; color:#ffd700;">--:--</span></span> <i class="fa-solid fa-chevron-up" style="font-size:${fsChevron}; margin-left:2px;"></i>`;
                     bottomBtnStyle = 'background: rgba(255,255,255,0.1); color: #fff; border-top: 1px solid var(--glass-border); animation: pulse-opacity 1.5s infinite;';
-                    bottomBtnAction = `onclick="toggleActionPanel('${historyId}', true, event)"`;
+                    // Добавили ID для самой кнопки, чтобы её блокировать
+                    bottomBtnAction = `id="bottom-btn-${historyId}" onclick="toggleActionPanel('${historyId}', true, event)"`;
                     
-                    // КНОПКИ АНАЛОГИЧНЫ "ПРОДАТЬ ЗА" И "ЗАБРАТЬ В STEAM" (padding: 4px, 2 строки текста)
+                    // Убрали кнопку ОБНОВИТЬ СТАТУС, оставили только STEAM
                     panelContent = `
                         <div style="font-size: ${currentGridSize === '3' ? '7.5px' : '9px'}; color: #fff; font-weight: 800; margin-bottom: 4px; text-align: center; opacity: 0.8; line-height: 1.1;">ПРИМИТЕ ОФФЕР<br>В STEAM</div>
                         <button onclick="window.open('https://steamcommunity.com/my/tradeoffers/', '_blank'); toggleActionPanel('${historyId}', false, event);" style="box-sizing:border-box; background:rgba(42, 71, 94, 0.7); border:1px solid rgba(102, 192, 244, 0.4); color:#fff; border-radius:6px; font-size:${fsBtn}; font-weight:800; padding:4px; width:100%; margin-bottom:4px; line-height:1.3; transition:0.2s; backdrop-filter:blur(5px); box-shadow: 0 4px 15px rgba(27, 40, 56, 0.5);">
                             ОТКРЫТЬ<br>STEAM
-                        </button>
-                        <button id="check-btn-${historyId}" onclick="checkTradeStatus(${historyId}); toggleActionPanel('${historyId}', false, event);" style="box-sizing:border-box; background:rgba(255,255,255,0.05); border:1px solid var(--glass-border); color:#fff; border-radius:6px; font-size:${fsBtn}; font-weight:800; padding:4px; width:100%; line-height:1.3; transition:0.2s; backdrop-filter:blur(5px);">
-                            ОБНОВИТЬ<br>СТАТУС
                         </button>
                     `;
                     setTimeout(() => { if (typeof initCountdown === 'function') initCountdown(timerElementId, item.updated_at); }, 50);
@@ -1622,9 +1636,9 @@
         function startAutoPoller() {
             if (autoPoller) clearInterval(autoPoller);
             autoPoller = setInterval(async () => {
-                // Находим все скины, которые сейчас крутятся
+                // 🔥 ДОБАВЛЕН 'offer_sent', чтобы поллер чекал замороженные скины
                 const activeItems = window.currentInventoryItems.filter(item => 
-                    ['market_pending', 'auto_queued', 'processing'].includes((item.status || '').toLowerCase())
+                    ['market_pending', 'auto_queued', 'processing', 'offer_sent'].includes((item.status || '').toLowerCase())
                 );
                 
                 if (activeItems.length === 0) return;
@@ -1644,7 +1658,7 @@
                 }
             }, 40000); // Каждые 40 секунд чекаем только активные статусы
         }
-
+        
         // --- ЛОГИКА КРЕАТИВНОГО ЛОАДЕРА ВЫВОДА ---
         let withdrawLoaderInterval;
         
