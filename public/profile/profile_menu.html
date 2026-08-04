@@ -506,66 +506,72 @@ html body nav.floating-bottom-bar .comic-badge {
 }
 
         /* --- ПРОМОКОДЫ: LIQUID GLASS СТИЛИ --- */
-.reward-card {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid var(--glass-border);
-    border-radius: 16px;
-    padding: 14px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    position: relative;
-    backdrop-filter: var(--glass-blur);
-    -webkit-backdrop-filter: var(--glass-blur);
-    transition: transform 0.2s ease;
-}
+        .reward-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 10px 12px; /* Уменьшили отступы внутри карточки */
+            display: flex;
+            flex-direction: column;
+            gap: 6px; /* Было 10px, сделали элементы ближе друг к другу */
+            position: relative;
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            transition: transform 0.2s ease;
+        }
 
-/* Зеленая подсветка для авто-зачислений */
-.reward-card.auto-used {
-    background: rgba(52, 199, 89, 0.05);
-    border-left: 4px solid #34c759;
-}
+        .reward-card.auto-used {
+            background: rgba(52, 199, 89, 0.05);
+            border-left: 3px solid #34c759;
+        }
 
-.reward-card-header {
-    display: flex; justify-content: space-between; align-items: flex-start;
-}
+        .reward-card-header {
+            display: flex; justify-content: space-between; align-items: flex-start;
+        }
 
-.reward-card-desc {
-    font-size: 13px; font-weight: 800; color: #fff; margin: 0 0 4px 0;
-    max-width: 85%;
-}
+        .reward-card-desc {
+            font-size: 12px; /* Уменьшили шрифт описания */
+            font-weight: 800; color: #fff; margin: 0 0 2px 0;
+            max-width: 85%;
+        }
 
-.reward-card-meta {
-    font-size: 10px; color: var(--text-color-muted); font-weight: 700;
-}
+        .reward-card-meta {
+            font-size: 9px; /* Уменьшили метку с датой */
+            color: var(--text-color-muted); font-weight: 700;
+        }
 
-.reward-code-box {
-    display: flex; align-items: center; gap: 8px;
-    background: rgba(0, 0, 0, 0.4);
-    border: 1px solid var(--glass-border);
-    border-radius: 10px; padding: 6px 6px 6px 12px;
-}
+        .reward-code-box {
+            display: flex; align-items: center; gap: 8px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px dashed rgba(255, 255, 255, 0.2);
+            border-radius: 8px; 
+            padding: 4px 6px 4px 10px; /* Сделали инпут компактнее */
+        }
 
-.reward-code-input {
-    flex-grow: 1; background: transparent; border: none; outline: none;
-    color: #fff; font-family: monospace; font-size: 14px; font-weight: 800;
-    text-shadow: 0 0 10px rgba(255,255,255,0.2);
-}
+        .reward-code-input {
+            flex-grow: 1; background: transparent; border: none; outline: none;
+            color: #fff; font-family: monospace; 
+            font-size: 12px; /* Меньше шрифт кода */
+            font-weight: 800;
+            text-shadow: 0 0 10px rgba(255,255,255,0.2);
+        }
 
-.reward-copy-btn {
-    background: rgba(255,255,255,0.1); color: #fff;
-    border: 1px solid var(--glass-border); border-radius: 8px;
-    width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;
-    cursor: pointer; transition: 0.2s; flex-shrink: 0;
-}
-.reward-copy-btn:active { transform: scale(0.9); background: rgba(255,255,255,0.2); }
+        .reward-copy-btn {
+            background: rgba(255,255,255,0.1); color: #fff;
+            border: 1px solid var(--glass-border); border-radius: 6px;
+            width: 26px; height: 26px; /* Кнопка копирования стала меньше */
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: 0.2s; flex-shrink: 0;
+            font-size: 12px;
+        }
+        .reward-copy-btn:active { transform: scale(0.9); background: rgba(255,255,255,0.2); }
 
-.reward-delete-btn {
-    position: absolute; top: 14px; right: 14px;
-    background: none; border: none; color: var(--text-color-muted);
-    font-size: 14px; cursor: pointer; transition: 0.2s;
-}
-.reward-delete-btn:active { color: #ff453a; transform: scale(0.9); }
+        .reward-delete-btn {
+            position: absolute; top: 10px; right: 10px;
+            background: none; border: none; color: var(--text-color-muted);
+            font-size: 12px; cursor: pointer; transition: 0.2s;
+        }
+        .reward-delete-btn:active { color: #ff453a; transform: scale(0.9); }
         
     </style>
 </head>
@@ -714,18 +720,38 @@ html body nav.floating-bottom-bar .comic-badge {
 // 🔥 ЛОГИКА ПРОМОКОДОВ (LIQUID GLASS) 🔥
 // ==========================================
 
-window.renderRewards = function(rewards) {
+window.currentRewardsList = []; // Глобальная переменная для сортировки
+
+// Функция, которая срабатывает при выборе сортировки из <select>
+window.applyPromocodesSort = function() {
+    if (window.currentRewardsList && window.currentRewardsList.length > 0) {
+        window.renderRewards(window.currentRewardsList, true);
+    }
+};
+
+window.renderRewards = function(rewards, isSorting = false) {
     const listContainer = document.getElementById('promocodes-list-container');
     const countBadge = document.getElementById('promo-count-badge');
     const clearBtn = document.getElementById('btn-clear-all-rewards');
     
     if (!listContainer) return;
+
+    // Сохраняем исходный список при первой загрузке
+    if (!isSorting) {
+        window.currentRewardsList = rewards || [];
+    }
+
+    let itemsToRender = [...window.currentRewardsList];
     listContainer.innerHTML = ''; 
 
     // Если нет наград
-    if (!rewards || rewards.length === 0) {
+    if (itemsToRender.length === 0) {
         if(countBadge) countBadge.textContent = '';
         if(clearBtn) clearBtn.style.display = 'none';
+        
+        const sortSelect = document.getElementById('promocodes-sort-select');
+        if(sortSelect) sortSelect.style.display = 'none'; // Скрываем сортировку если пусто
+
         listContainer.innerHTML = `
             <div style="text-align:center; padding-top: 50px;">
                 <i class="fa-solid fa-gift" style="font-size: 40px; margin-bottom: 15px; opacity: 0.2; color: #fff;"></i>
@@ -734,14 +760,50 @@ window.renderRewards = function(rewards) {
         return;
     }
 
-    if(countBadge) countBadge.textContent = `(${rewards.length})`;
-    if(clearBtn) {
-        clearBtn.style.display = 'inline-flex';
-        clearBtn.onclick = () => window.clearAllRewards();
-    }
+    if(countBadge) countBadge.textContent = `(${itemsToRender.length})`;
+    if(clearBtn) clearBtn.style.display = 'inline-flex';
+    
+    const sortSelect = document.getElementById('promocodes-sort-select');
+    if(sortSelect) sortSelect.style.display = 'inline-block';
+    
+    // --- ЛОГИКА СОРТИРОВКИ ---
+    const sortType = sortSelect ? sortSelect.value : 'date_desc';
 
-    // Отрисовка карточек
-    rewards.forEach(item => {
+    itemsToRender.sort((a, b) => {
+        const itemA = a.data || a;
+        const itemB = b.data || b;
+        
+        const dateA = new Date(itemA.claimed_at || itemA.created_at || a.date).getTime() || 0;
+        const dateB = new Date(itemB.claimed_at || itemB.created_at || b.date).getTime() || 0;
+
+        // Флаги типов
+        const isAutoA = String(itemA.auto_is_used) === 'true';
+        const isAutoB = String(itemB.auto_is_used) === 'true';
+        const isPromoA = a.type === 'promocode' || itemA.code;
+        const isPromoB = b.type === 'promocode' || itemB.code;
+        
+        const isManualA = isPromoA && !isAutoA;
+        const isManualB = isPromoB && !isAutoB;
+        const isAdminA = !isPromoA;
+        const isAdminB = !isPromoB;
+
+        if (sortType === 'auto') {
+            if (isAutoA && !isAutoB) return -1;
+            if (!isAutoA && isAutoB) return 1;
+        } else if (sortType === 'manual') {
+            if (isManualA && !isManualB) return -1;
+            if (!isManualA && isManualB) return 1;
+        } else if (sortType === 'admin') {
+            if (isAdminA && !isAdminB) return -1;
+            if (!isAdminA && isAdminB) return 1;
+        }
+
+        // По умолчанию и при совпадении типов - новые выше
+        return dateB - dateA;
+    });
+
+    // Отрисовка отсортированных карточек
+    itemsToRender.forEach(item => {
         const reward = item.data || item; 
         const isAutoUsed = String(reward.auto_is_used) === 'true';
         const isUsed = String(reward.is_used) === 'true' || reward.is_used == 1;
@@ -757,39 +819,37 @@ window.renderRewards = function(rewards) {
 
         if (isPromo) {
             if (isAutoUsed) {
-                // АВТО-ЗАЧИСЛЕНИЕ
                 const c = reward.code || "";
                 const maskedCode = c.length > 8 ? (c.slice(0, 4) + "••••" + c.slice(-4)) : "••••••••";
                 
                 card.innerHTML = `
                     <div class="reward-card-header">
                         <div>
-                            <span style="background: rgba(52, 199, 89, 0.2); color: #34c759; font-size: 9px; font-weight: 800; padding: 3px 8px; border-radius: 8px; text-transform: uppercase; margin-bottom: 6px; display: inline-block;">
+                            <span style="background: rgba(52, 199, 89, 0.2); color: #34c759; font-size: 8px; font-weight: 800; padding: 2px 6px; border-radius: 6px; text-transform: uppercase; margin-bottom: 4px; display: inline-block;">
                                 <i class="fa-solid fa-bolt"></i> Авто-зачисление
                             </span>
                             <p class="reward-card-desc">${reward.description || 'Награда'}</p>
                             <p class="reward-card-meta">Код: ${maskedCode} • ${dateStr}</p>
                         </div>
-                        <div style="text-align: right; margin-right: 25px;">
-                            <div style="font-size: 16px; font-weight: 800; color: #34c759;">+${reward.reward_value || 0}</div>
-                            ${reward.old_balance !== undefined ? `<div style="font-size: 9px; color: var(--text-color-muted);">было: ${reward.old_balance}</div>` : ''}
+                        <div style="text-align: right; margin-right: 20px;">
+                            <div style="font-size: 14px; font-weight: 800; color: #34c759;">+${reward.reward_value || 0}</div>
+                            ${reward.old_balance !== undefined ? `<div style="font-size: 8px; color: var(--text-color-muted);">было: ${reward.old_balance}</div>` : ''}
                         </div>
                     </div>
                     <button class="reward-delete-btn" onclick="window.deleteReward('${reward.code}', 'promocode', this)"><i class="fa-solid fa-xmark"></i></button>
                 `;
             } else {
-                // ОБЫЧНЫЙ ПРОМОКОД
                 let copiedHtml = '';
                 if (reward.copied_at) {
                     const dateCopied = new Date(reward.copied_at).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-                    copiedHtml = `<div style="color: #34c759; font-size: 10px; margin-top: 4px; font-weight: 800;"><i class="fa-solid fa-check"></i> Скопировано: ${dateCopied}</div>`;
+                    copiedHtml = `<div style="color: #34c759; font-size: 9px; margin-top: 4px; font-weight: 800;"><i class="fa-solid fa-check"></i> Скопировано: ${dateCopied}</div>`;
                 }
 
                 card.innerHTML = `
                     <div class="reward-card-header">
                         <div>
                             <p class="reward-card-desc">${reward.description || 'Награда'}</p>
-                            <p class="reward-card-meta">${isUsed ? '<span style="color:#34c759"><i class="fa-solid fa-check"></i> Использован</span> • ' : ''}Получено: ${dateStr}</p>
+                            <p class="reward-card-meta">${isUsed ? '<span style="color:#34c759"><i class="fa-solid fa-check"></i> Использован</span> • ' : ''}${dateStr}</p>
                         </div>
                     </div>
                     
@@ -805,16 +865,15 @@ window.renderRewards = function(rewards) {
                 `;
             }
         } else {
-            // АДМИНСКИЙ ГРАНТ
             const typeText = reward.grant_type === 'tickets' ? 'билетов 🎟️' : 'монет 💰';
             card.innerHTML = `
                 <div class="reward-card-header">
                     <div>
-                        <span style="background: rgba(255, 215, 0, 0.1); color: #ffd700; font-size: 9px; font-weight: 800; padding: 3px 8px; border-radius: 8px; text-transform: uppercase; margin-bottom: 6px; display: inline-block;">
+                        <span style="background: rgba(255, 215, 0, 0.1); color: #ffd700; font-size: 8px; font-weight: 800; padding: 2px 6px; border-radius: 6px; text-transform: uppercase; margin-bottom: 4px; display: inline-block;">
                             <i class="fa-solid fa-crown"></i> Выдача админом
                         </span>
                         <p class="reward-card-desc">Начислено: ${reward.amount || 0} ${typeText}</p>
-                        <p class="reward-card-meta">Дата: ${dateStr}</p>
+                        <p class="reward-card-meta">${dateStr}</p>
                     </div>
                 </div>
                 <button class="reward-delete-btn" onclick="window.deleteReward('${reward.id}', 'grant', this)"><i class="fa-solid fa-xmark"></i></button>
