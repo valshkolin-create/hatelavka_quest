@@ -30918,6 +30918,127 @@ async def get_user_events(
     else:
         return {"success": False, "message": "Ошибка загрузки событий"}
 
+class HistoryDetailsRequest(BaseModel):
+    initData: str
+    type: str  # 'cases' или 'coupons'
+
+# --- 🆕 ПОЛУЧЕНИЕ СТАТИСТИКИ ДЛЯ КВАДРАТИКОВ (Кейсы и Купоны) ---
+@app.post("/api/v1/user/history_stats")
+async def get_history_stats(
+    request_data: InitDataRequest, 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or "id" not in user_info:
+        raise HTTPException(status_code=401, detail="Доступ запрещен")
+    
+    telegram_id = user_info["id"]
+
+    # 1. Считаем открытые кейсы 
+    res_cases = await supabase.get(
+        "/cs_history",
+        params={
+            "user_id": f"eq.{telegram_id}",
+            "case_name": "ilike.*Кейс |*",
+            "select": "id"  
+        }
+    )
+    cases_data = res_cases.json() if res_cases.status_code == 200 else []
+    cases_count = len(cases_data)
+
+    # 2. Считаем полученные купоны (используем cs_codes и assigned_to)
+    res_coupons = await supabase.get(
+        "/cs_codes",
+        params={
+            "assigned_to": f"eq.{telegram_id}",
+            "select": "code"
+        }
+    )
+    coupons_data = res_coupons.json() if res_coupons.status_code == 200 else []
+    coupons_count = len(coupons_data)
+
+    return {
+        "cases_opened": cases_count,
+        "coupons_received": coupons_count
+    }
+
+
+# --- 🆕 ДЕТАЛИ ИСТОРИИ (Модальное окно при клике на квадратик) ---
+@app.post("/api/v1/user/history_details")
+async def get_history_details(
+    request_data: HistoryDetailsRequest, 
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info or "id" not in user_info:
+        raise HTTPException(status_code=401, detail="Доступ запрещен")
+    
+    telegram_id = user_info["id"]
+
+    if request_data.type == 'cases':
+        # Получаем все открытые кейсы пользователя
+        res_cases = await supabase.get(
+            "/cs_history",
+            params={
+                "user_id": f"eq.{telegram_id}",
+                "case_name": "ilike.*Кейс |*",
+                "select": "case_name"
+            }
+        )
+        cases_data = res_cases.json() if res_cases.status_code == 200 else []
+        
+        # Считаем частоту каждого кейса
+        case_counts = {}
+        for item in cases_data:
+            name = item.get("case_name")
+            if name:
+                case_counts[name] = case_counts.get(name, 0) + 1
+        
+        # Сортируем по убыванию и берем ТОП-3
+        sorted_cases = sorted(case_counts.items(), key=lambda x: x[1], reverse=True)[:3]
+        top_cases = [{"name": name, "count": count} for name, count in sorted_cases]
+        
+        return {"success": True, "type": "cases", "data": top_cases}
+
+    elif request_data.type == 'coupons':
+        # Выбираем последние 10 купонов (таблица cs_codes)
+        res_coupons = await supabase.get(
+            "/cs_codes",
+            params={
+                "assigned_to": f"eq.{telegram_id}",
+                "select": "code,is_active,description,assigned_at", 
+                "order": "assigned_at.desc",
+                "limit": "10"
+            }
+        )
+        coupons_data = res_coupons.json() if res_coupons.status_code == 200 else []
+        
+        last_coupons = []
+        for c in coupons_data:
+            # Форматируем дату из assigned_at
+            raw_date = c.get("assigned_at")
+            date_str = "Неизвестно"
+            
+            if raw_date:
+                try:
+                    clean_date = raw_date.split(".")[0].replace("Z", "")
+                    dt = datetime.fromisoformat(clean_date)
+                    date_str = dt.strftime("%d.%m.%y %H:%M")
+                except:
+                    date_str = raw_date[:16].replace("T", " ")
+            
+            last_coupons.append({
+                "code": c.get("code", ""),
+                "is_active": c.get("is_active", False),
+                "description": c.get("description", "Награда"),
+                "date": date_str
+            })
+            
+        return {"success": True, "type": "coupons", "data": last_coupons}
+
+    else:
+        raise HTTPException(status_code=400, detail="Неверный тип данных (ожидалось cases или coupons)")
+
 # --- HTML routes ---
 # @app.get('/favicon.ico', include_in_schema=False)
 # async def favicon(): return Response(status_code=204)
