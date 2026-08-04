@@ -1328,25 +1328,21 @@ window.clearAllRewards = function() {
                     twitchBtnCont.innerHTML = `<button class="ios-btn btn-twitch" onclick="connectTwitch()">Привязать</button>`;
                 }
 
-                // 👇🔥 НОВЫЙ БЛОК: ЗАГРУЗКА СТАТИСТИКИ ДЛЯ КВАДРАТИКОВ 🔥👇
+                // 👇🔥 БОЕВОЙ БЛОК: ЗАГРУЗКА СТАТИСТИКИ ДЛЯ КВАДРАТИКОВ 🔥👇
                 try {
-                    // Боевой запрос к API (раскомментируй, когда эндпоинт будет готов на бэкенде)
-                    // const stats = await apiRequest('/api/v1/user/history_stats', 'POST', null, true);
-                    
-                    // Временная эмуляция ответа от бэкенда:
-                    const stats = { cases_opened: 142, coupons_received: 15 };
+                    // Боевой запрос к API
+                    const stats = await apiRequest('/api/v1/user/history_stats', 'POST', null, true);
                     
                     const statCasesEl = document.getElementById('stat-cases');
                     const statCouponsEl = document.getElementById('stat-coupons');
                     
-                    // Обновляем цифры в квадратиках
-                    if (statCasesEl) statCasesEl.innerText = stats.cases_opened;
-                    if (statCouponsEl) statCouponsEl.innerText = stats.coupons_received;
+                    // Обновляем цифры из базы данных
+                    if (statCasesEl) statCasesEl.innerText = stats.cases_opened || 0;
+                    if (statCouponsEl) statCouponsEl.innerText = stats.coupons_received || 0;
                 } catch (statsError) {
                     console.error("Ошибка загрузки статистики:", statsError);
-                    // В случае ошибки квадратики просто останутся с прочерком, интерфейс не сломается
                 }
-                // 👆🔥 КОНЕЦ НОВОГО БЛОКА 🔥👆
+                // 👆🔥 КОНЕЦ БЛОКА 🔥👆
 
             } catch(e) {
                 console.error("Ошибка загрузки пользователя:", e);
@@ -2572,34 +2568,65 @@ window.clearAllRewards = function() {
     const title = document.getElementById('history-modal-title');
     const content = document.getElementById('history-modal-content');
     
+    // Делаем заголовок самого окна чуть меньше (по умолчанию он 20px)
+    title.style.fontSize = '16px'; 
+    
     // Сбрасываем контент на лоадер перед открытием
     content.innerHTML = `<div style="display:flex; justify-content:center; padding: 30px;"><i class="fa-solid fa-circle-notch fa-spin" style="font-size: 24px; color: #fff;"></i></div>`;
     modal.classList.add('visible');
     
-    if (type === 'cases') {
-        title.innerText = 'Открытые кейсы';
-        // Здесь будет запрос к бэкенду за подробностями
-        // const data = await apiRequest('/api/v1/user/history_details/cases', 'POST');
-        setTimeout(() => {
-            content.innerHTML = `
-                <div class="settings-card">
-                    <div style="color: var(--text-color-muted); font-size: 12px; margin-bottom: 10px;">Любимые кейсы:</div>
-                    <div class="settings-card-row"><span style="color:#fff; font-weight:800;">Кейс | TWITCH</span> <span style="color: #ffd700; font-weight:900;">24 шт.</span></div>
-                    <div class="settings-card-row"><span style="color:#fff; font-weight:800;">Кейс | TELEGRAM</span> <span style="color: #ffd700; font-weight:900;">12 шт.</span></div>
-                </div>
-            `;
-        }, 500); // Имитация задержки сети
-    } else if (type === 'coupons') {
-        title.innerText = 'Полученные купоны';
-        // Запрос к бэкенду
-        setTimeout(() => {
-            content.innerHTML = `
-                <div class="settings-card">
-                    <div style="color: var(--text-color-muted); font-size: 12px; margin-bottom: 10px;">Последние зачисления:</div>
-                    <div class="settings-card-row"><span style="color:#fff; font-weight:800;">DAY7-7863...</span> <span style="color: #34c759; font-weight:900;">Использован</span></div>
-                </div>
-            `;
-        }, 500);
+    try {
+        // Боевой запрос за деталями
+        const res = await apiRequest('/api/v1/user/history_details', 'POST', { type: type });
+        
+        if (type === 'cases') {
+            title.innerText = 'Открытые кейсы';
+            if (!res.data || res.data.length === 0) {
+                content.innerHTML = `<div style="text-align:center; color: var(--text-color-muted); padding: 20px; font-size: 11px; font-weight: 700;">Кейсов пока нет</div>`;
+                return;
+            }
+            
+            // Уменьшили padding с 16px до 12px, шрифты до 10-12px
+            let html = `<div class="settings-card" style="padding: 12px;"><div style="color: var(--text-color-muted); font-size: 10px; margin-bottom: 8px; font-weight: 800; text-transform: uppercase;">Любимые кейсы:</div>`;
+            res.data.forEach(item => {
+                html += `<div class="settings-card-row" style="margin-bottom: 6px;">
+                            <span style="color:#fff; font-weight:700; font-size: 12px;">${item.name}</span> 
+                            <span style="color: #ffd700; font-weight:800; font-size: 12px;">${item.count} шт.</span>
+                         </div>`;
+            });
+            html += `</div>`;
+            content.innerHTML = html;
+
+        } else if (type === 'coupons') {
+            title.innerText = 'Полученные купоны';
+            if (!res.data || res.data.length === 0) {
+                content.innerHTML = `<div style="text-align:center; color: var(--text-color-muted); padding: 20px; font-size: 11px; font-weight: 700;">Купонов пока нет</div>`;
+                return;
+            }
+
+            let html = `<div class="settings-card" style="padding: 12px;"><div style="color: var(--text-color-muted); font-size: 10px; margin-bottom: 8px; font-weight: 800; text-transform: uppercase;">Последние зачисления:</div>`;
+            res.data.forEach(item => {
+                const maskedCode = item.code.length > 8 ? (item.code.slice(0, 5) + "•••" + item.code.slice(-4)) : "••••••••";
+                const statusColor = item.is_active ? '#ffd700' : '#34c759';
+                const statusText = item.is_active ? 'Активен' : 'Использован';
+                
+                // Шрифты купонов: код 12px, статус 9px, дата и описание 9px
+                html += `
+                    <div class="settings-card-row" style="margin-bottom: 8px; flex-direction: column; align-items: flex-start; gap: 2px;">
+                        <div style="width: 100%; display: flex; justify-content: space-between; align-items: center;">
+                            <span style="color:#fff; font-weight:700; font-family: monospace; font-size: 12px;">${maskedCode}</span> 
+                            <span style="color: ${statusColor}; font-weight:800; font-size: 9px; text-transform: uppercase;">${statusText}</span>
+                        </div>
+                        <div style="color: var(--text-color-muted); font-size: 9px; font-weight: 600;">${item.date} • ${item.description || 'Награда'}</div>
+                    </div>`;
+            });
+            html += `</div>`;
+            content.innerHTML = html;
+        }
+    } catch (e) {
+        if(e.message !== 'Activity Lock') {
+            content.innerHTML = `<div style="text-align:center; color: #ff453a; padding: 20px; font-size: 11px; font-weight: 700;">Ошибка загрузки данных</div>`;
+        }
     }
 };
 
