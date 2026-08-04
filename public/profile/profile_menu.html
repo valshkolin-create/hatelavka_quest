@@ -493,6 +493,46 @@
             100% { transform: scale(1); opacity: 1; }
         }
 
+        /* Обновленные слоты истории */
+.history-slots {
+    display: flex;
+    gap: 12px; /* Увеличили расстояние */
+}
+
+.h-slot {
+    width: 48px;  /* Сделали квадратики больше (было 32) */
+    height: 48px;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    border: 1px solid var(--glass-border);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    transition: transform 0.2s, background 0.2s;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
+
+.h-slot:active { 
+    transform: scale(0.9); 
+    background: rgba(255, 255, 255, 0.1); 
+}
+
+.h-slot-icon {
+    font-size: 16px;
+    color: rgba(255,255,255,0.7);
+    margin-bottom: 4px;
+}
+
+.h-slot-val {
+    font-size: 12px;
+    font-weight: 900;
+    color: #fff;
+    text-shadow: 0 0 10px rgba(255,255,255,0.3);
+}
+
 /* --- ГАРАНТИРОВАННОЕ ПЕРЕОПРЕДЕЛЕНИЕ СТИЛЕЙ НИЖНЕГО БАРА --- */
 html body nav.floating-bottom-bar .nav-item,
 html body nav.floating-bottom-bar span,
@@ -610,13 +650,20 @@ html body nav.floating-bottom-bar .comic-badge {
 
                 <!-- ИСТОРИЯ СПРАВА -->
                 <div class="history-block">
-                    <div class="history-title">ИСТОРИЯ</div>
-                    <div class="history-slots">
-                        <div class="h-slot"></div>
-                        <div class="h-slot"></div>
-                        <div class="h-slot"></div>
-                    </div>
-                </div>
+    <div class="history-title">ИСТОРИЯ</div>
+    <div class="history-slots">
+        <!-- Слот 1: Кейсы -->
+        <div class="h-slot" onclick="openHistoryModal('cases')">
+            <i class="fa-solid fa-box-open h-slot-icon"></i>
+            <div class="h-slot-val" id="stat-cases">-</div>
+        </div>
+        <!-- Слот 2: Купоны -->
+        <div class="h-slot" onclick="openHistoryModal('coupons')">
+            <i class="fa-solid fa-ticket h-slot-icon"></i>
+            <div class="h-slot-val" id="stat-coupons">-</div>
+        </div>
+    </div>
+</div>
             </header>
 
             <!-- NAV -->
@@ -712,6 +759,24 @@ html body nav.floating-bottom-bar .comic-badge {
             <button onclick="closeReplacementModal()" class="ios-btn" style="background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); margin-top: 10px; width: 100%; color: #fff;">Отмена</button>
         </div>
     </div>
+
+    <!-- 👇 ВСТАВЛЯЕМ ОКНО ИСТОРИИ СЮДА 👇 -->
+    <!-- LIQUID GLASS MODAL ДЛЯ ДЕТАЛЬНОЙ ИСТОРИИ -->
+    <div id="history-details-modal" class="modal-overlay" onclick="if(event.target===this) closeHistoryModal()">
+        <div class="bottom-sheet">
+            <div class="sheet-header">
+                <h3 class="sheet-title" id="history-modal-title">Детали истории</h3>
+                <button class="sheet-close" onclick="closeHistoryModal()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <div id="history-modal-content" style="max-height: 50vh; overflow-y: auto;">
+                <div style="display:flex; justify-content:center; padding: 30px;">
+                    <i class="fa-solid fa-circle-notch fa-spin" style="font-size: 24px; color: #fff;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- 👆 КОНЕЦ ОКНА ИСТОРИИ 👆 -->
 
     <script>
         const tg = window.Telegram.WebApp;
@@ -1233,6 +1298,7 @@ window.clearAllRewards = function() {
         };
 
         // --- ЗАГРУЗКА И ПРИМЕНЕНИЕ ДАННЫХ (ЭМУЛЯЦИЯ) ---
+        // --- ЗАГРУЗКА И ПРИМЕНЕНИЕ ДАННЫХ (ЭМУЛЯЦИЯ) ---
         async function fetchAndApplyUserData() {
             try {
                 // ЭМУЛЯЦИЯ ТВОЕГО JSON 
@@ -1261,6 +1327,26 @@ window.clearAllRewards = function() {
                     twitchText.innerText = `Аккаунт не привязан`;
                     twitchBtnCont.innerHTML = `<button class="ios-btn btn-twitch" onclick="connectTwitch()">Привязать</button>`;
                 }
+
+                // 👇🔥 НОВЫЙ БЛОК: ЗАГРУЗКА СТАТИСТИКИ ДЛЯ КВАДРАТИКОВ 🔥👇
+                try {
+                    // Боевой запрос к API (раскомментируй, когда эндпоинт будет готов на бэкенде)
+                    // const stats = await apiRequest('/api/v1/user/history_stats', 'POST', null, true);
+                    
+                    // Временная эмуляция ответа от бэкенда:
+                    const stats = { cases_opened: 142, coupons_received: 15 };
+                    
+                    const statCasesEl = document.getElementById('stat-cases');
+                    const statCouponsEl = document.getElementById('stat-coupons');
+                    
+                    // Обновляем цифры в квадратиках
+                    if (statCasesEl) statCasesEl.innerText = stats.cases_opened;
+                    if (statCouponsEl) statCouponsEl.innerText = stats.coupons_received;
+                } catch (statsError) {
+                    console.error("Ошибка загрузки статистики:", statsError);
+                    // В случае ошибки квадратики просто останутся с прочерком, интерфейс не сломается
+                }
+                // 👆🔥 КОНЕЦ НОВОГО БЛОКА 🔥👆
 
             } catch(e) {
                 console.error("Ошибка загрузки пользователя:", e);
@@ -2478,6 +2564,48 @@ window.clearAllRewards = function() {
                 }
             }, "ЗАБРАТЬ", "rgba(255,255,255,0.15)", "#fff"); 
         }
+
+        window.openHistoryModal = async function(type) {
+    if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+    
+    const modal = document.getElementById('history-details-modal');
+    const title = document.getElementById('history-modal-title');
+    const content = document.getElementById('history-modal-content');
+    
+    // Сбрасываем контент на лоадер перед открытием
+    content.innerHTML = `<div style="display:flex; justify-content:center; padding: 30px;"><i class="fa-solid fa-circle-notch fa-spin" style="font-size: 24px; color: #fff;"></i></div>`;
+    modal.classList.add('visible');
+    
+    if (type === 'cases') {
+        title.innerText = 'Открытые кейсы';
+        // Здесь будет запрос к бэкенду за подробностями
+        // const data = await apiRequest('/api/v1/user/history_details/cases', 'POST');
+        setTimeout(() => {
+            content.innerHTML = `
+                <div class="settings-card">
+                    <div style="color: var(--text-color-muted); font-size: 12px; margin-bottom: 10px;">Любимые кейсы:</div>
+                    <div class="settings-card-row"><span style="color:#fff; font-weight:800;">Кейс | TWITCH</span> <span style="color: #ffd700; font-weight:900;">24 шт.</span></div>
+                    <div class="settings-card-row"><span style="color:#fff; font-weight:800;">Кейс | TELEGRAM</span> <span style="color: #ffd700; font-weight:900;">12 шт.</span></div>
+                </div>
+            `;
+        }, 500); // Имитация задержки сети
+    } else if (type === 'coupons') {
+        title.innerText = 'Полученные купоны';
+        // Запрос к бэкенду
+        setTimeout(() => {
+            content.innerHTML = `
+                <div class="settings-card">
+                    <div style="color: var(--text-color-muted); font-size: 12px; margin-bottom: 10px;">Последние зачисления:</div>
+                    <div class="settings-card-row"><span style="color:#fff; font-weight:800;">DAY7-7863...</span> <span style="color: #34c759; font-weight:900;">Использован</span></div>
+                </div>
+            `;
+        }, 500);
+    }
+};
+
+window.closeHistoryModal = function() {
+    document.getElementById('history-details-modal').classList.remove('visible');
+};
 
     </script>
 </body>
