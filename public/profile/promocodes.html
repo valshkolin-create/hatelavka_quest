@@ -1,10 +1,10 @@
 <!-- Файл: /public/profile/promocodes.html -->
-<div class="events-header-bar" style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; padding: 0 4px; gap: 8px;">
+<div class="events-header-bar" style="margin-bottom: 12px; display: flex; justify-content: flex-start; align-items: center; padding: 0 4px; gap: 10px;">
     
-    <!-- Левая часть: СОРТИРОВКА (1в1 как в Инвентаре) -->
+    <!-- Левая часть: СОРТИРОВКА -->
     <div style="font-size: 11px; font-weight: 800; color: var(--text-color-muted); text-transform: uppercase; letter-spacing: 0.5px;">Сортировка</div>
     
-    <!-- Правая часть: Сортировка и идеально оцентрованная кнопка очистки -->
+    <!-- Правая часть: Выборка и кнопка (прижаты к тексту Сортировка) -->
     <div style="display: flex; align-items: center; gap: 6px;">
         <select id="promocodes-sort-select" class="events-sort-select" onchange="window.applyPromocodesSort()">
             <option value="date_desc">Сначала новые</option>
@@ -13,12 +13,12 @@
             <option value="admin">От админа</option>
         </select>
         
-        <!-- Добавлен flex для жесткой центровки текста и иконки + height 24px -->
-        <button id="btn-clear-all-rewards" class="events-sort-select" style="display: none; align-items: center; justify-content: center; gap: 5px; height: 24px; padding: 0 10px; background: rgba(255,69,58,0.1); color: #ff453a; border-color: rgba(255,69,58,0.3); cursor: pointer; text-align: center; font-family: inherit;" onclick="window.clearAllRewards()">
-            <i class="fa-solid fa-trash"></i> Очистить всё
+        <!-- Кнопка 1в1 как ПРОДАТЬ ВСЁ (серый фон, жесткий центр) -->
+        <button id="btn-clear-all-rewards" class="events-sort-select" style="display: none; align-items: center; justify-content: center; height: 24px; padding: 0 10px; background: rgba(255,255,255,0.05); color: #b0b0b0; border: 1px solid var(--glass-border); cursor: pointer; font-family: inherit;" onclick="window.clearAllRewards()">
+            ОЧИСТИТЬ ВСЁ <i class="fa-solid fa-trash" style="color: #ff453a; margin-left: 6px;"></i>
         </button>
         
-        <!-- Скрытый бейдж, чтобы твой JS не выдал ошибку при попытке обновить цифру -->
+        <!-- Скрытый бейдж, чтобы твой старый JS не ломался при обновлении цифры -->
         <span id="promo-count-badge" style="display: none;"></span>
     </div>
 
