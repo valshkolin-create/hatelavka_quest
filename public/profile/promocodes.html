@@ -4,7 +4,7 @@
     <!-- Левая часть: СОРТИРОВКА -->
     <div style="font-size: 11px; font-weight: 800; color: var(--text-color-muted); text-transform: uppercase; letter-spacing: 0.5px;">Сортировка</div>
     
-    <!-- Правая часть: Выборка и кнопка (прижаты к тексту Сортировка) -->
+    <!-- Правая часть: Выборка и кнопка -->
     <div style="display: flex; align-items: center; gap: 6px;">
         <select id="promocodes-sort-select" class="events-sort-select" onchange="window.applyPromocodesSort()">
             <option value="date_desc">Сначала новые</option>
@@ -13,14 +13,14 @@
             <option value="admin">От админа</option>
         </select>
         
-        <!-- Кнопка 1в1 как ПРОДАТЬ ВСЁ (серый фон, жесткий центр) -->
-        <button id="btn-clear-all-rewards" class="events-sort-select" style="display: none; align-items: center; justify-content: center; height: 24px; padding: 0 10px; background: rgba(255,255,255,0.05); color: #b0b0b0; border: 1px solid var(--glass-border); cursor: pointer; font-family: inherit;" onclick="window.clearAllRewards()">
-            ОЧИСТИТЬ ВСЁ <i class="fa-solid fa-trash" style="color: #ff453a; margin-left: 6px;"></i>
+        <!-- Кнопка 1в1 как ПРОДАТЬ ВСЁ в инвентаре -->
+        <button id="btn-clear-all-rewards" onclick="window.clearAllRewards()" style="display: none; align-items: center; justify-content: center; gap: 6px; background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); color: #fff; border: 1px solid rgba(255, 255, 255, 0.15); border-top: 1px solid rgba(255, 255, 255, 0.25); border-radius: 10px; padding: 6px 14px; font-size: 10px; font-weight: 800; cursor: pointer; transition: 0.2s; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2); font-family: inherit;">
+            <i class="fa-solid fa-trash" style="color: #ff453a;"></i> ОЧИСТИТЬ ВСЁ
         </button>
         
-        <!-- Скрытый бейдж, чтобы твой старый JS не ломался при обновлении цифры -->
         <span id="promo-count-badge" style="display: none;"></span>
     </div>
+    
 
 </div>
 
