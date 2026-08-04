@@ -11493,7 +11493,7 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
         res = await supabase.get(
             "/cs_history", 
             params={
-                "status": "in.(pending,waiting,processing,market_pending,offer_sent)", 
+                "status": "in.(waiting,processing,market_pending,offer_sent)", 
                 "select": "id, updated_at, status, tradeofferid, assetid",
                 "order": "updated_at.asc", # 🔥 СТРОГО ASC! Иначе старые заявки зависнут навсегда!
                 "limit": "10" 
@@ -28141,7 +28141,7 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
         res = await supabase.get(
             "/cs_history", 
             params={
-                "status": "in.(pending,waiting,processing,market_pending,offer_sent)", 
+                "status": "in.(waiting,processing,market_pending,offer_sent)", 
                 "select": "id, updated_at, status, tradeofferid, assetid", # 🔥 ФИКС: добавили assetid для снятия лока
                 "order": "updated_at.asc", # 🔥 ФИКС: asc (сначала старые трейды, защита от зависаний)
                 "limit": "10" # Увеличил лимит до 30, чтобы крон быстрее разгребал очередь
