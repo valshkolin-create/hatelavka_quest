@@ -1485,10 +1485,10 @@ window.clearAllRewards = function() {
                 return dateB - dateA;
             });
 
-            // Строим шапку с селектом
+            // Строим шапку с селектом (переопределяем space-between на flex-start)
             let html = `
-                <div class="events-header-bar">
-                    <span style="font-size: 10px; font-weight: 900; color: var(--text-color-muted); text-transform: uppercase;">События (${eventsToRender.length})</span>
+                <div class="events-header-bar" style="justify-content: flex-start; gap: 10px; padding: 0 4px;">
+                    <div style="font-size: 11px; font-weight: 800; color: var(--text-color-muted); text-transform: uppercase; letter-spacing: 0.5px;">Сортировка</div>
                     <select id="events-sort-select" class="events-sort-select" onchange="window.renderEventsList(this.value)">
                         <option value="date_desc" ${sortType === 'date_desc' ? 'selected' : ''}>Сначала новые</option>
                         <option value="date_asc" ${sortType === 'date_asc' ? 'selected' : ''}>Сначала старые</option>
