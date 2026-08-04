@@ -1,0 +1,148 @@
+<style>
+    .events-container {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding-bottom: 30px;
+    }
+    
+    .event-card {
+        background: var(--glass-bg);
+        border: 1px solid var(--glass-border);
+        border-radius: 16px;
+        padding: 16px;
+        display: flex;
+        gap: 15px;
+        align-items: center;
+        box-shadow: var(--glass-shadow);
+        backdrop-filter: var(--glass-blur);
+        -webkit-backdrop-filter: var(--glass-blur);
+        animation: popIn 0.3s ease-out forwards;
+    }
+
+    .event-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 20px;
+        flex-shrink: 0;
+    }
+
+    /* Цвета для разных типов событий */
+    .icon-skin { background: rgba(136, 71, 255, 0.15); color: #8847ff; border: 1px solid rgba(136, 71, 255, 0.3); }
+    .icon-grind { background: rgba(52, 199, 89, 0.15); color: #34c759; border: 1px solid rgba(52, 199, 89, 0.3); }
+    .icon-quest { background: rgba(255, 215, 0, 0.15); color: #ffd700; border: 1px solid rgba(255, 215, 0, 0.3); }
+    .icon-trial { background: rgba(10, 132, 255, 0.15); color: #0a84ff; border: 1px solid rgba(10, 132, 255, 0.3); }
+    .icon-system { background: rgba(255, 255, 255, 0.1); color: #fff; border: 1px solid rgba(255, 255, 255, 0.2); }
+
+    .event-content {
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .event-title {
+        font-size: 14px;
+        font-weight: 800;
+        color: #fff;
+    }
+
+    .event-desc {
+        font-size: 12px;
+        color: var(--text-color-muted);
+        line-height: 1.4;
+    }
+
+    .event-time {
+        font-size: 10px;
+        color: rgba(255, 255, 255, 0.3);
+        font-weight: 700;
+        text-transform: uppercase;
+        margin-top: 4px;
+    }
+
+    .event-reward {
+        font-size: 14px;
+        font-weight: 900;
+        color: #ffd700;
+        white-space: nowrap;
+    }
+</style>
+
+<div class="events-container" id="events-list">
+    <!-- Скелетон загрузки -->
+    <div style="display:flex; justify-content:center; padding: 40px 0;">
+        <i class="fa-solid fa-circle-notch fa-spin" style="font-size: 30px; color: var(--text-color-muted);"></i>
+    </div>
+</div>
+
+<script>
+    async function loadEvents() {
+        const container = document.getElementById('events-list');
+        
+        try {
+            const res = await window.apiRequest('/api/v1/user/events', 'POST', null, true);
+            
+            if (!res || !res.success || !res.events || res.events.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align:center; padding-top: 50px;">
+                        <i class="fa-solid fa-clock-rotate-left" style="font-size: 40px; margin-bottom: 15px; opacity: 0.2; color: #fff;"></i>
+                        <p style="font-size: 14px; color: var(--text-color-muted); font-weight: 600;">История событий пуста</p>
+                    </div>`;
+                return;
+            }
+
+            container.innerHTML = '';
+            
+            res.events.forEach(event => {
+                let iconClass = 'icon-system';
+                let iconHtml = '<i class="fa-solid fa-bell"></i>';
+
+                if (event.event_type === 'skin') {
+                    iconClass = 'icon-skin'; iconHtml = '<i class="fa-solid fa-gun"></i>';
+                } else if (event.event_type === 'grind') {
+                    iconClass = 'icon-grind'; iconHtml = '<i class="fa-solid fa-bolt"></i>';
+                } else if (event.event_type === 'quest') {
+                    iconClass = 'icon-quest'; iconHtml = '<i class="fa-solid fa-map-location-dot"></i>';
+                } else if (event.event_type === 'trial') {
+                    iconClass = 'icon-trial'; iconHtml = '<i class="fa-solid fa-fire"></i>';
+                }
+
+                // Форматируем дату (сегодня, вчера или дата)
+                const date = new Date(event.created_at);
+                const timeStr = date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+                const dateStr = date.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+
+                let rewardHtml = '';
+                if (event.coins_reward > 0) {
+                    rewardHtml = `<div class="event-reward">+${event.coins_reward} <i class="fa-solid fa-coins"></i></div>`;
+                }
+
+                const card = document.createElement('div');
+                card.className = 'event-card';
+                card.innerHTML = `
+                    <div class="event-icon ${iconClass}">
+                        ${iconHtml}
+                    </div>
+                    <div class="event-content">
+                        <div class="event-title">${event.title}</div>
+                        ${event.description ? `<div class="event-desc">${event.description}</div>` : ''}
+                        <div class="event-time">${dateStr} В ${timeStr}</div>
+                    </div>
+                    ${rewardHtml}
+                `;
+                container.appendChild(card);
+            });
+
+        } catch (error) {
+            container.innerHTML = `<div style="text-align:center; color: var(--danger-color); padding-top: 20px;">Ошибка загрузки: ${error.message}</div>`;
+        }
+    }
+
+    // Запускаем загрузку
+    loadEvents();
+</script>
