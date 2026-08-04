@@ -6,14 +6,25 @@ document.addEventListener("DOMContentLoaded", () => {
         androidPadding = "25px"; 
     }
 
-    // 1. Вставляем стили
+    // 1. Надежное подключение шрифта (если его еще нет на странице)
+    if (!document.querySelector('link[href*="Montserrat"]')) {
+        const fontLink = document.createElement('link');
+        fontLink.rel = 'stylesheet';
+        fontLink.href = 'https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;900&display=swap';
+        document.head.appendChild(fontLink);
+    }
+
+    // 2. Вставляем стили
     const style = document.createElement('style');
     style.innerHTML = `
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;900&display=swap');
+        /* 🔥 ЖЕЛЕЗОБЕТОННАЯ ИЗОЛЯЦИЯ ШРИФТА 🔥 */
+        /* Применяем Montserrat ко всему бару и КАЖДОМУ элементу внутри него */
+        .floating-bottom-bar,
+        .floating-bottom-bar * {
+            font-family: 'Montserrat', sans-serif !important;
+        }
 
         .floating-bottom-bar {
-            font-family: 'Montserrat', sans-serif;
-            
             /* 🔥 ЖЕЛЕЗОБЕТОННАЯ ШИРИНА И ЦЕНТРОВКА (Игнорирует скроллбар) 🔥 */
             position: fixed; 
             bottom: calc(15px + ${androidPadding}); 
@@ -124,7 +135,7 @@ document.addEventListener("DOMContentLoaded", () => {
     `;
     document.head.appendChild(style);
 
-    // 2. Вставляем HTML меню
+    // 3. Вставляем HTML меню
     const navHTML = `
         <nav class="floating-bottom-bar">
             <a href="/leaderboard" class="nav-item" data-path="leaderboard">
@@ -147,7 +158,7 @@ document.addEventListener("DOMContentLoaded", () => {
     `;
     document.body.insertAdjacentHTML('beforeend', navHTML);
 
-    // 3. Умная логика подсветки активной кнопки и добавление вибрации
+    // 4. Умная логика подсветки активной кнопки и добавление вибрации
     let currentPath = window.location.pathname.replace('.html', '');
     
     // Приводим пути главной к одному виду
@@ -174,7 +185,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
-    // 4. АВТОНОМНАЯ ПРОВЕРКА СТАТУСА ИГРЫ И СТРИМА (МУЛЬТИАККАУНТ)
+    // 5. АВТОНОМНАЯ ПРОВЕРКА СТАТУСА ИГРЫ И СТРИМА (МУЛЬТИАККАУНТ)
     const checkGameStatus = async () => {
         try {
             const headers = { 
