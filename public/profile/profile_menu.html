@@ -330,7 +330,7 @@
 
         /* Кнопка скролла наверх */
         #scroll-to-top {
-            position: absolute; bottom: 20px; right: 20px; width: 38px; height: 38px;
+            position: absolute; bottom: 79px; right: 20px; width: 38px; height: 38px;
             background: var(--glass-bg); border: 1px solid var(--glass-border);
             border-radius: 50%; color: #fff; display: flex; align-items: center; justify-content: center;
             font-size: 14px; cursor: pointer; z-index: 100; opacity: 0; pointer-events: none;
@@ -1033,7 +1033,11 @@
                         <div class="event-content">
                             <div style="display:flex; justify-content:space-between; align-items:center;">
                                 <div class="event-title">${event.title}</div>
-                                <div class="event-id">#${event.id}</div>
+                                <div style="display:flex; align-items:center; gap: 8px;">
+                                    <div class="event-id">#${event.id}</div>
+                                    <!-- 🔥 Кнопка поддержки -->
+                                    <div onclick="openEventSupport('${event.id}', '${event.title.replace(/'/g, "\\'")}', '${dateStr} В ${timeStr}', event)" style="width: 18px; height: 18px; border-radius: 50%; background: rgba(255,255,255,0.05); color: var(--text-color-muted); font-weight: 900; display: flex; justify-content: center; align-items: center; font-size: 11px; border: 1px solid var(--glass-border); cursor: pointer; transition: 0.2s;">!</div>
+                                </div>
                             </div>
                             ${event.description ? `<div class="event-desc">${event.description}</div>` : ''}
                             <div class="event-footer">
@@ -1050,6 +1054,62 @@
                     container.innerHTML = `<div style="text-align:center; color: var(--danger-color); padding-top: 20px;">Ошибка загрузки: ${error.message}</div>`;
                 }
             }
+        };
+
+        // --- МОДАЛКА ПОДДЕРЖКИ ДЛЯ СОБЫТИЙ ---
+        window.openEventSupport = function(eventId, title, dateFormatted, eventObj) {
+            if (eventObj) eventObj.stopPropagation();
+            if (typeof tg !== 'undefined' && tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+
+            const tgUser = (typeof tg !== 'undefined' && tg.initDataUnsafe?.user) ? tg.initDataUnsafe.user : {};
+            let supportText = `🚨 Запрос в поддержку (События)\n\n👤 Пользователь: ${tgUser.username ? `@${tgUser.username}` : 'Без юзернейма'} (ID: ${tgUser.id || 'Неизвестен'})\n📦 Событие: ${title}\n🧾 ID: #${eventId}\n📅 Дата: ${dateFormatted}\n\nОпишите вашу проблему ниже:\n`;
+            
+            const overlay = document.createElement('div'); 
+            overlay.className = 'modal-overlay visible'; 
+            overlay.style.cssText = `align-items: flex-end; justify-content: center; background-color: transparent; transition: background-color 0.3s ease; padding: 0; z-index: 99999;`;
+            
+            const closeSupport = () => {
+                overlay.style.backgroundColor = 'transparent';
+                box.style.transform = 'translateY(100%)';
+                setTimeout(() => overlay.remove(), 300);
+            };
+
+            const box = document.createElement('div'); 
+            box.style.cssText = `position: relative; background: var(--glass-bg); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); border-top: 1px solid var(--glass-border); border-radius: 24px 24px 0 0; padding: 30px 20px 35px 20px; width: 100%; box-sizing: border-box; color: white; box-shadow: 0 -10px 40px rgba(0,0,0,0.9); transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); display: flex; flex-direction: column; gap: 15px;`;
+
+            box.innerHTML = `
+                <div id="close-event-modal-${eventId}" style="position:absolute; top:15px; right:15px; width:26px; height:26px; background:rgba(255,255,255,0.05); border:1px solid var(--glass-border); border-radius:50%; display:flex; justify-content:center; align-items:center; cursor:pointer; transition:0.2s;">
+                    <i class="fa-solid fa-xmark" style="color:var(--text-color-muted); font-size:12px;"></i>
+                </div>
+                
+                <h3 style="margin: 0 0 10px 0; font-size: 18px; font-weight: 800;">Помощь по событию</h3>
+                
+                <div style="display:flex; flex-direction:column; gap: 10px; padding: 0 5px;">
+                    <div style="display:flex; justify-content:space-between; border-bottom: 1px solid var(--glass-border); padding-bottom: 8px;">
+                        <span style="color: var(--text-color-muted); font-size: 12px;">Событие:</span>
+                        <span style="font-weight: 800; font-size: 12px; max-width: 65%; text-align: right;">${title}</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; border-bottom: 1px solid var(--glass-border); padding-bottom: 8px;">
+                        <span style="color: var(--text-color-muted); font-size: 12px;">ID События:</span>
+                        <span style="font-weight: 800; font-size: 12px;">#${eventId}</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; border-bottom: 1px solid var(--glass-border); padding-bottom: 8px;">
+                        <span style="color: var(--text-color-muted); font-size: 12px;">Дата:</span>
+                        <span style="font-weight: 800; font-size: 12px;">${dateFormatted}</span>
+                    </div>
+                </div>
+                
+                <button onclick="window.open('https://t.me/hatelove_twitch?text=${encodeURIComponent(supportText)}', '_blank');" style="background: rgba(255,255,255,0.1); border: 1px solid var(--glass-border); border-radius: 14px; color: white; font-size: 14px; font-weight: 800; padding: 16px; margin-top: 10px; cursor: pointer; transition: 0.2s;">
+                    <i class="fa-brands fa-telegram" style="margin-right: 5px;"></i> НАПИСАТЬ В ПОДДЕРЖКУ
+                </button>
+            `;
+                
+            overlay.appendChild(box); 
+            document.body.appendChild(overlay);
+            
+            document.getElementById(`close-event-modal-${eventId}`).onclick = closeSupport;
+            setTimeout(() => { overlay.style.backgroundColor = 'rgba(0,0,0,0.7)'; box.style.transform = 'translateY(0)'; }, 10);
+            overlay.onclick = (e) => { if (e.target === overlay) closeSupport(); };
         };
 
         // =========================================================
