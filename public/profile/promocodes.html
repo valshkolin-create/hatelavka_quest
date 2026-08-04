@@ -1,54 +1,26 @@
 <!-- Файл: /public/profile/promocodes.html -->
-
-<style>
-    /* Переиспользуем стили из инвентаря на случай, если их тут нет */
-    .sort-panel { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 0 4px; }
-    .glass-select {
-        background: rgba(255,255,255,0.1); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
-        color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 10px;
-        padding: 6px 12px; font-size: 11px; font-weight: 700; outline: none; cursor: pointer;
-    }
-    .glass-select option { background: #1c1c1e; color: #fff; }
+<div class="events-header-bar" style="margin-bottom: 12px; display: flex; justify-content: flex-start; align-items: center; padding: 0 4px; gap: 10px;">
     
-    .sell-all-btn {
-        background: rgba(255, 255, 255, 0.05);
-        backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); 
-        color: #fff;
-        border: 1px solid rgba(255, 255, 255, 0.15); 
-        border-top: 1px solid rgba(255, 255, 255, 0.25);
-        border-radius: 10px; padding: 6px 14px; font-size: 10px; font-weight: 800; cursor: pointer;
-        transition: 0.2s; 
-        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 6px;
-    }
-    .sell-all-btn:active { transform: scale(0.95); background: rgba(255, 255, 255, 0.1); }
-</style>
-
-<!-- Универсальная сортировочная панель (1в1 как в инвентаре) -->
-<div class="sort-panel">
+    <!-- Левая часть: СОРТИРОВКА -->
+    <div style="font-size: 10px; font-weight: 800; color: rgba(255,255,255,0.6); text-transform: uppercase;">Сортировка:</div>
     
-    <!-- Левая часть: СОРТИРОВКА и Селект -->
-    <div style="display: flex; align-items: center; gap: 8px;">
-        <div style="font-size: 11px; font-weight: 800; color: var(--text-color-muted); text-transform: uppercase; letter-spacing: 0.5px;">Сортировка</div>
-        <select id="promocodes-sort-select" class="glass-select" onchange="window.applyPromocodesSort()">
+    <!-- Правая часть: Выборка и кнопка -->
+    <div style="display: flex; align-items: center; gap: 6px;">
+        <select id="promocodes-sort-select" class="events-sort-select" onchange="window.applyPromocodesSort()">
             <option value="date_desc">Сначала новые</option>
             <option value="auto">Сначала авто</option>
             <option value="manual">Сначала ручные</option>
             <option value="admin">От админа</option>
         </select>
-    </div>
-    
-    <!-- Правая часть: Кнопка и Бейдж -->
-    <div style="display: flex; align-items: center; gap: 8px;">
+        
         <!-- Кнопка 1в1 как ПРОДАТЬ ВСЁ в инвентаре -->
-        <button id="sell-all-btn" class="sell-all-btn" onclick="sellAllItems()" style="display: none;">
-            <i class="fa-solid fa-tags"></i> Очистить ВСЁ
+        <button id="btn-clear-all-rewards" onclick="window.clearAllRewards()" style="display: none; align-items: center; justify-content: center; gap: 6px; background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); color: #fff; border: 1px solid rgba(255, 255, 255, 0.15); border-top: 1px solid rgba(255, 255, 255, 0.25); border-radius: 10px; padding: 6px 14px; font-size: 10px; font-weight: 800; cursor: pointer; transition: 0.2s; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2); font-family: inherit;">
+            <i class="fa-solid fa-trash" style="color: #ff453a;"></i> ОЧИСТИТЬ ВСЁ
         </button>
+        
         <span id="promo-count-badge" style="display: none;"></span>
     </div>
+    
 
 </div>
 
