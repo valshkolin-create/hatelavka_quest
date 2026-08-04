@@ -17,10 +17,11 @@ document.addEventListener("DOMContentLoaded", () => {
     // 2. Вставляем стили
     const style = document.createElement('style');
     style.innerHTML = `
-        /* 🔥 ЖЕЛЕЗОБЕТОННАЯ ИЗОЛЯЦИЯ ШРИФТА 🔥 */
-        /* Применяем Montserrat ко всему бару и КАЖДОМУ элементу внутри него */
+        /* 🔥 ИЗОЛЯЦИЯ ШРИФТА ТОЛЬКО ДЛЯ ТЕКСТА 🔥 */
+        /* Применяем Montserrat только к самому бару и текстовым блокам, НЕ трогая <i> с иконками */
         .floating-bottom-bar,
-        .floating-bottom-bar * {
+        .floating-bottom-bar span,
+        .floating-bottom-bar .comic-badge {
             font-family: 'Montserrat', sans-serif !important;
         }
 
