@@ -47,10 +47,6 @@
         border-radius: 10px; padding: 6px 14px; font-size: 10px; font-weight: 800; cursor: pointer;
         transition: 0.2s; 
         box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 6px;
     }
     .sell-all-btn:active { transform: scale(0.95); background: rgba(255, 255, 255, 0.1); }
 
@@ -162,10 +158,10 @@
 </style>
 
 <div class="inventory-section">
-    <!-- Сортировка (Обновленная структура) -->
+    <!-- Сортировка -->
     <div class="sort-panel">
         <div style="display: flex; align-items: center; gap: 8px;">
-            <div style="font-size: 11px; font-weight: 800; color: var(--text-color-muted); text-transform: uppercase; letter-spacing: 0.5px;">Сортировка</div>
+            <div style="font-size: 10px; font-weight: 800; color: rgba(255,255,255,0.6); text-transform: uppercase;">Сортировка:</div>
             <select id="inventory-sort-select" onchange="applyInventorySort()" class="glass-select">
                 <option value="date_desc">Сначала новые</option>
                 <option value="date_asc">Сначала старые</option>
@@ -174,11 +170,9 @@
                 <option value="status">По статусу</option>
             </select>
         </div>
-        <div style="display: flex; align-items: center; gap: 8px;">
-            <button id="sell-all-btn" class="sell-all-btn" onclick="sellAllItems()" style="display: none;">
-                <i class="fa-solid fa-tags"></i> ПРОДАТЬ ВСЁ
-            </button>
-        </div>
+        <button id="sell-all-btn" class="sell-all-btn" onclick="sellAllItems()" style="display: none;">
+            <i class="fa-solid fa-tags"></i> ПРОДАТЬ ВСЁ
+        </button>
     </div>
 
     <!-- Контейнер для скинов -->
