@@ -18,6 +18,7 @@
         backdrop-filter: var(--glass-blur);
         -webkit-backdrop-filter: var(--glass-blur);
         animation: popIn 0.3s ease-out forwards;
+        position: relative;
     }
 
     .event-icon {
@@ -29,13 +30,12 @@
         align-items: center;
         font-size: 20px;
         flex-shrink: 0;
+        /* 🔥 Желтая подсветка иконок */
+        box-shadow: 0 0 15px rgba(255, 215, 0, 0.25);
+        border: 1px solid rgba(255, 215, 0, 0.4);
+        background: rgba(255, 215, 0, 0.1);
+        color: #ffd700;
     }
-
-    .icon-skin { background: rgba(136, 71, 255, 0.15); color: #8847ff; border: 1px solid rgba(136, 71, 255, 0.3); }
-    .icon-grind { background: rgba(52, 199, 89, 0.15); color: #34c759; border: 1px solid rgba(52, 199, 89, 0.3); }
-    .icon-quest { background: rgba(255, 215, 0, 0.15); color: #ffd700; border: 1px solid rgba(255, 215, 0, 0.3); }
-    .icon-trial { background: rgba(10, 132, 255, 0.15); color: #0a84ff; border: 1px solid rgba(10, 132, 255, 0.3); }
-    .icon-system { background: rgba(255, 255, 255, 0.1); color: #fff; border: 1px solid rgba(255, 255, 255, 0.2); }
 
     .event-content {
         flex-grow: 1;
@@ -56,12 +56,28 @@
         line-height: 1.4;
     }
 
+    .event-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 4px;
+    }
+
     .event-time {
         font-size: 10px;
         color: rgba(255, 255, 255, 0.3);
         font-weight: 700;
         text-transform: uppercase;
-        margin-top: 4px;
+    }
+
+    .event-id {
+        font-size: 9px;
+        color: var(--text-color-muted);
+        font-weight: 800;
+        background: rgba(255, 255, 255, 0.05);
+        padding: 2px 6px;
+        border-radius: 4px;
+        border: 1px solid var(--glass-border);
     }
 
     .event-reward {
@@ -73,7 +89,6 @@
 </style>
 
 <div class="events-container" id="events-list">
-    <!-- Скелетон загрузки -->
     <div style="display:flex; justify-content:center; padding: 40px 0;">
         <i class="fa-solid fa-circle-notch fa-spin" style="font-size: 30px; color: var(--text-color-muted);"></i>
     </div>
