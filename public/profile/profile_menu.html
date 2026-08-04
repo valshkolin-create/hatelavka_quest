@@ -339,11 +339,17 @@
             border: 1px solid var(--glass-border);
             color: #fff;
             font-size: 10px;
-            padding: 4px 8px;
+            padding: 2px 6px;
+            height: 24px;
             border-radius: 8px;
             outline: none;
             backdrop-filter: blur(10px);
             -webkit-backdrop-filter: blur(10px);
+        }
+        /* Убираем белый фон внутри открытого списка */
+        .events-sort-select option {
+            background-color: #18181a;
+            color: #fff;
         }
         
         /* --- LIQUID GLASS MODAL (SETTINGS) --- */
@@ -487,12 +493,16 @@
             100% { transform: scale(1); opacity: 1; }
         }
 
-        /* --- ПЕРЕОПРЕДЕЛЕНИЕ ШРИФТА НИЖНЕГО БАРА ДЛЯ ПРОФИЛЯ --- */
-body .floating-bottom-bar,
-body .floating-bottom-bar span,
-body .floating-bottom-bar .comic-badge {
-    /* Меняем Montserrat на системный шрифт профиля (или любой другой) */
+/* --- ГАРАНТИРОВАННОЕ ПЕРЕОПРЕДЕЛЕНИЕ СТИЛЕЙ НИЖНЕГО БАРА --- */
+html body nav.floating-bottom-bar .nav-item,
+html body nav.floating-bottom-bar span,
+html body nav.floating-bottom-bar .comic-badge {
+    /* Меняем шрифт на системный */
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Arial, sans-serif !important;
+    
+    /* Отменяем принудительный регистр (будет как в HTML: "Топ", "Главная") */
+    text-transform: none !important; 
+    letter-spacing: normal !important;
 }
     </style>
 </head>
@@ -1148,7 +1158,7 @@ body .floating-bottom-bar .comic-badge {
             // Строим шапку с селектом
             let html = `
                 <div class="events-header-bar">
-                    <span style="font-size: 12px; font-weight: 900; color: var(--text-color-muted); text-transform: uppercase;">События (${eventsToRender.length})</span>
+                    <span style="font-size: 10px; font-weight: 900; color: var(--text-color-muted); text-transform: uppercase;">События (${eventsToRender.length})</span>
                     <select id="events-sort-select" class="events-sort-select" onchange="window.renderEventsList(this.value)">
                         <option value="date_desc" ${sortType === 'date_desc' ? 'selected' : ''}>Сначала новые</option>
                         <option value="date_asc" ${sortType === 'date_asc' ? 'selected' : ''}>Сначала старые</option>
