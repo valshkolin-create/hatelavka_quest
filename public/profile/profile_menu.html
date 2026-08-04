@@ -1009,18 +1009,11 @@
                 container.innerHTML = '';
                 
                 res.events.forEach(event => {
-                    let iconClass = 'icon-system';
-                    let iconHtml = '<i class="fa-solid fa-bell"></i>';
-
-                    if (event.event_type === 'skin') {
-                        iconClass = 'icon-skin'; iconHtml = '<i class="fa-solid fa-gun"></i>';
-                    } else if (event.event_type === 'grind') {
-                        iconClass = 'icon-grind'; iconHtml = '<i class="fa-solid fa-bolt"></i>';
-                    } else if (event.event_type === 'quest') {
-                        iconClass = 'icon-quest'; iconHtml = '<i class="fa-solid fa-map-location-dot"></i>';
-                    } else if (event.event_type === 'trial') {
-                        iconClass = 'icon-trial'; iconHtml = '<i class="fa-solid fa-fire"></i>';
-                    }
+                    // Универсальная иконка для всех системных событий
+                    let iconHtml = '<i class="fa-solid fa-bolt"></i>';
+                    if (event.event_type === 'skin') iconHtml = '<i class="fa-solid fa-gun"></i>';
+                    else if (event.event_type === 'quest') iconHtml = '<i class="fa-solid fa-map-location-dot"></i>';
+                    else if (event.event_type === 'trial') iconHtml = '<i class="fa-solid fa-fire"></i>';
 
                     const date = new Date(event.created_at);
                     const timeStr = date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
@@ -1034,13 +1027,18 @@
                     const card = document.createElement('div');
                     card.className = 'event-card';
                     card.innerHTML = `
-                        <div class="event-icon ${iconClass}">
+                        <div class="event-icon">
                             ${iconHtml}
                         </div>
                         <div class="event-content">
-                            <div class="event-title">${event.title}</div>
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <div class="event-title">${event.title}</div>
+                                <div class="event-id">#${event.id}</div>
+                            </div>
                             ${event.description ? `<div class="event-desc">${event.description}</div>` : ''}
-                            <div class="event-time">${dateStr} В ${timeStr}</div>
+                            <div class="event-footer">
+                                <div class="event-time">${dateStr} В ${timeStr}</div>
+                            </div>
                         </div>
                         ${rewardHtml}
                     `;
