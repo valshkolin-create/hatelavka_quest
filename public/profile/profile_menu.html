@@ -504,6 +504,69 @@ html body nav.floating-bottom-bar .comic-badge {
     text-transform: none !important; 
     letter-spacing: normal !important;
 }
+
+        /* --- ПРОМОКОДЫ: LIQUID GLASS СТИЛИ --- */
+.reward-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    position: relative;
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    transition: transform 0.2s ease;
+}
+
+/* Зеленая подсветка для авто-зачислений */
+.reward-card.auto-used {
+    background: rgba(52, 199, 89, 0.05);
+    border-left: 4px solid #34c759;
+}
+
+.reward-card-header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+}
+
+.reward-card-desc {
+    font-size: 13px; font-weight: 800; color: #fff; margin: 0 0 4px 0;
+    max-width: 85%;
+}
+
+.reward-card-meta {
+    font-size: 10px; color: var(--text-color-muted); font-weight: 700;
+}
+
+.reward-code-box {
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--glass-border);
+    border-radius: 10px; padding: 6px 6px 6px 12px;
+}
+
+.reward-code-input {
+    flex-grow: 1; background: transparent; border: none; outline: none;
+    color: #fff; font-family: monospace; font-size: 14px; font-weight: 800;
+    text-shadow: 0 0 10px rgba(255,255,255,0.2);
+}
+
+.reward-copy-btn {
+    background: rgba(255,255,255,0.1); color: #fff;
+    border: 1px solid var(--glass-border); border-radius: 8px;
+    width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: 0.2s; flex-shrink: 0;
+}
+.reward-copy-btn:active { transform: scale(0.9); background: rgba(255,255,255,0.2); }
+
+.reward-delete-btn {
+    position: absolute; top: 14px; right: 14px;
+    background: none; border: none; color: var(--text-color-muted);
+    font-size: 14px; cursor: pointer; transition: 0.2s;
+}
+.reward-delete-btn:active { color: #ff453a; transform: scale(0.9); }
+        
     </style>
 </head>
 <body>
@@ -646,6 +709,198 @@ html body nav.floating-bottom-bar .comic-badge {
 
     <script>
         const tg = window.Telegram.WebApp;
+
+// ==========================================
+// 🔥 ЛОГИКА ПРОМОКОДОВ (LIQUID GLASS) 🔥
+// ==========================================
+
+window.renderRewards = function(rewards) {
+    const listContainer = document.getElementById('promocodes-list-container');
+    const countBadge = document.getElementById('promo-count-badge');
+    const clearBtn = document.getElementById('btn-clear-all-rewards');
+    
+    if (!listContainer) return;
+    listContainer.innerHTML = ''; 
+
+    // Если нет наград
+    if (!rewards || rewards.length === 0) {
+        if(countBadge) countBadge.textContent = '';
+        if(clearBtn) clearBtn.style.display = 'none';
+        listContainer.innerHTML = `
+            <div style="text-align:center; padding-top: 50px;">
+                <i class="fa-solid fa-gift" style="font-size: 40px; margin-bottom: 15px; opacity: 0.2; color: #fff;"></i>
+                <p style="font-size: 14px; color: var(--text-color-muted); font-weight: 600;">Нет активных наград</p>
+            </div>`;
+        return;
+    }
+
+    if(countBadge) countBadge.textContent = `(${rewards.length})`;
+    if(clearBtn) {
+        clearBtn.style.display = 'inline-flex';
+        clearBtn.onclick = () => window.clearAllRewards();
+    }
+
+    // Отрисовка карточек
+    rewards.forEach(item => {
+        const reward = item.data || item; 
+        const isAutoUsed = String(reward.auto_is_used) === 'true';
+        const isUsed = String(reward.is_used) === 'true' || reward.is_used == 1;
+        const isPromo = (item.type === 'promocode' || reward.code);
+        
+        const rawDate = reward.claimed_at || reward.created_at || item.date;
+        const dateStr = new Date(rawDate).toLocaleString('ru-RU', {
+            day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit'
+        });
+
+        const card = document.createElement('div');
+        card.className = `reward-card ${isAutoUsed ? 'auto-used' : ''}`;
+
+        if (isPromo) {
+            if (isAutoUsed) {
+                // АВТО-ЗАЧИСЛЕНИЕ
+                const c = reward.code || "";
+                const maskedCode = c.length > 8 ? (c.slice(0, 4) + "••••" + c.slice(-4)) : "••••••••";
+                
+                card.innerHTML = `
+                    <div class="reward-card-header">
+                        <div>
+                            <span style="background: rgba(52, 199, 89, 0.2); color: #34c759; font-size: 9px; font-weight: 800; padding: 3px 8px; border-radius: 8px; text-transform: uppercase; margin-bottom: 6px; display: inline-block;">
+                                <i class="fa-solid fa-bolt"></i> Авто-зачисление
+                            </span>
+                            <p class="reward-card-desc">${reward.description || 'Награда'}</p>
+                            <p class="reward-card-meta">Код: ${maskedCode} • ${dateStr}</p>
+                        </div>
+                        <div style="text-align: right; margin-right: 25px;">
+                            <div style="font-size: 16px; font-weight: 800; color: #34c759;">+${reward.reward_value || 0}</div>
+                            ${reward.old_balance !== undefined ? `<div style="font-size: 9px; color: var(--text-color-muted);">было: ${reward.old_balance}</div>` : ''}
+                        </div>
+                    </div>
+                    <button class="reward-delete-btn" onclick="window.deleteReward('${reward.code}', 'promocode', this)"><i class="fa-solid fa-xmark"></i></button>
+                `;
+            } else {
+                // ОБЫЧНЫЙ ПРОМОКОД
+                let copiedHtml = '';
+                if (reward.copied_at) {
+                    const dateCopied = new Date(reward.copied_at).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+                    copiedHtml = `<div style="color: #34c759; font-size: 10px; margin-top: 4px; font-weight: 800;"><i class="fa-solid fa-check"></i> Скопировано: ${dateCopied}</div>`;
+                }
+
+                card.innerHTML = `
+                    <div class="reward-card-header">
+                        <div>
+                            <p class="reward-card-desc">${reward.description || 'Награда'}</p>
+                            <p class="reward-card-meta">${isUsed ? '<span style="color:#34c759"><i class="fa-solid fa-check"></i> Использован</span> • ' : ''}Получено: ${dateStr}</p>
+                        </div>
+                    </div>
+                    
+                    <div class="reward-code-box">
+                        <input type="text" class="reward-code-input" value="${reward.code}" readonly onclick="this.select();">
+                        <button class="reward-copy-btn" onclick="window.copyPromocode('${reward.code}', '${reward.id}')">
+                            <i class="fa-regular fa-copy"></i>
+                        </button>
+                    </div>
+                    <div id="copied-status-${reward.id}">${copiedHtml}</div>
+                    
+                    <button class="reward-delete-btn" onclick="window.deleteReward('${reward.code}', 'promocode', this)"><i class="fa-solid fa-xmark"></i></button>
+                `;
+            }
+        } else {
+            // АДМИНСКИЙ ГРАНТ
+            const typeText = reward.grant_type === 'tickets' ? 'билетов 🎟️' : 'монет 💰';
+            card.innerHTML = `
+                <div class="reward-card-header">
+                    <div>
+                        <span style="background: rgba(255, 215, 0, 0.1); color: #ffd700; font-size: 9px; font-weight: 800; padding: 3px 8px; border-radius: 8px; text-transform: uppercase; margin-bottom: 6px; display: inline-block;">
+                            <i class="fa-solid fa-crown"></i> Выдача админом
+                        </span>
+                        <p class="reward-card-desc">Начислено: ${reward.amount || 0} ${typeText}</p>
+                        <p class="reward-card-meta">Дата: ${dateStr}</p>
+                    </div>
+                </div>
+                <button class="reward-delete-btn" onclick="window.deleteReward('${reward.id}', 'grant', this)"><i class="fa-solid fa-xmark"></i></button>
+            `;
+        }
+        listContainer.appendChild(card);
+    });
+};
+
+// Функция копирования
+window.copyPromocode = async function(code, id) {
+    if (!code) return;
+    try {
+        await navigator.clipboard.writeText(code);
+        if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+        
+        // Визуальное обновление
+        const statusDiv = document.getElementById(`copied-status-${id}`);
+        if (statusDiv) {
+            const now = new Date().toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+            statusDiv.innerHTML = `<div style="color: #34c759; font-size: 10px; margin-top: 4px; font-weight: 800; animation: popIn 0.3s;"><i class="fa-solid fa-check"></i> Скопировано: ${now}</div>`;
+        }
+
+        // Тихий запрос на бэк
+        fetch('/api/v1/promocode/mark-copied', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ promocode_id: id, initData: tg.initData })
+        }).catch(e => console.error(e));
+
+    } catch (err) {
+        customAlert("Не удалось скопировать код");
+    }
+};
+
+// Функция удаления одной награды
+window.deleteReward = function(idOrCode, type, btnElement) {
+    showCustomConfirmHTML("Удалить награду из истории?", async (close) => {
+        try {
+            if (type === 'promocode') {
+                await apiRequest('/api/v1/user/promocodes/delete', 'POST', { code: idOrCode }, true);
+            } else {
+                await apiRequest('/api/v1/user/grants/delete', 'POST', { id: parseInt(idOrCode) }, true);
+            }
+            
+            // Анимация удаления
+            const card = btnElement.closest('.reward-card');
+            if (card) {
+                card.style.transform = 'scale(0.9)';
+                card.style.opacity = '0';
+                setTimeout(() => {
+                    card.remove();
+                    // Обновляем счетчик
+                    const countBadge = document.getElementById('promo-count-badge');
+                    const cardsLeft = document.querySelectorAll('.reward-card').length;
+                    if(countBadge) countBadge.textContent = cardsLeft > 0 ? `(${cardsLeft})` : '';
+                    if(cardsLeft === 0) window.renderRewards([]); // Покажет пустой стейт
+                }, 200);
+            }
+            if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+            close();
+        } catch (e) {
+            if (e.message !== 'Activity Lock') customAlert("Ошибка удаления: " + e.message);
+            close();
+        }
+    }, "УДАЛИТЬ", "rgba(255,69,58,0.15)", "#ff453a");
+};
+
+// Очистка всей истории
+window.clearAllRewards = function() {
+    showCustomConfirmHTML("Очистить ВСЮ историю наград?", async (close) => {
+        try {
+            await apiRequest('/api/v1/user/promocodes/delete-all', 'POST', null, true);
+            await apiRequest('/api/v1/user/grants/delete-all', 'POST', null, true);
+            
+            window.renderRewards([]); 
+            if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+            close();
+        } catch (e) {
+            if (e.message !== 'Activity Lock') customAlert("Ошибка очистки");
+            close();
+        }
+    }, "ОЧИСТИТЬ ВСЁ", "rgba(255,69,58,0.15)", "#ff453a");
+};
+
+        
         tg.ready();
         tg.expand();
 
@@ -1078,6 +1333,22 @@ html body nav.floating-bottom-bar .comic-badge {
                 else if (tabName === 'events') {
                     await window.loadEvents();
                 }
+                // 👇🔥 ДОБАВЛЯЕМ ЛОГИКУ ДЛЯ ПРОМОКОДОВ 🔥👇
+        else if (tabName === 'promocodes') {
+            const promoContainer = document.getElementById('promocodes-list-container');
+            if (promoContainer) {
+                promoContainer.innerHTML = '<div style="height: 50vh; display: flex; flex-direction: column; justify-content: center; align-items: center; color: var(--text-color-muted);"><i class="fa-solid fa-circle-notch fa-spin" style="margin-bottom: 15px; font-size: 32px; color: #fff;"></i><br>Загрузка промокодов...</div>';
+            }
+            try {
+                // Запрашиваем данные промокодов (убедись, что endpoint правильный)
+                const rewardsData = await apiRequest("/api/v1/user/rewards", "POST", null, true);
+                window.renderRewards(rewardsData);
+            } catch (err) {
+                if (promoContainer && err.message !== 'Activity Lock') {
+                    promoContainer.innerHTML = `<div style="text-align:center; color:var(--text-color-muted); margin-top:50px;">Ошибка загрузки:<br>${err.message}</div>`;
+                }
+            }
+        }
             } catch (error) {
                 contentArea.innerHTML = `<div style="text-align:center; color:var(--text-color-muted); padding-top: 50px;">Ошибка загрузки раздела: ${error.message}</div>`;
             }
