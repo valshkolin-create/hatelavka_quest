@@ -1033,7 +1033,7 @@
             const updateTime = new Date(dateStr).getTime();
             if (isNaN(updateTime)) { el.innerHTML = "ОБРАБОТКА"; return; }
             
-            const expireTime = updateTime + (30 * 60 * 1000); 
+            const expireTime = updateTime + (4 * 60 * 1000); // 4 минуты на принятие трейда в Steam 
             const historyId = elementId.replace('timer-', '');
             const getDistance = () => expireTime - new Date().getTime();
 
