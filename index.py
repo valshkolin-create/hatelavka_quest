@@ -2286,6 +2286,31 @@ async def enforce_uniqueness(telegram_id: int, supabase: httpx.AsyncClient):
         elif 'twitch_id' in reset_data:
             raise HTTPException(status_code=400, detail="DUPLICATE_TWITCH")
 
+async def log_user_event(
+    supabase: httpx.AsyncClient, 
+    user_id: int, 
+    event_type: str, 
+    title: str, 
+    description: str = None, 
+    coins_reward: float = 0.0
+):
+    """
+    Типы событий (event_type): 'skin', 'grind', 'quest', 'trial', 'system'
+    """
+    try:
+        await supabase.post(
+            "/user_events", 
+            json={
+                "user_id": user_id,
+                "event_type": event_type,
+                "title": title,
+                "description": description,
+                "coins_reward": coins_reward
+            }
+        )
+    except Exception as e:
+        print(f"🚨 Ошибка при записи события в БД: {e}")
+
 # --- 2. ЗАВИСИМОСТЬ (ОХРАННИК) ---
 async def multi_acc_protection(
     req: InitDataRequest, 
@@ -9656,6 +9681,8 @@ async def delete_secret_code(
     )
     
     return {"message": "Секретный код удален."}
+
+
         
 @app.post("/api/v1/user/promocodes/delete")
 async def delete_promocode(request_data: PromocodeDeleteRequest, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
@@ -12213,6 +12240,16 @@ async def claim_challenge(
             }
         )
 
+    # 🔥 ПИШЕМ СОБЫТИЕ В ИСТОРИЮ 🔥
+        await log_user_event(
+            supabase=supabase,
+            user_id=current_user_id,
+            event_type="trial",
+            title="Испытание выполнено!",
+            description=f"Выполнено испытание #{challenge_id}",
+            coins_reward=reward_amount
+        )
+
     except HTTPException as he:
         raise he
     except Exception as e:
@@ -14373,6 +14410,18 @@ async def claim_challenge_reward_v3(
             "completed_at": datetime.now(timezone.utc).isoformat()
         }).eq("id", contract['id']).execute()
 
+    # 🔥 ПИШЕМ СОБЫТИЕ В ИСТОРИЮ 🔥
+    coins_earned = int(rewards.get('coins', 0))
+    desc = ", ".join(response_data['messages']) if response_data['messages'] else ("Выдан скин" if rewards.get('skin') else "Награда получена")
+    await log_user_event(
+        supabase=async_supabase, # Используем асинхронный клиент
+        user_id=user_id,
+        event_type="trial",
+        title=f"Контракт: Этап {tier_idx+1}",
+        description=desc,
+        coins_reward=coins_earned
+    )
+
     return JSONResponse(content={"status": "ok", "data": response_data})
 
 # ==========================================
@@ -16086,6 +16135,16 @@ async def claim_free_ticket(
         if twitch_bonus > 0:
             msg += f"\n🎁 Бонус за статус ({twitch_status}): +{twitch_bonus} шт."
 
+        # 🔥 ПИШЕМ СОБЫТИЕ В ИСТОРИЮ 🔥
+        await log_user_event(
+            supabase=supabase,
+            user_id=telegram_id,
+            event_type="system",
+            title="Бесплатный билет",
+            description=f"Вы забрали билет. Бонус Twitch: +{twitch_bonus}",
+            coins_reward=0
+        )
+
         return {
             "message": msg,
             "new_ticket_balance": final_balance
@@ -17294,6 +17353,17 @@ async def claim_bp_quest(
         # Обновляем профиль (EXP)
         await supabase.patch("/users", params={"telegram_id": f"eq.{tg_id}"}, json=patch_payload)
 
+        # 🔥 ПИШЕМ СОБЫТИЕ В ИСТОРИЮ 🔥
+        q_type_str = "Общее задание" if str(req.week) == 'global' else f"Задание БП (Неделя {req.week})"
+        await log_user_event(
+            supabase=supabase,
+            user_id=tg_id,
+            event_type="quest",
+            title=q_type_str,
+            description=f"Получено опыта: {exp_reward} ⭐",
+            coins_reward=0
+        )
+
         return {"status": "success", "earned_exp": exp_reward}
 
     except HTTPException:
@@ -17829,6 +17899,17 @@ async def claim_checkpoint_reward(
             response_data['extra_data'] = {
                 "type": "manual_submission"
             }
+
+        # 🔥 ПИШЕМ СОБЫТИЕ В ИСТОРИЮ 🔥
+        coins_from_bp = float(reward_value) if reward_type == 'coins' else 0.0
+        await log_user_event(
+            supabase=supabase,
+            user_id=telegram_id,
+            event_type="quest",
+            title=f"Награда БП (Ур. {level_to_claim})",
+            description=f"Вы забрали награду из {'Премиум' if track_type == 'premium' else 'Обычной'} ветки.",
+            coins_reward=coins_from_bp
+        )
 
         return response_data
 
@@ -18890,6 +18971,17 @@ async def claim_weekly_task_reward(
         response.raise_for_status()
         
         logging.info("--- [claim_weekly_task_reward] УСПЕХ: RPC выполнена. ---")
+
+        # 🔥 ПИШЕМ СОБЫТИЕ В ИСТОРИЮ 🔥
+        await log_user_event(
+            supabase=supabase,
+            user_id=user_id_val,
+            event_type="trial",
+            title="Еженедельное испытание",
+            description="Забрана награда за этап.",
+            coins_reward=0
+        )
+        
         return response.json()
 
     except httpx.HTTPStatusError as e:
@@ -18921,6 +19013,16 @@ async def claim_weekly_super_prize(
             json={"p_user_id": user_info["id"]}
         )
         response.raise_for_status()
+
+        # 🔥 ПИШЕМ СОБЫТИЕ В ИСТОРИЮ 🔥
+        await log_user_event(
+            supabase=supabase,
+            user_id=user_info["id"],
+            event_type="trial",
+            title="Суперприз недели!",
+            description="Вы завершили все испытания недели.",
+            coins_reward=0
+        )
         
         # RPC вернет, например: {"message": "Суперприз 'ПРОМО123' добавлен в ваш профиль!"}
         return response.json()
@@ -19982,6 +20084,18 @@ async def claim_grind_reward_endpoint(
         
         # Добавляем кол-во рефералов в ответ, чтобы фронт мог отрисовать "🚀 Друзья (N)"
         result['active_referrals_count'] = referrals_count
+
+        # 🔥 ПИШЕМ СОБЫТИЕ В ИСТОРИЮ 🔥
+        # Достаем итоговую награду из результата (сколько всего начислили)
+        total_claimed = float(result.get('reward_claimed', 0))
+        await log_user_event(
+            supabase=supabase,
+            user_id=telegram_id,
+            event_type="grind",
+            title="Ежедневный гринд",
+            description=f"Включая бонусы за рефералов и статус.",
+            coins_reward=total_claimed
+        )
 
         return result
 
@@ -22328,6 +22442,16 @@ async def claim_advent_day(
         "source_type": "advent", 
         "source_description": f"Адвент: День {day_id}"
     })
+
+    # 🔥 ПИШЕМ СОБЫТИЕ В ИСТОРИЮ 🔥
+    await log_user_event(
+        supabase=supabase,
+        user_id=telegram_id,
+        event_type="system",
+        title=f"Адвент (День {day_id})",
+        description=f"Получено: {reward_name}",
+        coins_reward=0
+    )
     
     return {"message": "Награда получена!", "reward": reward_name}
 
@@ -22571,6 +22695,18 @@ async def claim_gift(
             logging.info(f"🎁 GIFT: Юзер {telegram_id} забрал код {code_str} на {amount} монет.")
 
     # --- 7. ФИНАЛ ---
+
+    # 🔥 ПИШЕМ СОБЫТИЕ В ИСТОРИЮ 🔥
+    desc = f"Получено {prize_value} монеток" if prize_type == "coins" else f"Получено {prize_value} билетов"
+    await log_user_event(
+        supabase=supabase,
+        user_id=telegram_id,
+        event_type="system",
+        title="Новогодний подарок",
+        description=desc,
+        coins_reward=prize_value if prize_type == "coins" else 0
+    )
+    
     return {
         "type": prize_type,
         "value": prize_value,
@@ -23084,6 +23220,17 @@ async def claim_daily_task(
             json=update_data
         )
 
+        # 🔥 ПИШЕМ СОБЫТИЕ В ИСТОРИЮ 🔥
+        event_title = "Серия заданий (Суперприз)" if secret_code or custom_message else f"Задание TG (День {next_day})"
+        await log_user_event(
+            supabase=supabase,
+            user_id=user_id,
+            event_type="trial",
+            title=event_title,
+            description="Награда за активность в Telegram.",
+            coins_reward=0
+        )
+
         return JSONResponse({
             "success": True, 
             "reward": reward,
@@ -23510,7 +23657,7 @@ async def choose_matrix_pill(
             "assigned_at": datetime.now(timezone.utc).isoformat(),
             "target_case_name": "Кейс | Лентяй",  
             "used_by_ids": [],
-            "activated_by_ids": [telegram_id], # 🔥 ДОБАВЛЯЕМ СЮДА ID, чтобы он считался активированным
+            "activated_by_ids": [str(telegram_id)], # 🔥 ДОБАВЛЯЕМ СЮДА ID, чтобы он считался активированным
             "campaign_id": 999
         }
         
@@ -23518,9 +23665,27 @@ async def choose_matrix_pill(
         if coupon_res.status_code not in [200, 201]:
             logging.error(f"Ошибка выдачи авто-купона Матрицы для {telegram_id}: {coupon_res.text}")
 
+        # 🔥 ПИШЕМ СОБЫТИЕ В ИСТОРИЮ 🔥
+        await log_user_event(
+            supabase=supabase,
+            user_id=telegram_id,
+            event_type="system",
+            title="💊 Красная таблетка",
+            description="Вы выбрали суровую правду. Получен «Кейс | Лентяй», уровень доверия снижен.",
+            coins_reward=0
+        )
+
     elif choice == 'blue':
         # 🔵 ПУТЬ РАЗВИТИЯ
-        pass
+        # 🔥 ПИШЕМ СОБЫТИЕ В ИСТОРИЮ 🔥
+        await log_user_event(
+            supabase=supabase,
+            user_id=telegram_id,
+            event_type="quest",
+            title="🔵 Синяя таблетка",
+            description="Выполните задания, чтобы получить главную награду!",
+            coins_reward=0
+        )
 
     return {"success": True, "choice": choice}
 
@@ -23593,6 +23758,16 @@ async def claim_matrix_reward(
     coupon_res = await supabase.post("/cs_codes", json=coupon_data) 
     if coupon_res.status_code not in [200, 201]:
         logging.error(f"Ошибка выдачи авто-купона Матрицы (Синяя) для {telegram_id}: {coupon_res.text}")
+
+    # 🔥 ПИШЕМ СОБЫТИЕ В ИСТОРИЮ 🔥
+    await log_user_event(
+        supabase=supabase,
+        user_id=telegram_id,
+        event_type="quest",
+        title="Матрица пройдена!",
+        description="Получено: 10 билетов и Кейс | The Noot-Noot",
+        coins_reward=0
+    )
 
     return {"success": True, "message": "Награда успешно получена!"}
 
@@ -30717,6 +30892,32 @@ async def admin_manage_grind(
     except Exception as e:
         logging.error(f"Ошибка изменения гринда для {req.user_id}: {e}")
         raise HTTPException(status_code=500, detail="Ошибка БД при сохранении гринда.")
+
+@app.post("/api/v1/user/events")
+async def get_user_events(
+    request: Request,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    body = await request.json()
+    user_data = is_valid_init_data(body.get("initData"), ALL_VALID_TOKENS)
+    
+    if not user_data:
+        return JSONResponse({"success": False, "message": "Auth failed"}, status_code=401)
+
+    # Достаем последние 30 событий пользователя, сортируя от новых к старым
+    res = await supabase.get(
+        "/user_events",
+        params={
+            "user_id": f"eq.{user_data['id']}",
+            "order": "created_at.desc",
+            "limit": "30"
+        }
+    )
+    
+    if res.status_code == 200:
+        return {"success": True, "events": res.json()}
+    else:
+        return {"success": False, "message": "Ошибка загрузки событий"}
 
 # --- HTML routes ---
 # @app.get('/favicon.ico', include_in_schema=False)
