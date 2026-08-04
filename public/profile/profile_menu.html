@@ -486,6 +486,14 @@
             0% { transform: scale(0.85); opacity: 0; }
             100% { transform: scale(1); opacity: 1; }
         }
+
+        /* --- ПЕРЕОПРЕДЕЛЕНИЕ ШРИФТА НИЖНЕГО БАРА ДЛЯ ПРОФИЛЯ --- */
+body .floating-bottom-bar,
+body .floating-bottom-bar span,
+body .floating-bottom-bar .comic-badge {
+    /* Меняем Montserrat на системный шрифт профиля (или любой другой) */
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Arial, sans-serif !important;
+}
     </style>
 </head>
 <body>
