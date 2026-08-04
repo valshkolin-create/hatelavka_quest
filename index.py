@@ -11626,7 +11626,8 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
                     if is_settled or stage == "2":
                         patch_res = await supabase.patch("/cs_history", 
                             params={"id": f"eq.{trade_id}", "status": f"eq.{current_status}"}, 
-                            json={"status": "received", "updated_at": now_iso},
+                            # 🔥 ИСПРАВЛЕНИЕ: Зануляем details
+                            json={"status": "received", "updated_at": now_iso, "details": None},
                             headers={"Prefer": "return=representation"}
                         )
                         if patch_res.status_code >= 400:
@@ -11665,17 +11666,17 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
 
                     # 🔥 ОЖИДАНИЕ (Stage 1) - Проверяем, реально ли бот отправил оффер (CRON)
                     elif stage == "1":
-                        tr_id = str(trade_info.get("trade_id", "0"))
-                        bt_id = trade_info.get("bot_id")
-                        is_offer_sent = (tr_id != "0" and bt_id is not None)
+                        tr_id = str(trade_info.get("trade_id", ""))
+                        bt_id = str(trade_info.get("bot_id", ""))
+                        is_offer_sent = (tr_id not in ["0", "None", "null", ""] and bt_id not in ["0", "None", "null", ""])
                         
                         if is_offer_sent:
-                            # Если бот уже отправил, а статус в базе всё ещё старый - обновляем!
-                            if current_status in ["market_pending", "processing", "waiting"]:
+                            # Если бот уже отправил, а статус в базе всё ещё не финальный - форсированно обновляем
+                            if current_status not in ["offer_sent", "sent", "received", "failed", "canceled"]:
                                 patch_res = await supabase.patch("/cs_history", 
-                                    params={"id": f"eq.{trade_id}", "status": f"eq.{current_status}"}, 
+                                    params={"id": f"eq.{trade_id}"}, 
                                     json={"status": "offer_sent", "updated_at": now_iso},
-                                    headers={"Prefer": "return=minimal"}
+                                    headers={"Prefer": "return=representation"}
                                 )
                                 if patch_res.status_code < 400:
                                     msg = f"#{trade_id}: Stage 1 (Offer Sent) -> updated DB to offer_sent"
@@ -25934,7 +25935,8 @@ async def check_trade_status_endpoint(
             
             # УСПЕХ (Stage 2) - Полностью безопасно
             if stage == "2":
-                update_payload = {"status": "received", "updated_at": now_iso}
+                # 🔥 ИСПРАВЛЕНИЕ: Зануляем details, чтобы старые ошибки не мозолили глаза
+                update_payload = {"status": "received", "updated_at": now_iso, "details": None}
                 
                 if not item.get("image_url") and trade_info.get("classid"):
                     update_payload["image_url"] = f"https://community.cloudflare.steamstatic.com/economy/image/class/730/{trade_info['classid']}/200fx200f"
@@ -26018,18 +26020,19 @@ async def check_trade_status_endpoint(
                 time_left = max(0, int((240 - seconds_passed) / 60))
                 
                 # Достаем ключи, чтобы проверить реальную отправку
-                tr_id = str(trade_info.get("trade_id", "0"))
-                bt_id = trade_info.get("bot_id")
+                tr_id = str(trade_info.get("trade_id", ""))
+                bt_id = str(trade_info.get("bot_id", ""))
                 
-                is_offer_sent = (tr_id != "0" and bt_id is not None)
+                # Защита от строк "None", "null" и пустых значений
+                is_offer_sent = (tr_id not in ["0", "None", "null", ""] and bt_id not in ["0", "None", "null", ""])
                 
                 if is_offer_sent:
-                    # 🔥 ОБНОВЛЯЕМ СТАТУС В БАЗЕ ДО offer_sent
-                    if current_status in ["market_pending", "processing"]:
+                    # 🔥 ОБНОВЛЯЕМ СТАТУС В БАЗЕ ДО offer_sent (если он еще не финальный)
+                    if current_status not in ["offer_sent", "sent", "received", "failed", "canceled"]:
                         patch_res = await supabase.patch("/cs_history", 
-                            params={"id": f"eq.{history_id}", "status": f"eq.{current_status}"}, 
+                            params={"id": f"eq.{history_id}"}, # Без строгой проверки старого статуса
                             json={"status": "offer_sent", "updated_at": now_iso},
-                            headers={"Prefer": "return=minimal"}
+                            headers={"Prefer": "return=representation"}
                         )
                         if patch_res.status_code < 400:
                             current_status = "offer_sent" 
