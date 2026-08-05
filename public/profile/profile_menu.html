@@ -2154,7 +2154,8 @@ if (['available', 'pending', 'canceled'].includes(rawStatus)) {
                     <img src="${imageUrl}" style="width: 60px; height: 60px; object-fit: contain; filter: drop-shadow(0 5px 10px rgba(0,0,0,0.5));">
                     <div style="display:flex; flex-direction:column; gap: 4px; overflow: hidden;">
                         <span style="font-size: 10px; color: ${rData.color}; text-transform: uppercase; font-weight: 800;">${rData.name}</span>
-                        <span style="font-size: 14px; font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${cleanName}</span>
+                        <!-- 🔥 Заменили cleanName на displayName и разрешили тексту переноситься -->
+                        <span style="font-size: 13px; font-weight: 900; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; line-height: 1.2;">${displayName}</span>
                         <span style="font-size: 12px; font-weight: 800; color: #fff;">${parsedBasePrice} ₽</span>
                     </div>
                 </div>
@@ -2595,9 +2596,9 @@ if (['available', 'pending', 'canceled'].includes(rawStatus)) {
                         // 🔥 ВРЕМЯ ВЫШЛО (С огоньком сверху и названием скина ровно под текстом)
                         centerOverlay = `
                             <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:${fsOverlay}; font-weight:900; color:#ff453a; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5; line-height: 1.2; transform: translateY(-5px);">
-                                <span style="font-size: 16px; margin-bottom: 2px;">🔥</span>
+                                <span style="font-size: 12px; margin-bottom: 2px;">🔥</span>
                                 ВРЕМЯ ВЫШЛО
-                                <span style="font-size: 10px; font-weight: 800; color: rgba(255,255,255,0.7); margin-top: 6px; letter-spacing: 0; text-transform: none; text-shadow: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90%;">${cleanName}</span>
+                                <span style="font-size: 8px; font-weight: 800; color: rgba(255,255,255,0.7); margin-top: 4px; letter-spacing: 0; text-transform: none; text-shadow: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90%;">${cleanName}</span>
                             </div>`;
                     }
                 } 
