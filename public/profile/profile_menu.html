@@ -1663,40 +1663,111 @@ window.clearAllRewards = function() {
             }
         };
 
-        async function connectTwitch() {
+       async function connectTwitch() {
+            // Находим кнопку, чтобы менять её прозрачность/состояние
+            const connBtn = document.querySelector('.btn-twitch');
+            if (connBtn) {
+                connBtn.style.opacity = '0.5';
+                connBtn.disabled = true;
+            }
+
             try {
-                // БОЕВОЙ ЗАПРОС OAuth
-                // const data = await apiRequest(`/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(tg.initData)}`, 'GET');
-                // tg.openLink(data.url);
-                // setTimeout(() => tg.close(), 500);
+                if (!tg.initData) {
+                    customAlert("Запустите через Telegram!");
+                    return;
+                }
 
-                setTimeout(() => {
-                    customAlert("Здесь откроется OAuth ссылка Twitch (включи боевой запрос в коде)");
-                }, 500);
+                // Помечаем, что авторизация запущена из профиля
+                localStorage.setItem('auth_source', 'profile');
 
+                // 🔥 БРОНЕБОЙНЫЙ ФИКС: Очищаем кэш прямо перед уходом на Твич!
+                localStorage.removeItem('cache_bootstrap');
+                localStorage.removeItem('quests_cache_v1');
+
+                // Запрашиваем ссылку у бэкенда напрямую (как в старом коде)
+                const response = await fetch(`/api/v1/auth/twitch_oauth?initData=${encodeURIComponent(tg.initData)}`);
+
+                if (!response.ok) {
+                    throw new Error("Ошибка сервера при получении ссылки");
+                }
+
+                const data = await response.json();
+
+                if (data.url) {
+                    // Официальный метод Telegram для всех платформ (Android, iOS, PC)
+                    tg.openLink(data.url);
+
+                    setTimeout(() => {
+                        tg.close();
+                    }, 500);
+                } else {
+                    customAlert("Сервер не вернул ссылку");
+                }
             } catch (err) {
-                if(err.message !== 'Activity Lock') customAlert("Ошибка: " + err.message);
+                console.error("Ошибка Twitch Auth:", err);
+                customAlert("Ошибка: " + err.message);
+            } finally {
+                if (connBtn) {
+                    connBtn.style.opacity = '1';
+                    connBtn.disabled = false;
+                }
             }
         }
 
         async function unlinkTwitch() {
             showCustomConfirmHTML("Отвязать Twitch аккаунт?", async (close) => {
+                const btn = document.querySelector('.btn-danger[onclick="unlinkTwitch()"]');
+                let originalText = "Отвязать";
+                if (btn) {
+                    originalText = btn.innerHTML;
+                    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin-fast"></i>';
+                    btn.style.opacity = '0.7';
+                }
+
                 try {
-                    // БОЕВОЙ ЗАПРОС
-                    // await apiRequest('/api/v1/user/twitch/unlink', 'POST');
+                    // 🔥 БОЕВОЙ ЗАПРОС НА ОТВЯЗКУ
+                    await apiRequest('/api/v1/user/twitch/unlink', 'POST', null, true);
+                    
+                    // Очищаем кэш
+                    localStorage.removeItem('cache_bootstrap');
+                    localStorage.removeItem('quests_cache_v1');
+
+                    // Визуальное обновление UI
                     currentUserData.twitch_login = null;
                     document.getElementById('icon-twitch').style.color = 'rgba(255,255,255,0.2)';
                     document.getElementById('icon-twitch').style.textShadow = 'none';
-                    document.getElementById('twitch-status-text').innerText = `Аккаунт не привязан`;
-                    document.getElementById('twitch-action-btn-container').innerHTML = `<button class="ios-btn btn-twitch" onclick="connectTwitch()">Привязать</button>`;
                     
+                    // Возвращаем UI в непривязанное состояние со всеми ссылками
+                    document.getElementById('twitch-status-text').innerHTML = `Аккаунт не привязан<br><span class="twitch-trust-link" id="twitch-trust-btn" style="font-size: 11px; color: var(--text-color-muted); text-decoration: underline; cursor: pointer; margin-top: 4px; display: inline-block;"><i class="fa-solid fa-shield-halved"></i> Безопасно ли это?</span>`;
+                    
+                    document.getElementById('twitch-action-btn-container').innerHTML = `
+                        <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end;">
+                            <button class="ios-btn btn-twitch" onclick="connectTwitch()">Привязать</button>
+                            <button id="twitch-help-btn" class="ios-btn" style="background: rgba(255,255,255,0.05); font-size: 11px; width: 100%;">Помощь</button>
+                        </div>
+                    `;
+
+                    // Перевешиваем слушатели на новые кнопки "Помощь" и "Безопасно"
+                    setTimeout(() => {
+                        const trustBtn = document.getElementById('twitch-trust-btn');
+                        const helpBtn = document.getElementById('twitch-help-btn');
+                        if (trustBtn) trustBtn.onclick = () => document.getElementById('twitch-trust-popup').classList.add('visible');
+                        if (helpBtn) helpBtn.onclick = () => document.getElementById('twitch-help-popup').classList.add('visible');
+                    }, 50);
+
                     if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+                    customAlert("Twitch успешно отвязан", "Готово");
+                    
                     close();
                 } catch (err) {
                     if(err.message !== 'Activity Lock') customAlert("Ошибка: " + err.message);
+                    if (btn) {
+                        btn.innerHTML = originalText;
+                        btn.style.opacity = '1';
+                    }
                     close();
                 }
-            }, "ОТВЯЗАТЬ", "rgba(255,255,255,0.05)", "#fff");
+            }, "ОТВЯЗАТЬ", "rgba(255,69,58,0.15)", "#fff");
         }
 
         // --- ЛОГИКА БЕСШОВНОЙ ПОДГРУЗКИ (SPA РОУТЕР) ---
