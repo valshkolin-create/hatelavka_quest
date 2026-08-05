@@ -1336,23 +1336,25 @@ window.clearAllRewards = function() {
         }
 
 // ==========================================
-        // 1. ПОЛНОЦЕННОЕ ОКНО АКТИВНОСТИ С ФАКТАМИ (1в1 из старого кода)
+        // ОКНО АКТИВНОСТИ (1в1 из menu.js с фактами)
         // ==========================================
         window.hasShownActivityWall = false;
-        
+
         window.showActivityWallModal = function(currentMsgs, requiredMsgs) {
             if (window.hasShownActivityWall || document.getElementById('activity-wall-modal')) return;
             window.hasShownActivityWall = true;
 
-            // Если лоадер висит — прячем его, чтобы не перекрывал окно
+            if (typeof lockAppScroll === 'function') lockAppScroll(); 
+            
+            // Если лоадер профиля висит — прячем его, чтобы не перекрывал окно
             const glLoader = document.getElementById('global-loader');
             if (glLoader) glLoader.classList.remove('active');
 
             const overlay = document.createElement('div');
             overlay.id = 'activity-wall-modal';
-            overlay.style.cssText = "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); z-index: 2147483647; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); opacity: 0; transition: opacity 0.3s;";
+            overlay.style.cssText = "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); z-index: 2147483647; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px); opacity: 0; transition: opacity 0.3s;";
 
-            // Мега-список фактов, рофлов и сатиры про Твич, луркеров и HATElavka
+            // Мега-список фактов, рофлов и сатиры
             const facts = [
                 "Факт: Шанс выбить нож выше, чем шанс увидеть твое сообщение в чате.",
                 "Факт: Ниндзя позавидует твоей способности сидеть в тени стрима.",
@@ -1385,6 +1387,7 @@ window.clearAllRewards = function() {
                 "Факт: Если написать «GG» в чат, твоя карма улучшится на 1%, а шанс дропа — на 0%. Но это не точно."
             ];
             const randomFact = facts[Math.floor(Math.random() * facts.length)];
+
             const percent = Math.min((currentMsgs / requiredMsgs) * 100, 100).toFixed(1);
 
             overlay.innerHTML = `
@@ -1413,6 +1416,8 @@ window.clearAllRewards = function() {
                     </div>
 
                     <div style="display: flex; flex-direction: column; gap: 10px;">
+                        
+                        <!-- Блок с двумя кнопками (Twitch и Telegram) -->
                         <div style="display: flex; gap: 10px; width: 100%;">
                             <button onclick="if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.openLink) { window.Telegram.WebApp.openLink('https://twitch.tv/hatelove_ttv'); } else { window.open('https://twitch.tv/hatelove_ttv', '_blank'); }" style="flex: 1; padding: 14px 10px; background: #9146ff; color: #fff; border: none; border-radius: 12px; font-weight: 800; font-size: 13px; text-transform: uppercase; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 6px;">
                                 <i class="fa-brands fa-twitch"></i> Twitch
@@ -1432,6 +1437,7 @@ window.clearAllRewards = function() {
             requestAnimationFrame(() => overlay.style.opacity = '1');
 
             const closeBtn = overlay.querySelector('#close-activity-wall-btn');
+            
             closeBtn.onmouseover = () => closeBtn.style.background = 'rgba(255,255,255,0.15)';
             closeBtn.onmouseout = () => closeBtn.style.background = 'rgba(255,255,255,0.1)';
 
@@ -1441,6 +1447,7 @@ window.clearAllRewards = function() {
                 overlay.style.opacity = '0';
                 setTimeout(() => {
                     overlay.remove();
+                    if (typeof unlockAppScroll === 'function') unlockAppScroll();
                     window.hasShownActivityWall = false; 
                 }, 300);
             };
