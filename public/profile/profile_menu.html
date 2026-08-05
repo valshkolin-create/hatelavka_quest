@@ -365,25 +365,42 @@
             background: var(--glass-bg);
             backdrop-filter: var(--glass-blur);
             -webkit-backdrop-filter: var(--glass-blur);
-            border-top: 1px solid var(--glass-border);
+            border: 1px solid var(--glass-border); /* Стало как у остальных окон */
             box-shadow: var(--glass-shadow);
-            width: 100%; border-radius: 24px 24px 0 0;
-            padding: 16px 16px 30px 16px; 
-            transform: translateY(100%);
+            width: 90%; /* Сжали по ширине */
+            max-width: 360px; /* Сжали по ширине */
+            margin: 0 auto 24px auto; /* Добавили отступ снизу */
+            border-radius: 24px; /* Скруглили со всех сторон */
+            padding: 20px; 
+            transform: translateY(120%);
             transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+            box-sizing: border-box;
+            max-height: 85vh; /* Защита от выхода за экран */
+            overflow-y: auto; /* Включаем скролл внутри настроек, если экран мелкий */
         }
 
-        /* 🔥 ВОТ ЭТА СТРОКА БЫЛА ПОТЕРЯНА! ОНА ПОДНИМАЕТ ОКНО НАВЕРХ 🔥 */
         .modal-overlay.visible .bottom-sheet { 
             transform: translateY(0); 
         }
 
         .sheet-header {
             display: flex; justify-content: space-between; align-items: center;
-            margin-bottom: 15px; /* 🔥 Меньше отступ под шапкой */
+            margin-bottom: 15px; 
         }
-        .sheet-title { font-size: 18px; font-weight: 800; margin: 0; color: #fff; } /* 🔥 Меньше шрифт */
+        .sheet-title { font-size: 18px; font-weight: 800; margin: 0; color: #fff; } 
 
+        .sheet-close {
+            background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); color: #fff;
+            width: 30px; height: 30px; 
+            border-radius: 50%; /* СТАЛО: идеально круглый крестик */
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center; 
+            transition: 0.2s;
+            padding: 0; outline: none; box-sizing: border-box;
+        }
+        .sheet-close i { margin-top: 1px; } /* Центровка иконки */
+        .sheet-close:active { transform: scale(0.9); }
+        
         /* Карточки внутри настроек */
         .settings-card {
             background: rgba(255,255,255,0.03);
@@ -738,6 +755,7 @@ html body nav.floating-bottom-bar .comic-badge {
             </div>
 
             <!-- Блок Steam Trade Link (СТАЛ КЛИКАБЕЛЬНЫМ) -->
+            <!-- Блок Steam Trade Link (СТАЛ КЛИКАБЕЛЬНЫМ) -->
             <div class="settings-card" onclick="openTradeLinkPopup()">
                 <div class="settings-card-row">
                     <div class="settings-icon-title">
@@ -755,6 +773,9 @@ html body nav.floating-bottom-bar .comic-badge {
                     <button class="ios-btn btn-steam">Изменить</button>
                 </div>
             </div>
+
+        </div> <!-- Закрываем .bottom-sheet -->
+    </div> <!-- Закрываем #settings-modal -->
 
     <!-- ОКНО ЗАМЕН (Остается на уровне DOM, стилизовано под новое стекло) -->
     <div id="replacement-modal" class="modal-overlay">
@@ -799,10 +820,10 @@ html body nav.floating-bottom-bar .comic-badge {
 
     <!-- Попап Уведомлений -->
     <div id="notify-popup-overlay" class="modal-overlay" onclick="if(event.target===this) document.getElementById('notify-popup-overlay').classList.remove('visible')">
-        <div class="custom-popup" style="background: var(--glass-bg); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border: 1px solid var(--glass-border); border-radius: 24px; padding: 24px; max-width: 360px; width: 90%; margin: auto; position: relative; box-shadow: var(--glass-shadow);">
-            <div style="display: flex; justify-content: flex-end; width: 100%;">
-                <button onclick="document.getElementById('notify-popup-overlay').classList.remove('visible')" style="background: none; border: none; color: #888; font-size: 20px; cursor: pointer;">
-                    <i class="fa-solid fa-xmark"></i>
+        <div class="custom-popup" style="background: var(--glass-bg); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border: 1px solid var(--glass-border); border-radius: 24px; padding: 24px 24px 35px 24px; /* Добавили отступ снизу */ max-width: 360px; width: 90%; margin: auto; position: relative; box-shadow: var(--glass-shadow); max-height: 85vh; overflow-y: auto; box-sizing: border-box;">
+            <div style="display: flex; justify-content: flex-end; width: 100%; margin-bottom: 5px;">
+                <button onclick="document.getElementById('notify-popup-overlay').classList.remove('visible')" style="background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); color: #fff; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s;">
+                    <i class="fa-solid fa-xmark" style="margin-top: 1px;"></i>
                 </button>
             </div>
             <div id="notify-content-area" style="width: 100%;"></div>
@@ -1312,59 +1333,114 @@ window.clearAllRewards = function() {
             }
         }
 
-        // --- ОКНО АКТИВНОСТИ (ACTIVITY LOCK) ---
+// ==========================================
+        // 1. ПОЛНОЦЕННОЕ ОКНО АКТИВНОСТИ С ФАКТАМИ (1в1 из старого кода)
+        // ==========================================
         window.hasShownActivityWall = false;
+        
         window.showActivityWallModal = function(currentMsgs, requiredMsgs) {
             if (window.hasShownActivityWall || document.getElementById('activity-wall-modal')) return;
             window.hasShownActivityWall = true;
 
+            // Если лоадер висит — прячем его, чтобы не перекрывал окно
+            const glLoader = document.getElementById('global-loader');
+            if (glLoader) glLoader.classList.remove('active');
+
             const overlay = document.createElement('div');
             overlay.id = 'activity-wall-modal';
-            overlay.style.cssText = "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); z-index: 2147483647; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(15px); opacity: 0; transition: opacity 0.3s;";
+            overlay.style.cssText = "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); z-index: 2147483647; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); opacity: 0; transition: opacity 0.3s;";
 
+            // Мега-список фактов, рофлов и сатиры про Твич, луркеров и HATElavka
+            const facts = [
+                "Факт: Шанс выбить нож выше, чем шанс увидеть твое сообщение в чате.",
+                "Факт: Ниндзя позавидует твоей способности сидеть в тени стрима.",
+                "Факт: HATElavka работает на энергии чата, а не на солнечных батареях.",
+                "Факт: Если ты сейчас моргнешь — напиши об этом в чат, это уже актив!",
+                "Факт: 50 сообщений пишутся быстрее, чем грузится катка в CS2.",
+                "Факт: Пока ты молчишь, где-то грустит один невыбитый тайного качества скин.",
+                "Факт: Самый дорогой лут падает тем, кто хотя бы здоровается в чате.",
+                "Факт: В HATElavka нет скрытых комиссий, но есть налог на молчание.",
+                "Факт: Стример питается твоими сообщениями. Не дай ему уйти в AFK!",
+                "Факт: Твой актив в чате работает лучше, чем танец с бубном перед открытием кейса.",
+                "Факт: Ученые выяснили, что луркеры на Твиче со временем эволюционируют в камни.",
+                "Факт: Твоя клавиатура скоро покроется паутиной. Спасай ее — напиши в чат!",
+                "Факт: Смайлики придумали специально для тех, кому лень писать слова. Пользуйся.",
+                "Факт: По статистике, 90% зрителей придумывают идеальную шутку, но так и не отправляют её.",
+                "Факт: Если бы за молчание на стриме давали сабки, ты бы уже был шейхом Твича.",
+                "Факт: Твой ник в списке зрителей выглядит одиноко. Познакомь его с чатом.",
+                "Факт: Чат летит так медленно, что можно успеть прочитать «Войну и мир». Исправляй.",
+                "Факт: Стример не умеет читать мысли на расстоянии. Придется использовать клавиатуру.",
+                "Факт: Если ты напишешь в чат, твой комп не взорвется. Мы проверяли.",
+                "Факт: Быть луркером — это искусство. Но сегодня HATElavka спонсирует только ремесленников.",
+                "Факт: Алгоритмы Твича начинают думать, что ты бот. Докажи обратное!",
+                "Факт: Twitch Prime не освобождает от налога на актив в HATElavka.",
+                "Факт: Легенда гласит, что за 10 000 сообщений можно получить модерку. (Спойлер: нет).",
+                "Факт: Каждый раз, когда ты молчишь на стриме, где-то грустит один Каппа.",
+                "Факт: Писать в чат полезно для мелкой моторики пальцев, особенно перед клатчем 1 в 3.",
+                "Факт: Халява любит смелых. А смелые не стесняются писать в чат!",
+                "Факт: Зрители делятся на два типа: те, кто делает контент в чате, и те, кто ждет халяву. Угадай, кто ты?",
+                "Факт: В чате нет режима «инкогнито». Мы знаем, что ты здесь, луркер.",
+                "Факт: Если написать «GG» в чат, твоя карма улучшится на 1%, а шанс дропа — на 0%. Но это не точно."
+            ];
+            const randomFact = facts[Math.floor(Math.random() * facts.length)];
             const percent = Math.min((currentMsgs / requiredMsgs) * 100, 100).toFixed(1);
 
             overlay.innerHTML = `
-                <div style="padding: 24px 20px; width: 90%; max-width: 350px; background: var(--glass-bg); border-radius: 20px; border: 1px solid var(--glass-border); text-align: center; box-shadow: var(--glass-shadow); backdrop-filter: blur(20px);">
-                    <i class="fa-solid fa-lock" style="font-size:44px; color:#fff; margin-bottom:15px; opacity: 0.8;"></i>
+                <div class="custom-confirm-box" style="padding: 24px 20px; width: 90%; max-width: 350px; background: #1c1c1e; border-radius: 16px; border: 1px solid rgba(255, 215, 0, 0.3); text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.8);">
+                    
+                    <i class="fa-solid fa-lock" style="font-size:44px; color:#ffcc00; margin-bottom:15px; filter: drop-shadow(0 0 15px rgba(255, 204, 0, 0.4));"></i>
                     <h3 style="color: #fff; font-size: 18px; margin-bottom: 10px; font-weight: 900; text-transform: uppercase;">Проекту нужен твой актив!</h3>
                     
-                    <div style="font-size: 13px; color: var(--text-color-muted); line-height: 1.5; text-align: left; margin-bottom: 20px;">
+                    <div style="font-size: 13px; color: #bbb; line-height: 1.5; text-align: left; margin-bottom: 20px;">
                         Бюджет HATElavka не бесконечен. Сейчас покупки и выводы открыты <b>только для активного комьюнити</b>.<br><br>
                         Чтобы разблокировать кейсы, прояви себя на стримах или в чате! Залетай и общайся.
                     </div>
 
-                    <div style="background: rgba(255,255,255,0.03); padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 15px;">
+                    <div style="background: rgba(0,0,0,0.4); padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 15px;">
                         <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 800; color: #fff; margin-bottom: 8px;">
-                            <span style="color: var(--text-color-muted);">Мой актив</span>
-                            <span style="color: #fff;">${currentMsgs} / ${requiredMsgs}</span>
+                            <span style="color: #aaa;">Мой актив за месяц</span>
+                            <span style="color: #ffcc00;">${currentMsgs} / ${requiredMsgs}</span>
                         </div>
-                        <div style="width: 100%; height: 8px; border-radius: 4px; background: rgba(0,0,0,0.6); overflow: hidden; border: 1px solid rgba(255,255,255,0.05);">
-                            <div style="height: 100%; width: ${percent}%; background: #fff; border-radius: 4px; box-shadow: 0 0 10px rgba(255,255,255, 0.3);"></div>
+                        <div style="width: 100%; height: 8px; border-radius: 4px; background: rgba(0,0,0,0.6); overflow: hidden;">
+                            <div style="height: 100%; width: ${percent}%; background: linear-gradient(90deg, #ff3b30, #ffcc00); border-radius: 4px; box-shadow: 0 0 10px rgba(255, 204, 0, 0.5);"></div>
                         </div>
+                    </div>
+
+                    <div style="font-size: 13px; color: #e5e5ea; font-weight: 500; text-align: left; margin-bottom: 20px; background: rgba(255,255,255,0.08); padding: 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
+                        <span style="color: #ffcc00; font-weight: 800; margin-right: 4px;">💡</span> ${randomFact}
                     </div>
 
                     <div style="display: flex; flex-direction: column; gap: 10px;">
                         <div style="display: flex; gap: 10px; width: 100%;">
-                            <button onclick="window.open('https://twitch.tv/hatelove_ttv', '_blank');" style="flex: 1; padding: 14px 10px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); color: #fff; border-radius: 12px; font-weight: 800; font-size: 13px; text-transform: uppercase; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 6px; transition: 0.2s;">
+                            <button onclick="if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.openLink) { window.Telegram.WebApp.openLink('https://twitch.tv/hatelove_ttv'); } else { window.open('https://twitch.tv/hatelove_ttv', '_blank'); }" style="flex: 1; padding: 14px 10px; background: #9146ff; color: #fff; border: none; border-radius: 12px; font-weight: 800; font-size: 13px; text-transform: uppercase; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 6px;">
                                 <i class="fa-brands fa-twitch"></i> Twitch
                             </button>
-                            <button onclick="window.open('https://t.me/hatelovettv', '_blank');" style="flex: 1; padding: 14px 10px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); color: #fff; border-radius: 12px; font-weight: 800; font-size: 13px; text-transform: uppercase; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 6px; transition: 0.2s;">
+                            
+                            <button onclick="if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.openTelegramLink) { window.Telegram.WebApp.openTelegramLink('https://t.me/hatelovettv'); } else { window.open('https://t.me/hatelovettv', '_blank'); }" style="flex: 1; padding: 14px 10px; background: #2AABEE; color: #fff; border: none; border-radius: 12px; font-weight: 800; font-size: 13px; text-transform: uppercase; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 6px;">
                                 <i class="fa-brands fa-telegram"></i> Telegram
                             </button>
                         </div>
-                        <button id="close-activity-wall-btn" style="width: 100%; padding: 14px; background: transparent; color: var(--text-color-muted); border: none; font-weight: 700; text-transform: uppercase; cursor: pointer; transition: 0.2s;">Понятно</button>
+                        
+                        <button id="close-activity-wall-btn" style="width: 100%; padding: 14px; background: rgba(255,255,255,0.1); color: #fff; border: none; border-radius: 12px; font-weight: 700; text-transform: uppercase; cursor: pointer; transition: background 0.2s;">Понятно</button>
                     </div>
                 </div>
             `;
+
             document.body.appendChild(overlay);
             requestAnimationFrame(() => overlay.style.opacity = '1');
 
             const closeBtn = overlay.querySelector('#close-activity-wall-btn');
+            closeBtn.onmouseover = () => closeBtn.style.background = 'rgba(255,255,255,0.15)';
+            closeBtn.onmouseout = () => closeBtn.style.background = 'rgba(255,255,255,0.1)';
+
             closeBtn.onclick = function(e) {
-                e.preventDefault(); e.stopPropagation(); 
+                e.preventDefault();
+                e.stopPropagation(); 
                 overlay.style.opacity = '0';
-                setTimeout(() => { overlay.remove(); window.hasShownActivityWall = false; }, 300);
+                setTimeout(() => {
+                    overlay.remove();
+                    window.hasShownActivityWall = false; 
+                }, 300);
             };
         };
 
