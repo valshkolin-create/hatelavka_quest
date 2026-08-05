@@ -2593,12 +2593,11 @@ if (['available', 'pending', 'canceled'].includes(rawStatus)) {
                         // Ошибка
                         centerOverlay = `<div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:${fsOverlay}; font-weight:900; color:#ff453a; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5; line-height: 1.2; transform: translateY(-10px);">ОШИБКА<span style="font-size: 8px; color: rgba(255,255,255,0.6); margin-top: 4px; letter-spacing: 0; text-transform: none;">обратитесь к администратору</span></div>` + lowerSkinName;
                     } else if (isExpired) {
-                        // 🔥 ВРЕМЯ ВЫШЛО (С огоньком сверху и названием скина ровно под текстом)
+                        // 🔥 ВРЕМЯ ВЫШЛО (С огоньком сверху, без названия скина)
                         centerOverlay = `
                             <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:${fsOverlay}; font-weight:900; color:#ff453a; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5; line-height: 1.2; transform: translateY(-5px);">
                                 <span style="font-size: 12px; margin-bottom: 2px;">🔥</span>
                                 ВРЕМЯ ВЫШЛО
-                                <span style="font-size: 8px; font-weight: 800; color: rgba(255,255,255,0.7); margin-top: 4px; letter-spacing: 0; text-transform: none; text-shadow: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90%;">${cleanName}</span>
                             </div>`;
                     }
                 } 
