@@ -2485,20 +2485,25 @@ if (['available', 'pending', 'canceled'].includes(rawStatus)) {
                 let cardBorder = `1px solid var(--glass-border)`;
                 let cardShadow = `inset 0 0 20px rgba(0,0,0,0.5), 0 4px 10px rgba(0,0,0,0.3)`;
                 
-                let isArchived = ['received', 'exchanged', 'exchanged_swap', 'failed'].includes(status);
-                let centerOverlay = '';
-                let overlayHtml = '';
-                
-                // Умное Блюр-уведомление для отмен и системных ошибок
-                const isCancelAcked = localStorage.getItem(`ack_cancel_${historyId}`);
-                
-                // 🔥 ФИКС ОШИБОК: Жестко ограничиваем ошибки статусами, где сделка НЕ в процессе и НЕ завершена.
-                const isErrorStatus = ['failed', 'canceled', 'available'].includes(status);
-                const hasCustomError = isErrorStatus && item.details && item.details.includes('||');
-                
-                const shouldShowOverlay = (status === 'canceled' || status === 'failed' || (status === 'available' && hasCustomError)) && !isCancelAcked;
+                let isArchived = ['received', 'exchanged', 'exchanged_swap'].includes(status);
+let centerOverlay = '';
+let overlayHtml = '';
 
-                if (shouldShowOverlay) {
+// Умное Блюр-уведомление для отмен и системных ошибок
+const isCancelAcked = localStorage.getItem(`ack_cancel_${historyId}`);
+
+// 🔥 ФИКС ОШИБОК: Жестко ограничиваем ошибки статусами, где сделка НЕ в процессе и НЕ завершена.
+const isErrorStatus = ['failed', 'canceled', 'available'].includes(status);
+const hasCustomError = isErrorStatus && item.details && item.details.includes('||');
+
+const shouldShowOverlay = (status === 'canceled' || status === 'failed' || (status === 'available' && hasCustomError)) && !isCancelAcked;
+
+if (isDisputed) {
+    // 🟡 ТЕМНО-ЖЕЛТЫЙ БЛЮР ДЛЯ ОСПАРИВАЕМЫХ СКИНОВ
+    overlayHtml = `
+        <div class="inv-overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(138, 108, 0, 0.35); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 5; border-radius: 12px; pointer-events: none; border: 1px solid rgba(255, 204, 0, 0.15);"></div>
+    `;
+} else if (shouldShowOverlay) {
                     let titleText = "Трейд<br>отменен!";
                     let subText = "Попробуйте вывести еще раз";
                     let titleColor = status === 'failed' ? '#ff453a' : '#fff'; 
@@ -2557,7 +2562,7 @@ let isDisputed = false;
 const updateTimeMs = parseSafeDate(item.updated_at || item.created_at);
 const nowMs = Date.now();
 
-if (['available', 'pending', 'canceled'].includes(status)) {
+if (['available', 'pending', 'canceled', 'failed'].includes(status)) {
     const source = item.source || 'shop';
     const amnestyTimestamp = new Date('2026-07-15T00:00:00+03:00').getTime();
     
@@ -2622,7 +2627,7 @@ if (isArchived) {
             <i class="fa-solid fa-headset"></i> НАПИСАТЬ АДМИНУ
         </button>
     `;
-} else if (isExpired && !isDisputed && ['available', 'pending', 'canceled'].includes(status)) {
+} else if (isExpired && !isDisputed && ['available', 'pending', 'canceled', 'failed'].includes(status)) {
     bottomBtnText = 'СГОРЕЛ';
     bottomBtnStyle = 'background: rgba(255,255,255,0.02); color: var(--text-color-muted); border-top: 1px solid var(--glass-border);';
 } else if (status === 'market_pending') {
@@ -2678,15 +2683,17 @@ if (isArchived) {
                         <div onclick="toggleActionPanel('${historyId}', false, event)" style="position:absolute; top:0; left:0; width:100%; height:100%; z-index:-1; cursor:pointer;"></div>
                         
                         <div onclick="toggleActionPanel('${historyId}', false, event)" style="position:absolute; top:4px; right:4px; width:${closeBtnSize}; height:${closeBtnSize}; background:rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius:50%; display:flex; justify-content:center; align-items:center; cursor:pointer; z-index:10;">
-                            <i class="fa-solid fa-xmark" style="color:var(--text-color-muted); font-size:${closeBtnIcon}; line-height:1; display:flex; margin-top:0.5px;"></i>
-                        </div>
-                        
-                        <div style="text-align:center; margin-bottom:${currentGridSize === '2' ? '22px' : '8px'}; padding:0 ${namePadding};">
-                            <div style="font-size:${fsTitle}; font-weight:800; color:#fff; overflow:hidden; text-overflow:ellipsis; line-height:1.2; ${nameDisplayStyle}">
-                                ${cleanName}
-                            </div>
-                        </div>
-                        ${panelContent}
+    <i class="fa-solid fa-xmark" style="color:var(--text-color-muted); font-size:${closeBtnIcon}; line-height:1; display:flex; margin-top:0.5px;"></i>
+</div>
+
+${!isDisputed ? `
+<div style="text-align:center; margin-bottom:${currentGridSize === '2' ? '22px' : '8px'}; padding:0 ${namePadding};">
+    <div style="font-size:${fsTitle}; font-weight:800; color:#fff; overflow:hidden; text-overflow:ellipsis; line-height:1.2; ${nameDisplayStyle}">
+        ${cleanName}
+    </div>
+</div>
+` : `<div style="height: 12px;"></div>`}
+${panelContent}
                     </div>
                     ` : ''}
 
