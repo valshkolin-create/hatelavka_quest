@@ -2474,36 +2474,77 @@ if (['available', 'pending', 'canceled'].includes(rawStatus)) {
                 const ticketVal = parseFloat((rawPrice * 0.5).toFixed(2));
                 const safeNameStr = displayName.replace(/'/g, "\\'");
 
-                if (['available', 'pending', 'failed', 'canceled'].includes(status)) {
+                // ==== 1. СНАЧАЛА ВЫЧИСЛЯЕМ ТАЙМЕРЫ И СТАТУС ОСПАРИВАНИЯ ====
+                let expirationHtml = '';
+                let isExpired = false;
+                let isDisputed = false; 
+                const updateTimeMs = parseSafeDate(item.updated_at || item.created_at);
+                const nowMs = Date.now();
+
+                if (['available', 'pending', 'canceled', 'failed'].includes(status)) {
+                    const source = item.source || 'shop';
+                    const amnestyTimestamp = new Date('2026-07-15T00:00:00+03:00').getTime();
+                    
+                    let baseLifeTimeMs = updateTimeMs < amnestyTimestamp 
+                        ? amnestyTimestamp + (14 * 24 * 60 * 60 * 1000) 
+                        : updateTimeMs + ((['raffle', 'auction', 'twitch'].includes(source) ? 3 : 14) * 24 * 60 * 60 * 1000);
+                    
+                    let finalDeleteTimeMs = baseLifeTimeMs + (7 * 24 * 60 * 60 * 1000);
+
+                    if (updateTimeMs > 0) {
+                        if (nowMs < baseLifeTimeMs) {
+                            // ФАЗА 1: Живой скин (тикает таймер)
+                            const timeLeftMs = baseLifeTimeMs - nowMs;
+                            const days = Math.floor(timeLeftMs / (1000 * 60 * 60 * 24));
+                            const hours = Math.floor((timeLeftMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                            const minutes = Math.floor((timeLeftMs % (1000 * 60 * 60)) / (1000 * 60));
+                            let timeStr = days > 0 ? `${days}д ${hours}ч ${minutes}м` : `${hours}ч ${minutes}м`;
+                            if (days === 0 && hours === 0) timeStr = `${minutes}м`;
+                            expirationHtml = `<span style="color: rgba(255,255,255,0.5);">Сгорит:</span> <span style="color: #ff3b30; font-weight: 900;">${timeStr}</span>`;
+                        } else if (nowMs >= baseLifeTimeMs && nowMs < finalDeleteTimeMs) {
+                            // ФАЗА 2: Сгорел, но есть 7 дней на оспаривание
+                            isExpired = true;
+                            isDisputed = true;
+                            const graceLeftMs = finalDeleteTimeMs - nowMs;
+                            const daysGrace = Math.floor(graceLeftMs / (1000 * 60 * 60 * 24));
+                            const hoursGrace = Math.floor((graceLeftMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                            expirationHtml = `<span style="color: #ffcc00; font-weight: 900;">ОСПАРИВАНИЕ (${daysGrace}д ${hoursGrace}ч)</span>`;
+                        } else {
+                            // ФАЗА 3: Время вышло полностью
+                            isExpired = true;
+                            expirationHtml = `<span style="color: #ff3b30; font-weight: 900;">СГОРЕЛ</span>`;
+                        }
+                    }
+                }
+
+                if (!isExpired && ['available', 'pending', 'failed', 'canceled'].includes(status)) {
                     availableSellCount++;
                     totalSellTickets += ticketVal;
                 }
 
-                // Единый стиль карточки (Стекло)
-                // Единый стиль карточки (Стекло)
+                // ==== 2. ТЕПЕРЬ СТИЛИСТИКА КАРТОЧКИ ====
                 let cardBgColor = 'rgba(25, 25, 28, 0.5)'; 
                 let cardBorder = `1px solid var(--glass-border)`;
                 let cardShadow = `inset 0 0 20px rgba(0,0,0,0.5), 0 4px 10px rgba(0,0,0,0.3)`;
                 
                 let isArchived = ['received', 'exchanged', 'exchanged_swap'].includes(status);
-let centerOverlay = '';
-let overlayHtml = '';
+                let centerOverlay = '';
+                let overlayHtml = '';
+                
+                const isCancelAcked = localStorage.getItem(`ack_cancel_${historyId}`);
+                const isErrorStatus = ['failed', 'canceled', 'available'].includes(status);
+                const hasCustomError = isErrorStatus && item.details && item.details.includes('||');
+                
+                const shouldShowOverlay = (status === 'canceled' || status === 'failed' || (status === 'available' && hasCustomError)) && !isCancelAcked;
 
-// Умное Блюр-уведомление для отмен и системных ошибок
-const isCancelAcked = localStorage.getItem(`ack_cancel_${historyId}`);
-
-// 🔥 ФИКС ОШИБОК: Жестко ограничиваем ошибки статусами, где сделка НЕ в процессе и НЕ завершена.
-const isErrorStatus = ['failed', 'canceled', 'available'].includes(status);
-const hasCustomError = isErrorStatus && item.details && item.details.includes('||');
-
-const shouldShowOverlay = (status === 'canceled' || status === 'failed' || (status === 'available' && hasCustomError)) && !isCancelAcked;
-
-if (isDisputed) {
-    // 🟡 ТЕМНО-ЖЕЛТЫЙ БЛЮР ДЛЯ ОСПАРИВАЕМЫХ СКИНОВ
-    overlayHtml = `
-        <div class="inv-overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(138, 108, 0, 0.35); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 5; border-radius: 12px; pointer-events: none; border: 1px solid rgba(255, 204, 0, 0.15);"></div>
-    `;
-} else if (shouldShowOverlay) {
+                if (isDisputed) {
+                    // 🔥 КРАСНЫЙ БЛЮР И НАДПИСЬ "ВРЕМЯ ВЫШЛО"
+                    overlayHtml = `
+                        <div class="inv-overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 69, 58, 0.12); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 5; border-radius: 12px; pointer-events: none; border: 1px solid rgba(255, 69, 58, 0.3);">
+                            <div style="color: #ff453a; font-size: 14px; font-weight: 900; text-transform: uppercase; text-shadow: 0 2px 10px rgba(0,0,0,0.9);">Время вышло</div>
+                        </div>
+                    `;
+                } else if (shouldShowOverlay) {
                     let titleText = "Трейд<br>отменен!";
                     let subText = "Попробуйте вывести еще раз";
                     let titleColor = status === 'failed' ? '#ff453a' : '#fff'; 
@@ -2555,82 +2596,31 @@ if (isDisputed) {
                     imageStyles += ` opacity: 0.5; filter: grayscale(50%); transform: scale(1);`;
                 }
 
-                // Сгорание и период оспаривания
-let expirationHtml = '';
-let isExpired = false;
-let isDisputed = false; 
-const updateTimeMs = parseSafeDate(item.updated_at || item.created_at);
-const nowMs = Date.now();
+                // ==== 3. ЛОГИКА НИЖНЕЙ КНОПКИ ====
+                let bottomBtnText = '';
+                let bottomBtnAction = '';
+                let panelContent = '';
+                let bottomBtnStyle = '';
 
-if (['available', 'pending', 'canceled', 'failed'].includes(status)) {
-    const source = item.source || 'shop';
-    const amnestyTimestamp = new Date('2026-07-15T00:00:00+03:00').getTime();
-    
-    // Базовое время жизни (3 или 14 дней)
-    let baseLifeTimeMs = updateTimeMs < amnestyTimestamp 
-        ? amnestyTimestamp + (14 * 24 * 60 * 60 * 1000) 
-        : updateTimeMs + ((['raffle', 'auction', 'twitch'].includes(source) ? 3 : 14) * 24 * 60 * 60 * 1000);
-    
-    // Время полного удаления (+7 дней)
-    let finalDeleteTimeMs = baseLifeTimeMs + (7 * 24 * 60 * 60 * 1000);
-
-    if (updateTimeMs > 0) {
-        if (nowMs < baseLifeTimeMs) {
-            // ФАЗА 1: Живой скин (тикает таймер)
-            const timeLeftMs = baseLifeTimeMs - nowMs;
-            const days = Math.floor(timeLeftMs / (1000 * 60 * 60 * 24));
-            const hours = Math.floor((timeLeftMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-            const minutes = Math.floor((timeLeftMs % (1000 * 60 * 60)) / (1000 * 60));
-            let timeStr = days > 0 ? `${days}д ${hours}ч ${minutes}м` : `${hours}ч ${minutes}м`;
-            if (days === 0 && hours === 0) timeStr = `${minutes}м`;
-            expirationHtml = `<span style="color: rgba(255,255,255,0.5);">Сгорит:</span> <span style="color: #ff3b30; font-weight: 900;">${timeStr}</span>`;
-        } else if (nowMs >= baseLifeTimeMs && nowMs < finalDeleteTimeMs) {
-            // ФАЗА 2: Сгорел, но есть 7 дней на оспаривание
-            isExpired = true;
-            isDisputed = true;
-            const graceLeftMs = finalDeleteTimeMs - nowMs;
-            const daysGrace = Math.floor(graceLeftMs / (1000 * 60 * 60 * 24));
-            const hoursGrace = Math.floor((graceLeftMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-            expirationHtml = `<span style="color: #ffcc00; font-weight: 900;">ОСПАРИВАНИЕ (${daysGrace}д ${hoursGrace}ч)</span>`;
-        } else {
-            // ФАЗА 3: Время вышло полностью (если вдруг фронт успел поймать до удаления из БД)
-            isExpired = true;
-            expirationHtml = `<span style="color: #ff3b30; font-weight: 900;">СГОРЕЛ</span>`;
-        }
-    }
-}
-
-// Защита от продажи сгоревших/оспариваемых скинов при "Продать все"
-if (!isExpired && ['available', 'pending', 'failed', 'canceled'].includes(status)) {
-    availableSellCount++;
-    totalSellTickets += ticketVal;
-}
-
-                // ЛОГИКА НИЖНЕЙ КНОПКИ
-let bottomBtnText = '';
-let bottomBtnAction = '';
-let panelContent = '';
-let bottomBtnStyle = '';
-
-if (isArchived) {
-    bottomBtnText = ''; 
-} else if (isDisputed) {
-    bottomBtnText = `<i class="fa-solid fa-scale-balanced"></i> ОСПАРИВАТЬ`;
-    bottomBtnAction = `onclick="toggleActionPanel('${historyId}', true, event)"`;
-    bottomBtnStyle = 'background: rgba(255, 204, 0, 0.1); color: #ffcc00; border-top: 1px solid var(--glass-border);';
-    
-    panelContent = `
-        <div style="font-size: ${currentGridSize === '3' ? '8px' : '10px'}; color: #ffcc00; font-weight: 800; text-align: center; margin-bottom: 8px; line-height: 1.2;">
-            Время вышло, но скин можно<br>попробовать восстановить!
-        </div>
-        <button onclick="openSupportModal('${historyId}', event); toggleActionPanel('${historyId}', false, event);" style="box-sizing:border-box; background:rgba(255, 204, 0, 0.2); border:1px solid rgba(255, 204, 0, 0.4); color:#ffcc00; border-radius:6px; font-size:${fsBtn}; font-weight:800; padding:6px; width:100%; margin-bottom:4px; transition:0.2s; backdrop-filter:blur(5px);">
-            <i class="fa-solid fa-headset"></i> НАПИСАТЬ АДМИНУ
-        </button>
-    `;
-} else if (isExpired && !isDisputed && ['available', 'pending', 'canceled', 'failed'].includes(status)) {
-    bottomBtnText = 'СГОРЕЛ';
-    bottomBtnStyle = 'background: rgba(255,255,255,0.02); color: var(--text-color-muted); border-top: 1px solid var(--glass-border);';
-} else if (status === 'market_pending') {
+                if (isArchived) {
+                    bottomBtnText = ''; 
+                } else if (isDisputed) {
+                    bottomBtnText = `<i class="fa-solid fa-scale-balanced"></i> ОСПАРИВАТЬ`;
+                    bottomBtnAction = `onclick="toggleActionPanel('${historyId}', true, event)"`;
+                    bottomBtnStyle = 'background: rgba(255, 204, 0, 0.1); color: #ffcc00; border-top: 1px solid var(--glass-border);';
+                    
+                    panelContent = `
+                        <div style="font-size: ${currentGridSize === '3' ? '8px' : '10px'}; color: #ffcc00; font-weight: 800; text-align: center; margin-bottom: 8px; line-height: 1.2;">
+                            Время вышло, но скин можно<br>попробовать восстановить!
+                        </div>
+                        <button onclick="openSupportModal('${historyId}', event); toggleActionPanel('${historyId}', false, event);" style="box-sizing:border-box; background:rgba(255, 204, 0, 0.2); border:1px solid rgba(255, 204, 0, 0.4); color:#ffcc00; border-radius:6px; font-size:${fsBtn}; font-weight:800; padding:6px; width:100%; margin-bottom:4px; transition:0.2s; backdrop-filter:blur(5px);">
+                            <i class="fa-solid fa-headset"></i> НАПИСАТЬ АДМИНУ
+                        </button>
+                    `;
+                } else if (isExpired && !isDisputed && ['available', 'pending', 'canceled', 'failed'].includes(status)) {
+                    bottomBtnText = 'СГОРЕЛ';
+                    bottomBtnStyle = 'background: rgba(255,255,255,0.02); color: var(--text-color-muted); border-top: 1px solid var(--glass-border);';
+                } else if (status === 'market_pending') {
                     bottomBtnText = `<span id="check-icon-${historyId}" style="display:flex; align-items:center; gap:4px;"><i class="fa-solid fa-spinner fa-spin-fast"></i> СБОРКА БОТОМ</span>`;
                     bottomBtnAction = `onclick="checkTradeStatus(${historyId})"`;
                     bottomBtnStyle = 'background: rgba(255,255,255,0.05); color: #fff; border-top: 1px solid var(--glass-border);';
@@ -2642,13 +2632,10 @@ if (isArchived) {
                     bottomBtnStyle = 'background: rgba(255,255,255,0.05); color: #fff; border-top: 1px solid var(--glass-border);';
                 } else if (status === 'offer_sent' || status === 'sent') {
                     const timerElementId = `timer-${historyId}`;
-                    // Обернули весь текст в id="timer-wrapper-..."
                     bottomBtnText = `<span id="timer-wrapper-${historyId}">ЗАБРАТЬ <span id="${timerElementId}" style="margin-left:3px; color:#ffd700;">--:--</span></span> <i class="fa-solid fa-chevron-up" style="font-size:${fsChevron}; margin-left:2px;"></i>`;
                     bottomBtnStyle = 'background: rgba(255,255,255,0.1); color: #fff; border-top: 1px solid var(--glass-border); animation: pulse-opacity 1.5s infinite;';
-                    // Добавили ID для самой кнопки, чтобы её блокировать
                     bottomBtnAction = `id="bottom-btn-${historyId}" onclick="toggleActionPanel('${historyId}', true, event)"`;
                     
-                    // Убрали кнопку ОБНОВИТЬ СТАТУС, оставили только STEAM
                     panelContent = `
                         <div style="font-size: ${currentGridSize === '3' ? '7.5px' : '9px'}; color: #fff; font-weight: 800; margin-bottom: 4px; text-align: center; opacity: 0.8; line-height: 1.1;">ПРИМИТЕ ОФФЕР<br>В STEAM</div>
                         <button onclick="window.open('https://steamcommunity.com/my/tradeoffers/', '_blank'); toggleActionPanel('${historyId}', false, event);" style="box-sizing:border-box; background:rgba(42, 71, 94, 0.7); border:1px solid rgba(102, 192, 244, 0.4); color:#fff; border-radius:6px; font-size:${fsBtn}; font-weight:800; padding:4px; width:100%; margin-bottom:4px; line-height:1.3; transition:0.2s; backdrop-filter:blur(5px); box-shadow: 0 4px 15px rgba(27, 40, 56, 0.5);">
@@ -2657,7 +2644,6 @@ if (isArchived) {
                     `;
                     setTimeout(() => { if (typeof initCountdown === 'function') initCountdown(timerElementId, item.updated_at); }, 50);
                 } else {
-                    // Available, Pending
                     bottomBtnText = ` <i class="fa-solid fa-chevron-up"></i> ДЕЙСТВИЕ <i class="fa-solid fa-chevron-up" style="font-size:${fsChevron}; margin-left:2px;"></i>`;
                     bottomBtnAction = `onclick="toggleActionPanel('${historyId}', true, event)"`;
                     bottomBtnStyle = 'background: rgba(0,0,0,0.6); border-top: 1px solid var(--glass-border); color: #fff;';
@@ -2683,17 +2669,18 @@ if (isArchived) {
                         <div onclick="toggleActionPanel('${historyId}', false, event)" style="position:absolute; top:0; left:0; width:100%; height:100%; z-index:-1; cursor:pointer;"></div>
                         
                         <div onclick="toggleActionPanel('${historyId}', false, event)" style="position:absolute; top:4px; right:4px; width:${closeBtnSize}; height:${closeBtnSize}; background:rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius:50%; display:flex; justify-content:center; align-items:center; cursor:pointer; z-index:10;">
-    <i class="fa-solid fa-xmark" style="color:var(--text-color-muted); font-size:${closeBtnIcon}; line-height:1; display:flex; margin-top:0.5px;"></i>
-</div>
-
-${!isDisputed ? `
-<div style="text-align:center; margin-bottom:${currentGridSize === '2' ? '22px' : '8px'}; padding:0 ${namePadding};">
-    <div style="font-size:${fsTitle}; font-weight:800; color:#fff; overflow:hidden; text-overflow:ellipsis; line-height:1.2; ${nameDisplayStyle}">
-        ${cleanName}
-    </div>
-</div>
-` : `<div style="height: 12px;"></div>`}
-${panelContent}
+                            <i class="fa-solid fa-xmark" style="color:var(--text-color-muted); font-size:${closeBtnIcon}; line-height:1; display:flex; margin-top:0.5px;"></i>
+                        </div>
+                        
+                        ${!isDisputed ? `
+                        <div style="text-align:center; margin-bottom:${currentGridSize === '2' ? '22px' : '8px'}; padding:0 ${namePadding};">
+                            <div style="font-size:${fsTitle}; font-weight:800; color:#fff; overflow:hidden; text-overflow:ellipsis; line-height:1.2; ${nameDisplayStyle}">
+                                ${cleanName}
+                            </div>
+                        </div>
+                        ` : `<div style="height: 12px;"></div>`}
+                        
+                        ${panelContent}
                     </div>
                     ` : ''}
 
