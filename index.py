@@ -30976,29 +30976,58 @@ async def get_history_details(
     telegram_id = user_info["id"]
 
     if request_data.type == 'cases':
-        # Получаем все открытые кейсы пользователя
+        # Запрашиваем всю историю пользователя вместе с ценами из связанной таблицы cs_items
         res_cases = await supabase.get(
             "/cs_history",
             params={
                 "user_id": f"eq.{telegram_id}",
-                "case_name": "ilike.*Кейс |*",
-                "select": "case_name"
+                "select": "case_name,status,replaced_price,cs_items(price_rub)"
             }
         )
         cases_data = res_cases.json() if res_cases.status_code == 200 else []
         
-        # Считаем частоту каждого кейса
+        total_opened = 0
+        total_earned = 0.0
+        total_withdrawn = 0.0
         case_counts = {}
+        
         for item in cases_data:
+            # 1. Вычисляем финальную цену предмета (в рублях)
+            replaced_price = item.get("replaced_price")
+            base_price = 0.0
+            
+            # Подтягиваем цену из cs_items, если она есть
+            cs_item = item.get("cs_items")
+            if isinstance(cs_item, dict):
+                base_price = float(cs_item.get("price_rub") or 0.0)
+                
+            replaced_price = float(replaced_price) if replaced_price is not None else 0.0
+            # Если была замена скина, берем цену замены, иначе базовую
+            final_price = replaced_price if replaced_price > 0 else base_price
+            
+            # 2. Считаем ОБЩУЮ сумму вывода (все предметы со статусом received)
+            if item.get("status") == "received":
+                total_withdrawn += final_price
+                
+            # 3. Считаем статистику ИМЕННО по кейсам
             name = item.get("case_name")
-            if name:
+            if name and "Кейс |" in name:
+                total_opened += 1
+                total_earned += final_price
                 case_counts[name] = case_counts.get(name, 0) + 1
         
-        # Сортируем по убыванию и берем ТОП-3
-        sorted_cases = sorted(case_counts.items(), key=lambda x: x[1], reverse=True)[:3]
+        # Сортируем по убыванию и берем ТОП-5 любимых кейсов
+        sorted_cases = sorted(case_counts.items(), key=lambda x: x[1], reverse=True)[:5]
         top_cases = [{"name": name, "count": count} for name, count in sorted_cases]
         
-        return {"success": True, "type": "cases", "data": top_cases}
+        return {
+            "success": True, 
+            "type": "cases", 
+            "total_opened": total_opened,
+            "total_earned": round(total_earned, 2),
+            "total_withdrawn": round(total_withdrawn, 2),
+            "data": top_cases
+        }
 
     elif request_data.type == 'coupons':
         # Выбираем последние 10 купонов (таблица cs_codes)
