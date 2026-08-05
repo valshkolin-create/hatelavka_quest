@@ -2517,7 +2517,8 @@ if (['available', 'pending', 'canceled'].includes(rawStatus)) {
                     }
                 }
 
-                if (!isExpired && ['available', 'pending', 'failed', 'canceled'].includes(status)) {
+                // Убрали 'failed', чтобы ошибочные скины не попадали в ПРОДАТЬ ВСЁ
+                if (!isExpired && ['available', 'pending', 'canceled'].includes(status)) {
                     availableSellCount++;
                     totalSellTickets += ticketVal;
                 }
@@ -2586,8 +2587,9 @@ if (['available', 'pending', 'canceled'].includes(rawStatus)) {
                         centerOverlay = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:${fsOverlay}; font-weight:900; color:#b0b0b0; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5; transform: translateY(-10px);">В свапе</div>` + lowerSkinName;
                     } else if (isFailed) {
                         centerOverlay = `<div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:${fsOverlay}; font-weight:900; color:#ff453a; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5; line-height: 1.2; transform: translateY(-10px);">ОШИБКА<span style="font-size: 8px; color: rgba(255,255,255,0.6); margin-top: 4px; letter-spacing: 0; text-transform: none;">обратитесь к администратору</span></div>` + lowerSkinName;
-                    } else if (isExpired) {
-                        centerOverlay = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:${fsOverlay}; font-weight:900; color:#b0b0b0; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5; transform: translateY(-10px);">ВРЕМЯ ВЫШЛО</div>` + lowerSkinName;
+                    } else if (isCompletelyExpired) {
+                        // Для ВРЕМЯ ВЫШЛО: цвет красный (#ff453a), lowerSkinName убрано снизу и вставлено прямо под текст
+                        centerOverlay = `<div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:${fsOverlay}; font-weight:900; color:#ff453a; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5; line-height: 1.2; transform: translateY(-10px);">ВРЕМЯ ВЫШЛО<span style="font-size: 10px; font-weight: 800; color: rgba(255,255,255,0.7); margin-top: 4px; letter-spacing: 0; text-transform: none; text-shadow: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90%;">${cleanName}</span></div>`;
                     }
                 } 
                 else if (status === 'auto_queued' || status === 'market_pending') {
@@ -2683,14 +2685,14 @@ if (['available', 'pending', 'canceled'].includes(rawStatus)) {
 
                     <div onclick="openSupportModal('${historyId}', event)" style="position:absolute; top:4px; left:4px; width:${supportSize}; height:${supportSize}; border-radius:50%; background:rgba(255,255,255,0.05); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); color:var(--text-color-muted); font-weight:900; display:flex; justify-content:center; align-items:center; z-index:20; font-size:${supportFont}; border: 1px solid var(--glass-border); cursor:pointer;">!</div>
 
-                    <div style="position:absolute; inset:0; display:flex; justify-content:center; align-items:center; overflow:hidden; z-index:1; padding-bottom: 15px;" onclick="${!isArchived ? `openFullscreenWeapon('${imageUrl}', '${safeNameStr}')` : ''}">
+                    <div style="position:absolute; inset:0; display:flex; justify-content:center; align-items:center; overflow:hidden; z-index:1; padding-bottom: 15px;" onclick="${!isArchived && !isFailed ? `openFullscreenWeapon('${imageUrl}', '${safeNameStr}')` : ''}">
                         <img src="${imageUrl}" style="${imageStyles}">
                         ${centerOverlay}
                     </div>
 
                     <div style="position:absolute; bottom: ${isArchived ? '8px' : (currentGridSize === '2' ? '42px' : '32px')}; left:4px; z-index:10; display:flex; flex-direction:column; gap:0; pointer-events:none;">
-                        <!-- 🔥 СКРЫВАЕМ ЦЕНУ, ЕСЛИ СКИН ОСПАРИВАЕТСЯ ИЛИ СГОРЕЛ (!isExpired) -->
-                        ${!isArchived && !isExpired ? `
+                        <!-- 🔥 СКРЫВАЕМ ЦЕНУ У ОШИБОК (!isFailed) И СГОРЕВШИХ (!isExpired) -->
+                        ${!isArchived && !isExpired && !isFailed ? `
                             <div style="background:rgba(0,0,0,0.6); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); border:1px solid var(--glass-border); padding: 2px 5px; border-radius: 4px; font-size:${fsPrice}; font-weight:900; color:#fff;">
                                 ${rawPrice} ₽
                             </div>
