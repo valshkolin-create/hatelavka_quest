@@ -94,6 +94,10 @@ _background_supabase_client: Optional[httpx.AsyncClient] = None
 # 🛠️ ГЛОБАЛЬНЫЕ УТИЛИТЫ CS MARKET БАЛАНС + ОГРАНИЧЕНИЕ
 # =========================================================================
 
+# =========================================================================
+# 🛠️ ГЛОБАЛЬНЫЕ УТИЛИТЫ CS MARKET БАЛАНС + ОГРАНИЧЕНИЕ
+# =========================================================================
+
 async def verify_activity_lock(user_record: dict, supabase: httpx.AsyncClient):
     import json
     import logging
@@ -123,10 +127,12 @@ async def verify_activity_lock(user_record: dict, supabase: httpx.AsyncClient):
     except Exception as e:
         logging.error(f"[ACTIVITY LOCK] Ошибка чтения баланса из БД: {e}")
 
-    # 2. Берем максимальный актив юзера
+    # 2. Берем актив юзера и СОЕДИНЯЕМ его (Twitch + Telegram)
     twitch_msgs = int(user_record.get("monthly_message_count") or 0)
     tg_msgs = int(user_record.get("telegram_monthly_message_count") or 0)
-    user_max_msgs = max(twitch_msgs, tg_msgs)
+    
+    # 🔥 Главное изменение: теперь актив суммируется
+    user_total_msgs = twitch_msgs + tg_msgs
 
     # ==========================================
     # 🔥 ХАРДКОРНАЯ ЛЕСТНИЦА ПОРОГОВ 🔥
@@ -152,17 +158,18 @@ async def verify_activity_lock(user_record: dict, supabase: httpx.AsyncClient):
     # 4. Проверка и Блокировка
     is_admin = user_record.get("is_admin", False)
     
-    if user_max_msgs < required_msgs and not is_admin:
+    # Сравниваем ОБЩУЮ сумму с требуемым порогом
+    if user_total_msgs < required_msgs and not is_admin:
         raise HTTPException(
             status_code=403, 
             detail={
                 "error_code": "ACTIVITY_LOCK",
-                "current_msgs": user_max_msgs,
+                "current_msgs": user_total_msgs, # Отдаем фронту общую сумму
                 "required_msgs": required_msgs,
                 "market_balance": market_balance # Отдаем на фронт для дебага
             }
         )
-
+        
 # =========================================================================
 # 🛠️ ГЛОБАЛЬНЫЕ УТИЛИТЫ ДЛЯ БАЛАНСА И ПРОМОКОДОВ (BOT-T)
 # =========================================================================
