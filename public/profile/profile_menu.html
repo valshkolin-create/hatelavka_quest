@@ -1870,7 +1870,7 @@ window.clearAllRewards = function() {
                             <div style="display:flex; align-items:center; gap: 6px;">
                                 <div class="event-id">#${event.id}</div>
                                 <!-- 🔥 Компактная кнопка поддержки -->
-                                <div onclick="openEventSupport('${event.id}', '${event.title.replace(/'/g, "\\'")}', '${dateStr} В ${timeStr}', event)" style="width: 18px; height: 18px; border-radius: 50%; background: rgba(255,255,255,0.05); color: var(--text-color-muted); font-weight: 900; display: flex; justify-content: center; align-items: center; font-size: 11px; border: 1px solid var(--glass-border); cursor: pointer; transition: 0.2s; flex-shrink: 0;">!</div>
+                                <div onclick="openEventSupport('${event.id}', '${event.title.replace(/'/g, "\\'").replace(/"/g, "&quot;")}', '${dateStr} В ${timeStr}', event)" style="width: 18px; height: 18px; border-radius: 50%; background: rgba(255,255,255,0.05); color: var(--text-color-muted); font-weight: 900; display: flex; justify-content: center; align-items: center; font-size: 11px; border: 1px solid var(--glass-border); cursor: pointer; transition: 0.2s; flex-shrink: 0;">!</div>
                             </div>
                         </div>
                         ${event.description ? `<div class="event-desc">${event.description}</div>` : ''}
@@ -2472,7 +2472,7 @@ if (['available', 'pending', 'canceled'].includes(rawStatus)) {
                 let parsedReplPrice = parseFloat(strReplaced) || 0;
                 const rawPrice = (isReplaced || isSwapped) && parsedReplPrice > 0 ? parsedReplPrice : parsedBasePrice;
                 const ticketVal = parseFloat((rawPrice * 0.5).toFixed(2));
-                const safeNameStr = displayName.replace(/'/g, "\\'");
+                const safeNameStr = displayName.replace(/'/g, "\\'").replace(/"/g, "&quot;");
 
                 // ==== 1. СНАЧАЛА ВЫЧИСЛЯЕМ ТАЙМЕРЫ И СТАТУС ОСПАРИВАНИЯ ====
                 let expirationHtml = '';
