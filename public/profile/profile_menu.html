@@ -769,9 +769,9 @@ html body nav.floating-bottom-bar .comic-badge {
                     </span>
                 </div>
                 <div class="settings-card-row" style="margin-top: 2px;">
-                    <!-- Здесь будет отображаться обрезанная текущая ссылка -->
-                    <div class="settings-status-text" id="trade-link-display" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 70%; color: #fff; font-family: monospace;">Загрузка...</div>
-                    <button class="ios-btn btn-steam">Изменить</button>
+                    <!-- Ссылка теперь тянется на всю доступную ширину и немного уплотнена -->
+                    <div class="settings-status-text" id="trade-link-display" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-grow: 1; min-width: 0; margin-right: 10px; color: #fff; font-family: monospace; font-size: 10px; letter-spacing: -0.2px;">Загрузка...</div>
+                    <button class="ios-btn btn-steam" style="flex-shrink: 0;">Изменить</button>
                 </div>
             </div>
 
