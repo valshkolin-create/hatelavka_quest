@@ -693,6 +693,21 @@ html body nav.floating-bottom-bar .comic-badge {
                 <button class="sheet-close" onclick="closeSettings()"><i class="fa-solid fa-xmark"></i></button>
             </div>
 
+            <!-- Блок Уведомлений (Возвращен из старого кода) -->
+            <div class="settings-card" onclick="openNotifyModal()">
+                <div class="settings-card-row">
+                    <div class="settings-icon-title">
+                        <i class="fa-solid fa-bell" style="color: #ff9f0a; font-size: 20px;"></i>
+                        Уведомления
+                    </div>
+                    <div id="notify-badge-container"></div>
+                </div>
+                <div class="settings-card-row">
+                    <div class="settings-status-text">Настроить оповещения</div>
+                    <i class="fa-solid fa-chevron-right" style="color: var(--text-color-muted); font-size: 14px;"></i>
+                </div>
+            </div>
+
             <!-- Блок Сетки Инвентаря -->
             <div class="settings-card">
                 <div class="settings-card-row">
@@ -732,6 +747,7 @@ html body nav.floating-bottom-bar .comic-badge {
                     </div>
                 </div>
                 <div>
+                    <span class="twitch-trust-link" id="steam-trust-btn" onclick="document.getElementById('steam-trust-popup').classList.add('visible')" style="font-size: 11px; color: var(--text-color-muted); text-decoration: underline; cursor: pointer; display: block; margin-bottom: 8px;"><i class="fa-solid fa-shield-halved"></i> Безопасно ли это?</span>
                     <input type="url" id="trade-link-input" class="ios-input" placeholder="https://steamcommunity.com/tradeoffer/new/..." autocomplete="off">
                 </div>
                 <div style="display: flex; justify-content: flex-end; margin-top: 5px;">
@@ -777,6 +793,92 @@ html body nav.floating-bottom-bar .comic-badge {
         </div>
     </div>
     <!-- 👆 КОНЕЦ ОКНА ИСТОРИИ 👆 -->
+
+    <!-- ============================================== -->
+    <!-- ВОЗВРАЩЕННЫЕ ПОПАПЫ (УВЕДОМЛЕНИЯ, TRUST, HELP) -->
+    <!-- ============================================== -->
+
+    <!-- Попап Уведомлений -->
+    <div id="notify-popup-overlay" class="modal-overlay" onclick="if(event.target===this) document.getElementById('notify-popup-overlay').classList.remove('visible')">
+        <div class="custom-popup" style="background: var(--glass-bg); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border: 1px solid var(--glass-border); border-radius: 24px; padding: 24px; max-width: 360px; width: 90%; margin: auto; position: relative; box-shadow: var(--glass-shadow);">
+            <div style="display: flex; justify-content: flex-end; width: 100%;">
+                <button onclick="document.getElementById('notify-popup-overlay').classList.remove('visible')" style="background: none; border: none; color: #888; font-size: 20px; cursor: pointer;">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div id="notify-content-area" style="width: 100%;"></div>
+        </div>
+    </div>
+
+    <!-- Попап "Как использовать" -->
+    <div id="how-to-use-popup" class="modal-overlay" onclick="if(event.target===this) document.getElementById('how-to-use-popup').classList.remove('visible')">
+        <div class="custom-popup" style="background: var(--glass-bg); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border: 1px solid var(--glass-border); border-radius: 24px; padding: 24px; max-width: 360px; width: 90%; margin: auto; position: relative; box-shadow: var(--glass-shadow); text-align: center;">
+            <h3 style="margin: 0 0 10px 0; font-size: 18px; font-weight: 800; color: #fff;">Как использовать код?</h3>
+            <p style="margin: 0 0 20px 0; font-size: 14px; color: var(--text-color-muted); line-height: 1.4;">Скопируйте код и активируйте его в боте.</p>
+            <img id="how-to-use-gif" src="" alt="Инструкция" style="width:100%; border-radius:10px; margin-bottom: 15px;">
+            
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <button onclick="tg.HapticFeedback && tg.HapticFeedback.impactOccurred('medium'); tg.openTelegramLink('https://t.me/HATElavka_bot?start=promo');" style="width: 100%; border: none; padding: 12px; border-radius: 12px; font-size: 14px; font-weight: 800; cursor: pointer; background-color: #fff; color: #000;">
+                    <i class="fa-brands fa-telegram" style="margin-right: 8px;"></i> Открыть HATElavka
+                </button>
+                <button onclick="document.getElementById('how-to-use-popup').classList.remove('visible')" style="width: 100%; border: 1px solid var(--glass-border); padding: 12px; border-radius: 12px; font-size: 14px; font-weight: 800; cursor: pointer; background-color: rgba(255,255,255,0.05); color: #fff;">
+                    Закрыть
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Попап Twitch Trust -->
+    <div id="twitch-trust-popup" class="modal-overlay" onclick="if(event.target===this) document.getElementById('twitch-trust-popup').classList.remove('visible')">
+        <div class="custom-popup" style="background: var(--glass-bg); backdrop-filter: var(--glass-blur); border: 1px solid var(--glass-border); border-radius: 24px; padding: 24px; max-width: 360px; width: 90%; margin: auto; position: relative; box-shadow: var(--glass-shadow); text-align: center;">
+            <div style="font-size: 40px; margin-bottom: 10px;">🛡️</div>
+            <h3 style="margin: 0 0 10px 0; font-size: 18px; font-weight: 800; color: #fff;">Безопасно ли это?</h3>
+            <div style="font-size: 13px; color: var(--text-color-muted); line-height: 1.5; text-align: left; margin-bottom: 20px;">
+                <p style="margin-bottom: 10px;">Мы используем <b>официальную авторизацию Twitch (OAuth)</b>. Это тот же метод, который используют крупные сайты (Streamlabs, Twitch Drops).</p>
+                <ul style="padding-left: 20px; margin: 0; color: #fff;">
+                    <li>🔒 <b>Приложение НЕ видит ваш пароль</b></li>
+                    <li>✅ Приложение получает только ваш <b>Никнейм</b> и <b>ID</b>.</li>
+                </ul>
+                <div style="margin-top: 15px; padding-top: 10px; border-top: 1px solid var(--glass-border);">
+                    <p style="margin: 0; font-size: 11px;">💡 <b>Совет:</b> Сначала авторизуйтесь на twitch.tv во встроенном браузере Telegram, тогда вход произойдет мгновенно.</p>
+                </div>
+            </div>
+            <button onclick="document.getElementById('twitch-trust-popup').classList.remove('visible')" style="width: 100%; border: none; padding: 12px; border-radius: 12px; font-size: 14px; font-weight: 800; background-color: #fff; color: #000;">Всё понятно</button>
+        </div>
+    </div>
+
+    <!-- Попап Steam Trust -->
+    <div id="steam-trust-popup" class="modal-overlay" onclick="if(event.target===this) document.getElementById('steam-trust-popup').classList.remove('visible')">
+        <div class="custom-popup" style="background: var(--glass-bg); backdrop-filter: var(--glass-blur); border: 1px solid var(--glass-border); border-radius: 24px; padding: 24px; max-width: 360px; width: 90%; margin: auto; position: relative; box-shadow: var(--glass-shadow); text-align: center;">
+            <div style="font-size: 40px; margin-bottom: 10px;">🛡️</div>
+            <h3 style="margin: 0 0 10px 0; font-size: 18px; font-weight: 800; color: #fff;">Безопасно ли это?</h3>
+            <div style="font-size: 13px; color: var(--text-color-muted); line-height: 1.5; text-align: left; margin-bottom: 20px;">
+                <p style="margin-bottom: 10px;">Ввод <b>Trade Link</b> абсолютно безопасен.</p>
+                <ul style="padding-left: 20px; margin: 0; color: #fff;">
+                    <li>✅ По этой ссылке мы можем <b>только отправить</b> вам предметы.</li>
+                    <li>⛔ Мы <b>НЕ можем</b> забрать ваши вещи.</li>
+                    <li>🔒 Мы <b>НЕ получаем</b> доступ к паролю или почте.</li>
+                </ul>
+            </div>
+            <button onclick="document.getElementById('steam-trust-popup').classList.remove('visible')" style="width: 100%; border: none; padding: 12px; border-radius: 12px; font-size: 14px; font-weight: 800; background-color: #fff; color: #000;">Всё понятно</button>
+        </div>
+    </div>
+
+    <!-- Попап Twitch Помощь -->
+    <div id="twitch-help-popup" class="modal-overlay" onclick="if(event.target===this) document.getElementById('twitch-help-popup').classList.remove('visible')">
+        <div class="custom-popup" style="background: var(--glass-bg); backdrop-filter: var(--glass-blur); border: 1px solid var(--glass-border); border-radius: 24px; padding: 24px; max-width: 360px; width: 90%; margin: auto; position: relative; box-shadow: var(--glass-shadow); text-align: center;">
+            <div style="font-size: 40px; margin-bottom: 10px;">🆘</div>
+            <h3 style="margin: 0 0 10px 0; font-size: 18px; font-weight: 800; color: #fff;">Нужна помощь?</h3>
+            <div style="font-size: 13px; color: var(--text-color-muted); line-height: 1.5; text-align: left; margin-bottom: 20px;">
+                <p>Не удается привязать аккаунт автоматически?</p>
+                <p>Напишите администратору, он добавит ваш Twitch вручную.</p>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <a href="https://t.me/hatelove_twitch?text=Привет! Не получается привязать Twitch" target="_blank" style="width: 100%; border: none; padding: 12px; border-radius: 12px; font-size: 14px; font-weight: 800; background-color: #fff; color: #000; text-decoration: none; box-sizing: border-box;">Написать админу</a>
+                <button onclick="document.getElementById('twitch-help-popup').classList.remove('visible')" style="width: 100%; border: 1px solid var(--glass-border); padding: 12px; border-radius: 12px; font-size: 14px; font-weight: 800; background-color: rgba(255,255,255,0.05); color: #fff;">Закрыть</button>
+            </div>
+        </div>
+    </div>
 
     <script>
         const tg = window.Telegram.WebApp;
@@ -926,6 +1028,11 @@ window.renderRewards = function(rewards, isSorting = false) {
                     </div>
                     <div id="copied-status-${reward.id}">${copiedHtml}</div>
                     
+                    <!-- Возвращенная кнопка с гифкой -->
+                    <button onclick="document.getElementById('how-to-use-gif').src='https://i.postimg.cc/k4WyP04y/IMG-9212.gif'; document.getElementById('how-to-use-popup').classList.add('visible');" style="display: inline-flex; align-items: center; gap: 6px; background-color: rgba(255, 255, 255, 0.05); color: #fff; border: 1px solid var(--glass-border); border-radius: 8px; font-size: 11px; font-weight: 700; padding: 6px 12px; cursor: pointer; transition: 0.2s; text-decoration: none; margin-top: 4px; width: fit-content;">
+                        <i class="fa-solid fa-circle-question" style="color: var(--text-color-muted);"></i> Где использовать?
+                    </button>
+
                     <button class="reward-delete-btn" onclick="window.deleteReward('${reward.code}', 'promocode', this)"><i class="fa-solid fa-xmark"></i></button>
                 `;
             }
@@ -1297,12 +1404,21 @@ window.clearAllRewards = function() {
             };
         };
 
-        // --- ЗАГРУЗКА И ПРИМЕНЕНИЕ ДАННЫХ (ЭМУЛЯЦИЯ) ---
-        // --- ЗАГРУЗКА И ПРИМЕНЕНИЕ ДАННЫХ (ЭМУЛЯЦИЯ) ---
-        async function fetchAndApplyUserData() {
+       // --- ЗАГРУЗКА И ПРИМЕНЕНИЕ ДАННЫХ ---
+        async function fetchAndApplyUserData(isSilent = false) {
             try {
-                // ЭМУЛЯЦИЯ ТВОЕГО JSON 
-                currentUserData = {"idx":0,"telegram_id":477521935,"username":"valentin_shkolin","full_name":"Valentin","photo_url":"https://t.me/i/userpic/320/BVjNn9mGIpRbA1--7beSV3n-ARnP74bcMbBI7X2sJUw.svg","quest_progress":0,"created_at":"2025-08-12 19:43:55.930434+03","total_message_count":100,"weekly_message_count":0,"twitch_id":"883996654","twitch_login":"hatelove_ttv","monthly_message_count":0,"last_synced_message_count":8,"last_sync_timestamp":"2025-08-21 01:58:45.575978+03","daily_message_count":0,"total_progress":0,"active_quest_id":null,"total_uptime_minutes":16222,"daily_uptime_minutes":0,"weekly_uptime_minutes":0,"monthly_uptime_minutes":0,"last_synced_uptime_minutes":0,"telegram_daily_message_count":0,"telegram_weekly_message_count":0,"telegram_monthly_message_count":0,"telegram_total_message_count":2,"last_seen":"2025-11-28 15:05:58.993722+03","tickets":"38449.90","trade_link":"https://steamcommunity.com/tradeoffer/new/?partner=32459678&token=o_oztTfE","completed_challenges_count":42,"challenge_cooldown_until":"2026-01-15 14:24:57.474942+03","last_quest_cancel_at":"2026-07-08 20:36:04.855023+03","last_free_ticket_claimed_at":"2026-07-30 19:20:55.199318+03","has_events_access":true,"has_checkpoint_access":false,"last_telegram_quest_start":null,"checkpoint_stars":"6025.00","checkpoint_level":105,"last_challenge_completed_at":"2026-03-10 21:42:39.945942+03","checkpoint_stars_frozen_until":null,"active_quest_end_date":"2026-07-09 08:36:09.521266+03","quest_start_value":0,"auction_cooldown_until":"2026-05-01 22:11:15.799321+03","coins":"289.10","streak_days":0,"last_grind_at":"2026-07-30 19:27:38.781187+03","bot_t_coins":11525,"bott_internal_id":106597615,"bott_secret_key":"8b4ddc03c34915808b4d56e279964e1fbc3956e23de3d89e","last_challenge_assigned_at":null,"notify_auction_start":true,"notify_auction_outbid":true,"notify_auction_end":true,"notify_rewards":false,"notify_stream_start":true,"notify_daily_grind":false,"notify_dnd_enabled":false,"is_bot_active":true,"referrer_id":477521935,"referral_activated_at":"2026-01-27 17:08:16.63342+03","bott_ref_id":23662302,"last_balance_sync":"2026-08-03 17:12:20.295139+03","referrals_count":138,"twitch_status":"error","twitch_access_token":"s7baj0jwj9uk28hgcqa52ofof4smym","twitch_refresh_token":"4fv5jrr639a5g6phzfq141k8zpd8t1eogg0eszxi8bp160v150","last_twitch_sync":"2026-08-03 16:00:34.62654+03","last_mystery_box_at":null,"last_new_year_gift_at":"2026-04-13 08:55:11.938581+03","vk_id":null,"platform":"tg","is_banned":false,"trust_level":"green","trust_score":"100.0","prev_monthly_message_count":799,"prev_monthly_uptime_minutes":5000,"prev_telegram_monthly_message_count":0,"penalty_points":"6.0","amnesty_used_at":null,"amnesty_bonus":"70.0","monthly_quest_bonus":"0","has_cp_premium":false,"topskin_views":2,"has_accepted_oferta":true,"device_id":"e7e39385-4c1a-41c3-b630-1aaf17507d8d","last_ip":"2.26.0.193","platform_type":null,"is_admin":false};
+                if (!isSilent) document.getElementById('global-loader').classList.add('active');
+
+                // 1. ЧИТАЕМ КЭШ или делаем запрос
+                let bootstrapData = JSON.parse(localStorage.getItem('cache_bootstrap'));
+                let needBootstrapFetch = !bootstrapData;
+
+                if (needBootstrapFetch) {
+                    bootstrapData = await apiRequest("/api/v1/bootstrap", 'POST', {}, true);
+                    localStorage.setItem('cache_bootstrap', JSON.stringify(bootstrapData));
+                }
+
+                currentUserData = { ...bootstrapData.user, ...bootstrapData.menu };
 
                 document.getElementById('user-avatar').src = currentUserData.photo_url || "https://placehold.co/150x150/1c1c1e/ffffff?text=?";
                 document.getElementById('user-nickname').innerText = currentUserData.full_name || currentUserData.username || "Игрок";
@@ -1317,6 +1433,8 @@ window.clearAllRewards = function() {
                 document.getElementById('icon-twitch').style.textShadow = hasTwitch ? '0 0 10px rgba(255,255,255,0.4)' : 'none';
 
                 document.getElementById('trade-link-input').value = currentUserData.trade_link || "";
+                
+                // Рендер Twitch и Steam с кнопками доверия и помощи (Восстановлено из старого кода)
                 const twitchText = document.getElementById('twitch-status-text');
                 const twitchBtnCont = document.getElementById('twitch-action-btn-container');
                 
@@ -1324,19 +1442,37 @@ window.clearAllRewards = function() {
                     twitchText.innerHTML = `Привязан: <b style="color:#fff;">${currentUserData.twitch_login}</b>`;
                     twitchBtnCont.innerHTML = `<button class="ios-btn btn-danger" onclick="unlinkTwitch()">Отвязать</button>`;
                 } else {
-                    twitchText.innerText = `Аккаунт не привязан`;
-                    twitchBtnCont.innerHTML = `<button class="ios-btn btn-twitch" onclick="connectTwitch()">Привязать</button>`;
+                    twitchText.innerHTML = `Аккаунт не привязан<br><span class="twitch-trust-link" id="twitch-trust-btn" style="font-size: 11px; color: var(--text-color-muted); text-decoration: underline; cursor: pointer; margin-top: 4px; display: inline-block;"><i class="fa-solid fa-shield-halved"></i> Безопасно ли это?</span>`;
+                    twitchBtnCont.innerHTML = `
+                        <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end;">
+                            <button class="ios-btn btn-twitch" onclick="connectTwitch()">Привязать</button>
+                            <button id="twitch-help-btn" class="ios-btn" style="background: rgba(255,255,255,0.05); font-size: 11px; width: 100%;">Помощь</button>
+                        </div>
+                    `;
+                }
+
+                // ВАЖНО: Вешаем обработчики на новые кнопки Твича
+                setTimeout(() => {
+                    const trustBtn = document.getElementById('twitch-trust-btn');
+                    const helpBtn = document.getElementById('twitch-help-btn');
+                    if (trustBtn) trustBtn.onclick = () => document.getElementById('twitch-trust-popup').classList.add('visible');
+                    if (helpBtn) helpBtn.onclick = () => document.getElementById('twitch-help-popup').classList.add('visible');
+                }, 100);
+
+                // Отрисовка статуса Уведомлений
+                const isBotActive = currentUserData.is_bot_active === true;
+                const notifyBadgeCont = document.getElementById('notify-badge-container');
+                if (notifyBadgeCont) {
+                    notifyBadgeCont.innerHTML = isBotActive 
+                        ? `<span style="background:rgba(52,199,89,0.2);color:#34c759;font-size:10px;padding:2px 6px;border-radius:6px;font-weight:800;">ВКЛ</span>` 
+                        : `<span style="background:rgba(255,59,48,0.2);color:#ff453a;font-size:10px;padding:2px 6px;border-radius:6px;font-weight:800;">ОТКЛ</span>`;
                 }
 
                 // 👇🔥 БОЕВОЙ БЛОК: ЗАГРУЗКА СТАТИСТИКИ ДЛЯ КВАДРАТИКОВ 🔥👇
                 try {
-                    // Боевой запрос к API
                     const stats = await apiRequest('/api/v1/user/history_stats', 'POST', null, true);
-                    
                     const statCasesEl = document.getElementById('stat-cases');
                     const statCouponsEl = document.getElementById('stat-coupons');
-                    
-                    // Обновляем цифры из базы данных
                     if (statCasesEl) statCasesEl.innerText = stats.cases_opened || 0;
                     if (statCouponsEl) statCouponsEl.innerText = stats.coupons_received || 0;
                 } catch (statsError) {
@@ -1347,6 +1483,8 @@ window.clearAllRewards = function() {
             } catch(e) {
                 console.error("Ошибка загрузки пользователя:", e);
                 customAlert("Не удалось загрузить профиль");
+            } finally {
+                if (!isSilent) document.getElementById('global-loader').classList.remove('active');
             }
         }
 
@@ -1964,6 +2102,112 @@ window.clearAllRewards = function() {
             if (overlay) overlay.style.display = 'none';
             refreshInventoryList();
         };
+
+        // ==========================================
+        // ВОССТАНОВЛЕННАЯ ЛОГИКА УВЕДОМЛЕНИЙ И СТАТУСОВ
+        // ==========================================
+
+        let batchTimeout; 
+        let pendingUpdates = {}; 
+        
+        window.openNotifyModal = function() {
+            const isActive = currentUserData.is_bot_active === true;
+            const settings = currentUserData;
+            const overlay = document.getElementById('notify-popup-overlay');
+            const content = document.getElementById('notify-content-area');
+            
+            overlay.classList.add('visible');
+            
+            if (!isActive) {
+                content.innerHTML = `<div style="font-size: 40px; margin-bottom: 15px; text-align: center;">🤖</div><p style="text-align: center; margin-bottom: 15px; color: var(--text-color-muted); font-size: 14px;">Активируйте бота для уведомлений.</p><div style="display: flex; justify-content: center;"><a href="https://t.me/quest_hatelavka_bot?start=enable_notifications" target="_blank" style="background: #fff; color: #000; font-weight: 800; padding: 12px 24px; border-radius: 12px; text-decoration: none; width: 100%; text-align:center;">Перейти в бота</a></div>`;
+            } else {
+                content.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                        <span style="font-size:16px; font-weight:800; color:#fff;">Оповещения</span>
+                        <span id="save-status" style="font-size:12px; color:#34c759; opacity:0; transition:opacity 0.3s; font-weight:800;">Сохранено</span>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        ${createToggle('notify_auction_start', 'Аукцион', 'Новый аукцион', settings.notify_auction_start)}
+                        ${createToggle('notify_auction_outbid', 'Ставки', 'Ставку перебили', settings.notify_auction_outbid)}
+                        ${createToggle('notify_rewards', 'Награды', 'Получение наград', settings.notify_rewards)}
+                        ${createToggle('notify_stream_start', 'Стрим', 'Начало стрима', settings.notify_stream_start)}
+                        ${createToggle('notify_dnd_enabled', 'Тихий режим', 'Без звука (23-08)', settings.notify_dnd_enabled)}
+                    </div>`;
+                
+                const statusEl = document.getElementById('save-status');
+                content.querySelectorAll('.toggle-input').forEach(input => {
+                    input.addEventListener('change', (e) => {
+                        const key = e.target.dataset.key; const value = e.target.checked;
+                        currentUserData[key] = value; 
+                        statusEl.textContent = 'Сохранение...'; statusEl.style.color = '#ff9f0a'; statusEl.style.opacity = '1'; 
+                        pendingUpdates[key] = value;
+                        
+                        if (batchTimeout) clearTimeout(batchTimeout);
+                        batchTimeout = setTimeout(async () => {
+                            try { 
+                                await apiRequest('/api/v1/user/settings/update_batch', 'POST', { updates: pendingUpdates }, true); 
+                                pendingUpdates = {}; 
+                                statusEl.textContent = 'Сохранено'; statusEl.style.color = '#34c759'; 
+                                setTimeout(() => { statusEl.style.opacity = '0'; }, 2000); 
+                            } catch (err) { 
+                                statusEl.textContent = 'Ошибка!'; statusEl.style.color = '#ff453a'; 
+                            }
+                        }, 1000); 
+                    });
+                });
+                
+                content.querySelectorAll('.test-text-btn').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        e.currentTarget.innerText = '...';
+                        try { 
+                            await apiRequest('/api/v1/user/notification/test', 'POST', { type: e.currentTarget.dataset.type }, true); 
+                            e.currentTarget.innerText = 'Ок'; 
+                        } catch(err) { 
+                            e.currentTarget.innerText = 'Err'; 
+                        }
+                        setTimeout(() => { btn.innerText = 'Тест'; }, 2000);
+                    });
+                });
+            }
+        };
+
+        function createToggle(key, title, sub, checked) {
+            const isChecked = checked ?? (key !== 'notify_dnd_enabled');
+            // Переработанный переключатель под Liquid Glass
+            return `
+            <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); padding: 12px; border-radius: 12px;">
+                <div style="display: flex; flex-direction: column;">
+                    <span style="font-size: 14px; font-weight: 700; color: #fff;">${title}</span>
+                    <span style="font-size: 11px; color: var(--text-color-muted);">${sub}</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <button class="test-text-btn" data-type="${key}" style="background: none; border: 1px solid var(--glass-border); color: #fff; font-size: 10px; font-weight: 700; padding: 4px 8px; border-radius: 6px; cursor: pointer;">Тест</button>
+                    <label style="position: relative; display: inline-block; width: 44px; height: 24px;">
+                        <input type="checkbox" class="toggle-input" data-key="${key}" ${isChecked ? 'checked' : ''} style="opacity: 0; width: 0; height: 0;">
+                        <span style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: ${isChecked ? '#fff' : 'rgba(255,255,255,0.1)'}; transition: .4s; border-radius: 24px; border: 1px solid var(--glass-border);"></span>
+                        <span style="position: absolute; content: ''; height: 18px; width: 18px; left: 3px; bottom: 2px; background-color: ${isChecked ? '#000' : '#888'}; transition: .4s; border-radius: 50%; transform: ${isChecked ? 'translateX(20px)' : 'translateX(0)'};"></span>
+                    </label>
+                </div>
+            </div>`;
+        }
+
+        // --- ВОССТАНОВЛЕНА ФУНКЦИЯ РУЧНОГО ПОДТВЕРЖДЕНИЯ (Пункт 6) ---
+        window.confirmReceived = function(historyId) {
+            showCustomConfirmHTML(`Подтверждаешь, что скин пришел в Steam?`, async (close) => {
+                document.getElementById('global-loader').classList.add('active');
+                try {
+                    await apiRequest('/api/v1/user/inventory/confirm', 'POST', { history_id: historyId }, true);
+                    document.getElementById('global-loader').classList.remove('active');
+                    customAlert("Отлично! Скин сохранен в истории.", "Ура");
+                    await refreshInventoryList(); 
+                    close();
+                } catch (e) {
+                    document.getElementById('global-loader').classList.remove('active');
+                    if (e.message !== 'Activity Lock') customAlert("Ошибка: " + e.message);
+                    close();
+                }
+            }, "ДА, ПРИШЕЛ", "rgba(255,255,255,0.15)", "#fff");
+        }
 
         // --- ГЛАВНЫЙ РЕНДЕР ИНВЕНТАРЯ ---
         function renderInventory(items, isSorting = false) {
