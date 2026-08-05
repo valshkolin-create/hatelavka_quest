@@ -2682,7 +2682,7 @@ window.clearAllRewards = function() {
             }
         }
 
-        // --- ФУНКЦИЯ "ЗАБРАТЬ" ---
+       // --- ФУНКЦИЯ "ЗАБРАТЬ" ---
         window.withdrawItem = function(historyId, itemName) {
             if (isUpdating) return;
             const lockKey = `claim_lock_${historyId}`;
@@ -2699,12 +2699,29 @@ window.clearAllRewards = function() {
                 
                 closeConfirm();
                 toggleActionPanel(historyId, false);
-                showWithdrawLoader(itemName);
+                
+                // 1. Включаем стандартный тихий лоадер
+                document.getElementById('global-loader').classList.add('active');
+
+                // 2. Откладываем появление большого окна "Закупка предмета" на 400мс.
+                // Если бекенд мгновенно выдаст Activity Lock, мы просто отменяем этот таймер.
+                let creativeLoaderTimer = setTimeout(() => {
+                    document.getElementById('global-loader').classList.remove('active');
+                    showWithdrawLoader(itemName);
+                }, 400);
 
                 try {
+                    // Запрос на бекенд (здесь может вылететь Activity Lock)
                     const res = await apiRequest('/api/v1/user/inventory/withdraw', 'POST', { history_id: historyId }, true);
 
+                    // Если дошли сюда, значит актив есть!
+                    // Отменяем таймер и принудительно показываем лоадер, чтобы юзер увидел красивую анимацию
+                    clearTimeout(creativeLoaderTimer);
+                    document.getElementById('global-loader').classList.remove('active');
+                    showWithdrawLoader(itemName);
+
                     if (res && res.status === 'offer_replacement') {
+                        hideWithdrawLoader();
                         if (typeof openReplacementModal === 'function') {
                             openReplacementModal(historyId, res.options);
                         }
@@ -2719,8 +2736,14 @@ window.clearAllRewards = function() {
                     }
                     await refreshInventoryList();
                 } catch (e) {
+                    // ЕСЛИ ОШИБКА (вкл. Activity Lock) — ГЛУШИМ ВСЕ ЛОАДЕРЫ
+                    clearTimeout(creativeLoaderTimer);
+                    document.getElementById('global-loader').classList.remove('active');
+                    hideWithdrawLoader();
+
                     if (e.message !== 'Activity Lock') customAlert("Ошибка: " + e.message);
                 } finally {
+                    // Сброс состояния после завершения анимаций
                     setTimeout(() => {
                         hideWithdrawLoader();
                         isUpdating = false;
