@@ -1532,7 +1532,14 @@ window.clearAllRewards = function() {
                 document.getElementById('icon-twitch').style.textShadow = hasTwitch ? '0 0 10px rgba(255,255,255,0.4)' : 'none';
 
                 const tlDisplay = document.getElementById('trade-link-display');
-                if (tlDisplay) tlDisplay.innerText = currentUserData.trade_link || "Ссылка не привязана";
+                if (tlDisplay) {
+                    let dLink = currentUserData.trade_link;
+                    if (dLink && dLink.includes('?partner=')) {
+                        // Отрезаем всё до ?partner= и добавляем / в начало
+                        dLink = '/?partner=' + dLink.split('?partner=')[1];
+                    }
+                    tlDisplay.innerText = dLink || "Ссылка не привязана";
+                }
                 
                 // Рендер Twitch и Steam с кнопками доверия и помощи (Восстановлено из старого кода)
                 const twitchText = document.getElementById('twitch-status-text');
@@ -1645,8 +1652,12 @@ window.clearAllRewards = function() {
                 document.getElementById('icon-steam').style.color = '#fff';
                 document.getElementById('icon-steam').style.textShadow = '0 0 10px rgba(255,255,255,0.4)';
                 
-                // Обновляем текст в карточке
-                document.getElementById('trade-link-display').innerText = val;
+                // Обновляем текст в карточке, показывая только самую важную часть
+                let displayVal = val;
+                if (displayVal.includes('?partner=')) {
+                    displayVal = '/?partner=' + displayVal.split('?partner=')[1];
+                }
+                document.getElementById('trade-link-display').innerText = displayVal;
                 
                 if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
                 customAlert('Trade Link успешно сохранен!');
