@@ -357,7 +357,7 @@
         .modal-overlay {
             position: fixed; inset: 0; background: rgba(0,0,0,0.7);
             backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-            z-index: 10000; display: flex; align-items: flex-end; justify-content: center;
+            z-index: 10000; display: flex; align-items: center; justify-content: center; /* 🔥 СТАЛО ПО ЦЕНТРУ */
             opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
         }
         .modal-overlay.visible { opacity: 1; pointer-events: auto; }
@@ -366,22 +366,24 @@
             background: var(--glass-bg);
             backdrop-filter: var(--glass-blur);
             -webkit-backdrop-filter: var(--glass-blur);
-            border: 1px solid var(--glass-border); /* Стало как у остальных окон */
+            border: 1px solid var(--glass-border);
             box-shadow: var(--glass-shadow);
-            width: 90%; /* Сжали по ширине */
-            max-width: 360px; /* Сжали по ширине */
-            margin: 0 auto 24px auto; /* Добавили отступ снизу */
-            border-radius: 24px; /* Скруглили со всех сторон */
+            width: 90%; 
+            max-width: 360px; 
+            margin: auto; /* 🔥 ТЕПЕРЬ РОВНО ПО ЦЕНТРУ ЭКРАНА */
+            border-radius: 24px; 
             padding: 20px; 
-            transform: translateY(120%);
-            transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+            transform: scale(0.95); /* 🔥 ПОЯВЛЯЕТСЯ КРАСИВЫМ ЗУМОМ */
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
             box-sizing: border-box;
-            max-height: 85vh; /* Защита от выхода за экран */
-            overflow-y: auto; /* Включаем скролл внутри настроек, если экран мелкий */
+            max-height: 85vh; 
+            overflow-y: auto; 
         }
 
         .modal-overlay.visible .bottom-sheet { 
-            transform: translateY(0); 
+            transform: scale(1); 
+            opacity: 1;
         }
 
         .sheet-header {
