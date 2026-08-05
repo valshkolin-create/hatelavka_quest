@@ -2530,8 +2530,12 @@ if (['available', 'pending', 'canceled'].includes(rawStatus)) {
                 
                 let isArchived = ['received', 'exchanged', 'exchanged_swap'].includes(status);
                 let isFailed = status === 'failed';
-                // Блюрим всё, что в архиве, с ошибкой или сгорело (любая форма)
-                let isGrayBlurred = isArchived || isFailed || isExpired; 
+                
+                // 🔥 ВОТ ОНО: вычисляем полностью сгоревшие скины (чтобы не было undefined)
+                let isCompletelyExpired = (isExpired && !isDisputed && ['available', 'pending', 'canceled', 'failed'].includes(status));
+                
+                // Блюрим всё, что в архиве, с ошибкой или полностью сгорело
+                let isGrayBlurred = isArchived || isFailed || isCompletelyExpired; 
                 
                 let centerOverlay = '';
                 let overlayHtml = '';
@@ -2540,10 +2544,13 @@ if (['available', 'pending', 'canceled'].includes(rawStatus)) {
                 const isErrorStatus = ['failed', 'canceled', 'available'].includes(status);
                 const hasCustomError = isErrorStatus && item.details && item.details.includes('||');
                 
-                // Убрали старую красную подсветку! Показываем оверлей только для отмен
-                const shouldShowOverlay = (status === 'canceled' || (status === 'available' && hasCustomError)) && !isCancelAcked && !isExpired;
+                const shouldShowOverlay = (status === 'canceled' || (status === 'available' && hasCustomError)) && !isCancelAcked && !isCompletelyExpired;
 
-                if (shouldShowOverlay) {
+                if (isDisputed) {
+                    overlayHtml = `
+                        <div class="inv-overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(130, 15, 15, 0.35); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 5; border-radius: 12px; pointer-events: none; border: 1px solid rgba(255, 69, 58, 0.2);"></div>
+                    `;
+                } else if (shouldShowOverlay) {
                     let titleText = "Трейд<br>отменен!";
                     let subText = "Попробуйте вывести еще раз";
                     let titleColor = '#fff'; 
@@ -2588,7 +2595,6 @@ if (['available', 'pending', 'canceled'].includes(rawStatus)) {
                     } else if (isFailed) {
                         centerOverlay = `<div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:${fsOverlay}; font-weight:900; color:#ff453a; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5; line-height: 1.2; transform: translateY(-10px);">ОШИБКА<span style="font-size: 8px; color: rgba(255,255,255,0.6); margin-top: 4px; letter-spacing: 0; text-transform: none;">обратитесь к администратору</span></div>` + lowerSkinName;
                     } else if (isCompletelyExpired) {
-                        // Для ВРЕМЯ ВЫШЛО: цвет красный (#ff453a), lowerSkinName убрано снизу и вставлено прямо под текст
                         centerOverlay = `<div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:${fsOverlay}; font-weight:900; color:#ff453a; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5; line-height: 1.2; transform: translateY(-10px);">ВРЕМЯ ВЫШЛО<span style="font-size: 10px; font-weight: 800; color: rgba(255,255,255,0.7); margin-top: 4px; letter-spacing: 0; text-transform: none; text-shadow: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90%;">${cleanName}</span></div>`;
                     }
                 } 
@@ -2603,10 +2609,21 @@ if (['available', 'pending', 'canceled'].includes(rawStatus)) {
                 let bottomBtnStyle = '';
 
                 if (isArchived || isFailed) {
-                    // У выведенных, проданных и с ОШИБКОЙ нижней кнопки нет (помощь есть на '!' сверху)
                     bottomBtnText = ''; 
-                } else if (isExpired) {
-                    // У сгоревших - серая кнопка ДЕЙСТВИЕ, которая открывает помощь
+                } else if (isDisputed) {
+                    bottomBtnText = `<i class="fa-solid fa-clock"></i> ВРЕМЯ ВЫШЛО`;
+                    bottomBtnAction = `onclick="toggleActionPanel('${historyId}', true, event)"`;
+                    bottomBtnStyle = 'background: rgba(255, 69, 58, 0.1); color: #ff453a; border-top: 1px solid rgba(255, 69, 58, 0.2);';
+                    
+                    panelContent = `
+                        <div style="font-size: ${currentGridSize === '3' ? '8px' : '10px'}; color: #ffcc00; font-weight: 800; text-align: center; margin-bottom: 8px; line-height: 1.2;">
+                            Время вышло, но скин можно<br>попробовать восстановить!
+                        </div>
+                        <button onclick="openSupportModal('${historyId}', event); toggleActionPanel('${historyId}', false, event);" style="box-sizing:border-box; background:rgba(255, 204, 0, 0.2); border:1px solid rgba(255, 204, 0, 0.4); color:#ffcc00; border-radius:6px; font-size:${fsBtn}; font-weight:800; padding:6px; width:100%; margin-bottom:4px; transition:0.2s; backdrop-filter:blur(5px);">
+                            <i class="fa-solid fa-headset"></i> НАПИСАТЬ АДМИНУ
+                        </button>
+                    `;
+                } else if (isCompletelyExpired) {
                     bottomBtnText = ` <i class="fa-solid fa-chevron-up"></i> ДЕЙСТВИЕ <i class="fa-solid fa-chevron-up" style="font-size:${fsChevron}; margin-left:2px;"></i>`;
                     bottomBtnAction = `onclick="toggleActionPanel('${historyId}', true, event)"`;
                     bottomBtnStyle = 'background: rgba(0,0,0,0.6); border-top: 1px solid var(--glass-border); color: #fff;';
@@ -2685,14 +2702,14 @@ if (['available', 'pending', 'canceled'].includes(rawStatus)) {
 
                     <div onclick="openSupportModal('${historyId}', event)" style="position:absolute; top:4px; left:4px; width:${supportSize}; height:${supportSize}; border-radius:50%; background:rgba(255,255,255,0.05); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); color:var(--text-color-muted); font-weight:900; display:flex; justify-content:center; align-items:center; z-index:20; font-size:${supportFont}; border: 1px solid var(--glass-border); cursor:pointer;">!</div>
 
-                    <div style="position:absolute; inset:0; display:flex; justify-content:center; align-items:center; overflow:hidden; z-index:1; padding-bottom: 15px;" onclick="${!isArchived && !isFailed ? `openFullscreenWeapon('${imageUrl}', '${safeNameStr}')` : ''}">
+                    <div style="position:absolute; inset:0; display:flex; justify-content:center; align-items:center; overflow:hidden; z-index:1; padding-bottom: 15px;" onclick="${!isArchived && !isFailed && !isCompletelyExpired ? `openFullscreenWeapon('${imageUrl}', '${safeNameStr}')` : ''}">
                         <img src="${imageUrl}" style="${imageStyles}">
                         ${centerOverlay}
                     </div>
 
                     <div style="position:absolute; bottom: ${isArchived ? '8px' : (currentGridSize === '2' ? '42px' : '32px')}; left:4px; z-index:10; display:flex; flex-direction:column; gap:0; pointer-events:none;">
                         <!-- 🔥 СКРЫВАЕМ ЦЕНУ У ОШИБОК (!isFailed) И СГОРЕВШИХ (!isExpired) -->
-                        ${!isArchived && !isExpired && !isFailed ? `
+                        ${!isArchived && !isFailed && !isExpired ? `
                             <div style="background:rgba(0,0,0,0.6); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); border:1px solid var(--glass-border); padding: 2px 5px; border-radius: 4px; font-size:${fsPrice}; font-weight:900; color:#fff;">
                                 ${rawPrice} ₽
                             </div>
