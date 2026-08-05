@@ -2529,8 +2529,8 @@ if (['available', 'pending', 'canceled'].includes(rawStatus)) {
                 
                 let isArchived = ['received', 'exchanged', 'exchanged_swap'].includes(status);
                 let isFailed = status === 'failed';
-                let isCompletelyExpired = (isExpired && !isDisputed && ['available', 'pending', 'canceled', 'failed'].includes(status));
-                let isGrayBlurred = isArchived || isFailed || isCompletelyExpired;
+                // Блюрим всё, что в архиве, с ошибкой или сгорело (любая форма)
+                let isGrayBlurred = isArchived || isFailed || isExpired; 
                 
                 let centerOverlay = '';
                 let overlayHtml = '';
@@ -2539,14 +2539,10 @@ if (['available', 'pending', 'canceled'].includes(rawStatus)) {
                 const isErrorStatus = ['failed', 'canceled', 'available'].includes(status);
                 const hasCustomError = isErrorStatus && item.details && item.details.includes('||');
                 
-                const shouldShowOverlay = (status === 'canceled' || (status === 'available' && hasCustomError)) && !isCancelAcked && !isCompletelyExpired;
+                // Убрали старую красную подсветку! Показываем оверлей только для отмен
+                const shouldShowOverlay = (status === 'canceled' || (status === 'available' && hasCustomError)) && !isCancelAcked && !isExpired;
 
-                if (isDisputed) {
-                    // 🔥 КРАСИВЫЙ ТЕМНО-КРАСНЫЙ БЛЮР БЕЗ ТЕКСТА
-                    overlayHtml = `
-                        <div class="inv-overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(130, 15, 15, 0.35); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 5; border-radius: 12px; pointer-events: none; border: 1px solid rgba(255, 69, 58, 0.2);"></div>
-                    `;
-                } else if (shouldShowOverlay) {
+                if (shouldShowOverlay) {
                     let titleText = "Трейд<br>отменен!";
                     let subText = "Попробуйте вывести еще раз";
                     let titleColor = '#fff'; 
@@ -2590,7 +2586,7 @@ if (['available', 'pending', 'canceled'].includes(rawStatus)) {
                         centerOverlay = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:${fsOverlay}; font-weight:900; color:#b0b0b0; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5; transform: translateY(-10px);">В свапе</div>` + lowerSkinName;
                     } else if (isFailed) {
                         centerOverlay = `<div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:${fsOverlay}; font-weight:900; color:#ff453a; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5; line-height: 1.2; transform: translateY(-10px);">ОШИБКА<span style="font-size: 8px; color: rgba(255,255,255,0.6); margin-top: 4px; letter-spacing: 0; text-transform: none;">обратитесь к администратору</span></div>` + lowerSkinName;
-                    } else if (isCompletelyExpired) {
+                    } else if (isExpired) {
                         centerOverlay = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:${fsOverlay}; font-weight:900; color:#b0b0b0; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5; transform: translateY(-10px);">ВРЕМЯ ВЫШЛО</div>` + lowerSkinName;
                     }
                 } 
@@ -2604,31 +2600,18 @@ if (['available', 'pending', 'canceled'].includes(rawStatus)) {
                 let panelContent = '';
                 let bottomBtnStyle = '';
 
-                if (isArchived) {
+                if (isArchived || isFailed) {
+                    // У выведенных, проданных и с ОШИБКОЙ нижней кнопки нет (помощь есть на '!' сверху)
                     bottomBtnText = ''; 
-                } else if (isDisputed) {
-                    // 🔥 НАДПИСЬ ВРЕМЯ ВЫШЛО И КРАСНЫЙ СТИЛЬ КНОПКИ
-                    bottomBtnText = `<i class="fa-solid fa-clock"></i> ВРЕМЯ ВЫШЛО`;
-                    bottomBtnAction = `onclick="toggleActionPanel('${historyId}', true, event)"`;
-                    bottomBtnStyle = 'background: rgba(255, 69, 58, 0.1); color: #ff453a; border-top: 1px solid rgba(255, 69, 58, 0.2);';
-                    
-                    panelContent = `
-                        <div style="font-size: ${currentGridSize === '3' ? '8px' : '10px'}; color: #ffcc00; font-weight: 800; text-align: center; margin-bottom: 8px; line-height: 1.2;">
-                            Время вышло, но скин можно<br>попробовать восстановить!
-                        </div>
-                        <button onclick="openSupportModal('${historyId}', event); toggleActionPanel('${historyId}', false, event);" style="box-sizing:border-box; background:rgba(255, 204, 0, 0.2); border:1px solid rgba(255, 204, 0, 0.4); color:#ffcc00; border-radius:6px; font-size:${fsBtn}; font-weight:800; padding:6px; width:100%; margin-bottom:4px; transition:0.2s; backdrop-filter:blur(5px);">
-                            <i class="fa-solid fa-headset"></i> НАПИСАТЬ АДМИНУ
-                        </button>
-                    `;
-                } else if (isFailed || isCompletelyExpired) {
-                    // Сгоревшая или ошибочная карточка - снизу надпись ДЕЙСТВИЕ для связи с админом
+                } else if (isExpired) {
+                    // У сгоревших - серая кнопка ДЕЙСТВИЕ, которая открывает помощь
                     bottomBtnText = ` <i class="fa-solid fa-chevron-up"></i> ДЕЙСТВИЕ <i class="fa-solid fa-chevron-up" style="font-size:${fsChevron}; margin-left:2px;"></i>`;
                     bottomBtnAction = `onclick="toggleActionPanel('${historyId}', true, event)"`;
                     bottomBtnStyle = 'background: rgba(0,0,0,0.6); border-top: 1px solid var(--glass-border); color: #fff;';
                     
                     panelContent = `
                         <div style="font-size: ${currentGridSize === '3' ? '8px' : '10px'}; color: var(--text-color-muted); font-weight: 800; text-align: center; margin-bottom: 8px; line-height: 1.2;">
-                            ${isFailed ? 'Произошла ошибка при<br>выводе предмета' : 'Время на вывод вышло,<br>предмет сгорел'}
+                            Время на вывод вышло,<br>предмет сгорел
                         </div>
                         <button onclick="openSupportModal('${historyId}', event); toggleActionPanel('${historyId}', false, event);" style="box-sizing:border-box; background:rgba(255, 255, 255, 0.1); border:1px solid rgba(255, 255, 255, 0.2); color:#fff; border-radius:6px; font-size:${fsBtn}; font-weight:800; padding:6px; width:100%; margin-bottom:4px; transition:0.2s; backdrop-filter:blur(5px);">
                             <i class="fa-solid fa-headset"></i> НАПИСАТЬ АДМИНУ
