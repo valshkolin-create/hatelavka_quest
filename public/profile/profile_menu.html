@@ -367,47 +367,41 @@
             -webkit-backdrop-filter: var(--glass-blur);
             border-top: 1px solid var(--glass-border);
             box-shadow: var(--glass-shadow);
-            width: 100%; border-radius: 28px 28px 0 0;
-            padding: 24px 20px 40px 20px;
+            width: 100%; border-radius: 24px 24px 0 0;
+            padding: 16px 16px 30px 16px; /* 🔥 Уменьшили отступы */
             transform: translateY(100%);
             transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
-        .modal-overlay.visible .bottom-sheet { transform: translateY(0); }
 
         .sheet-header {
             display: flex; justify-content: space-between; align-items: center;
-            margin-bottom: 25px;
+            margin-bottom: 15px; /* 🔥 Меньше отступ под шапкой */
         }
-        .sheet-title { font-size: 20px; font-weight: 800; margin: 0; color: #fff; }
-        .sheet-close {
-            background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); color: #fff;
-            width: 32px; height: 32px; border-radius: 16px; cursor: pointer;
-            display: flex; align-items: center; justify-content: center; transition: 0.2s;
-        }
-        .sheet-close:active { transform: scale(0.9); }
+        .sheet-title { font-size: 18px; font-weight: 800; margin: 0; color: #fff; } /* 🔥 Меньше шрифт */
 
         /* Карточки внутри настроек */
         .settings-card {
             background: rgba(255,255,255,0.03);
             border: 1px solid var(--glass-border);
-            border-radius: 16px; padding: 16px;
-            margin-bottom: 15px; display: flex; flex-direction: column; gap: 12px;
+            border-radius: 14px; padding: 12px; /* 🔥 Уменьшили внутренний padding */
+            margin-bottom: 10px; display: flex; flex-direction: column; gap: 8px; /* 🔥 Уменьшили межстрочный интервал */
+            cursor: pointer; /* Для кликабельности всей карточки */
+            transition: background 0.2s;
         }
+        .settings-card:active { background: rgba(255,255,255,0.06); }
         .settings-card-row { display: flex; justify-content: space-between; align-items: center; }
         
-        .settings-icon-title { display: flex; align-items: center; gap: 10px; font-size: 15px; font-weight: 700; color: #fff; }
-        .settings-status-text { font-size: 13px; color: var(--text-color-muted); word-break: break-all; }
+        .settings-icon-title { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: #fff; } /* 🔥 Компактнее иконки и текст */
+        .settings-status-text { font-size: 11px; color: var(--text-color-muted); line-height: 1.2; word-break: break-all; } /* 🔥 Меньше статус */
         
         .ios-input {
             width: 100%; background: rgba(0,0,0,0.5); border: 1px solid var(--glass-border);
-            color: #fff; padding: 12px 15px; border-radius: 12px; font-size: 13px; outline: none;
+            color: #fff; padding: 10px 12px; border-radius: 10px; font-size: 12px; outline: none; /* 🔥 Меньше инпут */
             box-sizing: border-box; transition: 0.3s;
         }
-        .ios-input:focus { border-color: rgba(255,255,255,0.3); background: rgba(0,0,0,0.7); }
-        .ios-input.error { border-color: var(--danger-color); box-shadow: 0 0 10px rgba(255,69,58,0.2); }
 
         .ios-btn {
-            border: 1px solid var(--glass-border); padding: 10px 16px; border-radius: 10px; font-size: 13px; font-weight: 700;
+            border: 1px solid var(--glass-border); padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: 800; /* 🔥 Меньше кнопки */
             cursor: pointer; transition: all 0.2s; color: #fff; backdrop-filter: blur(5px);
         }
         .ios-btn:active { transform: scale(0.95); }
@@ -709,10 +703,10 @@ html body nav.floating-bottom-bar .comic-badge {
             </div>
 
             <!-- Блок Сетки Инвентаря -->
-            <div class="settings-card">
+            <div class="settings-card" style="cursor: default;">
                 <div class="settings-card-row">
                     <div class="settings-icon-title">
-                        <i class="fa-solid fa-table-cells" style="color: rgba(255,255,255,0.6); font-size: 20px;"></i>
+                        <i class="fa-solid fa-table-cells" style="color: rgba(255,255,255,0.6); font-size: 16px;"></i>
                         Сетка инвентаря
                     </div>
                     <div style="display: flex; gap: 8px;">
@@ -723,14 +717,14 @@ html body nav.floating-bottom-bar .comic-badge {
             </div>
 
             <!-- Блок Twitch -->
-            <div class="settings-card">
+            <div class="settings-card" style="cursor: default;">
                 <div class="settings-card-row">
                     <div class="settings-icon-title">
-                        <i class="fa-brands fa-twitch" style="color: rgba(255,255,255,0.6); font-size: 20px;"></i>
+                        <i class="fa-brands fa-twitch" style="color: rgba(255,255,255,0.6); font-size: 16px;"></i>
                         Twitch Аккаунт
                     </div>
                 </div>
-                <div class="settings-card-row">
+                <div class="settings-card-row" style="margin-top: 2px;">
                     <div class="settings-status-text" id="twitch-status-text">Загрузка...</div>
                     <div id="twitch-action-btn-container">
                         <!-- Кнопка генерируется в JS -->
@@ -738,24 +732,24 @@ html body nav.floating-bottom-bar .comic-badge {
                 </div>
             </div>
 
-            <!-- Блок Steam Trade Link -->
-            <div class="settings-card">
-                <div class="settings-card-row" style="margin-bottom: 5px;">
+            <!-- Блок Steam Trade Link (СТАЛ КЛИКАБЕЛЬНЫМ) -->
+            <div class="settings-card" onclick="openTradeLinkPopup()">
+                <div class="settings-card-row">
                     <div class="settings-icon-title">
-                        <i class="fa-brands fa-steam" style="color: rgba(255,255,255,0.6); font-size: 20px;"></i>
+                        <i class="fa-brands fa-steam" style="color: rgba(255,255,255,0.6); font-size: 16px;"></i>
                         Trade Ссылка
                     </div>
+                    <!-- Ссылка "Безопасно" перенесена вправо, чтобы не занимать целую строку -->
+                    <span class="twitch-trust-link" id="steam-trust-btn" onclick="event.stopPropagation(); document.getElementById('steam-trust-popup').classList.add('visible')" style="font-size: 10px; color: var(--text-color-muted); text-decoration: underline; cursor: pointer;">
+                        <i class="fa-solid fa-shield-halved"></i> Безопасно?
+                    </span>
                 </div>
-                <div>
-                    <span class="twitch-trust-link" id="steam-trust-btn" onclick="document.getElementById('steam-trust-popup').classList.add('visible')" style="font-size: 11px; color: var(--text-color-muted); text-decoration: underline; cursor: pointer; display: block; margin-bottom: 8px;"><i class="fa-solid fa-shield-halved"></i> Безопасно ли это?</span>
-                    <input type="url" id="trade-link-input" class="ios-input" placeholder="https://steamcommunity.com/tradeoffer/new/..." autocomplete="off">
-                </div>
-                <div style="display: flex; justify-content: flex-end; margin-top: 5px;">
-                    <button class="ios-btn btn-steam" onclick="saveTradeLink()">Сохранить ссылку</button>
+                <div class="settings-card-row" style="margin-top: 2px;">
+                    <!-- Здесь будет отображаться обрезанная текущая ссылка -->
+                    <div class="settings-status-text" id="trade-link-display" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 70%; color: #fff; font-family: monospace;">Загрузка...</div>
+                    <button class="ios-btn btn-steam">Изменить</button>
                 </div>
             </div>
-        </div>
-    </div>
 
     <!-- ОКНО ЗАМЕН (Остается на уровне DOM, стилизовано под новое стекло) -->
     <div id="replacement-modal" class="modal-overlay">
@@ -861,6 +855,21 @@ html body nav.floating-bottom-bar .comic-badge {
                 </ul>
             </div>
             <button onclick="document.getElementById('steam-trust-popup').classList.remove('visible')" style="width: 100%; border: none; padding: 12px; border-radius: 12px; font-size: 14px; font-weight: 800; background-color: #fff; color: #000;">Всё понятно</button>
+        </div>
+    </div>
+
+    <!-- Попап Ввода Trade Ссылки -->
+    <div id="trade-link-popup" class="modal-overlay" onclick="if(event.target===this) document.getElementById('trade-link-popup').classList.remove('visible')">
+        <div class="custom-popup" style="background: var(--glass-bg); backdrop-filter: var(--glass-blur); border: 1px solid var(--glass-border); border-radius: 24px; padding: 20px; max-width: 360px; width: 90%; margin: auto; position: relative; box-shadow: var(--glass-shadow); text-align: center;">
+            <h3 style="margin: 0 0 10px 0; font-size: 16px; font-weight: 800; color: #fff;">Steam Trade Ссылка</h3>
+            <p style="margin: 0 0 15px 0; font-size: 11px; color: var(--text-color-muted); line-height: 1.4;">Укажите ссылку для обмена. По ней мы сможем отправлять вам предметы.</p>
+            
+            <input type="url" id="popup-trade-link-input" class="ios-input" placeholder="https://steamcommunity.com/tradeoffer/new/..." style="width: 100%; margin-bottom: 15px; font-size: 12px; background: rgba(0,0,0,0.5);" autocomplete="off">
+            
+            <div style="display: flex; gap: 10px;">
+                <button onclick="document.getElementById('trade-link-popup').classList.remove('visible')" style="flex: 1; border: 1px solid var(--glass-border); padding: 10px; border-radius: 12px; font-size: 13px; font-weight: 800; cursor: pointer; background-color: rgba(255,255,255,0.05); color: #fff; transition: 0.2s;">Отмена</button>
+                <button onclick="saveTradeLink()" style="flex: 1; border: none; padding: 10px; border-radius: 12px; font-size: 13px; font-weight: 800; cursor: pointer; background-color: #fff; color: #000; transition: 0.2s;">Сохранить</button>
+            </div>
         </div>
     </div>
 
@@ -1432,7 +1441,8 @@ window.clearAllRewards = function() {
                 document.getElementById('icon-twitch').style.color = hasTwitch ? '#fff' : 'rgba(255,255,255,0.2)';
                 document.getElementById('icon-twitch').style.textShadow = hasTwitch ? '0 0 10px rgba(255,255,255,0.4)' : 'none';
 
-                document.getElementById('trade-link-input').value = currentUserData.trade_link || "";
+                const tlDisplay = document.getElementById('trade-link-display');
+                if (tlDisplay) tlDisplay.innerText = currentUserData.trade_link || "Ссылка не привязана";
                 
                 // Рендер Twitch и Steam с кнопками доверия и помощи (Восстановлено из старого кода)
                 const twitchText = document.getElementById('twitch-status-text');
@@ -1513,8 +1523,18 @@ window.clearAllRewards = function() {
             document.getElementById('settings-modal').classList.remove('visible');
         }
 
-        async function saveTradeLink() {
-            const input = document.getElementById('trade-link-input');
+        // Открытие диалогового окна для ввода ссылки
+        window.openTradeLinkPopup = function() {
+            if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+            const input = document.getElementById('popup-trade-link-input');
+            input.value = currentUserData.trade_link || "";
+            input.classList.remove('error');
+            document.getElementById('trade-link-popup').classList.add('visible');
+        };
+
+        // Сохранение ссылки из диалогового окна
+        window.saveTradeLink = async function() {
+            const input = document.getElementById('popup-trade-link-input');
             let val = input.value.trim();
             
             if (!val.startsWith("https://steamcommunity.com/tradeoffer/new") || !val.includes("partner=") || !val.includes("token=")) {
@@ -1525,20 +1545,33 @@ window.clearAllRewards = function() {
             }
             
             input.classList.remove('error');
+            document.getElementById('global-loader').classList.add('active'); // Включаем лоадер
+            
             try {
-                // БОЕВОЙ ЗАПРОС
-                // await apiRequest('/api/v1/user/trade_link/save', 'POST', { trade_link: val });
+                // 🔥 БОЕВОЙ ЗАПРОС (Оставляем включенным, если нужно)
+                await apiRequest('/api/v1/user/trade_link/save', 'POST', { trade_link: val }, true);
+                
                 currentUserData.trade_link = val;
                 document.getElementById('icon-steam').style.color = '#fff';
                 document.getElementById('icon-steam').style.textShadow = '0 0 10px rgba(255,255,255,0.4)';
                 
+                // Обновляем текст в карточке
+                document.getElementById('trade-link-display').innerText = val;
+                
                 if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
                 customAlert('Trade Link успешно сохранен!');
-                closeSettings();
+                
+                // Закрываем окно ввода
+                document.getElementById('trade-link-popup').classList.remove('visible');
+                
+                // Сбрасываем кэш, чтобы профиль обновился при следующем входе
+                localStorage.removeItem('cache_bootstrap'); 
             } catch (err) {
                 if(err.message !== 'Activity Lock') customAlert("Ошибка: " + err.message);
+            } finally {
+                document.getElementById('global-loader').classList.remove('active');
             }
-        }
+        };
 
         async function connectTwitch() {
             try {
