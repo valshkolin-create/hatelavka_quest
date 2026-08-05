@@ -2478,6 +2478,7 @@ if (['available', 'pending', 'canceled'].includes(rawStatus)) {
                 let expirationHtml = '';
                 let isExpired = false;
                 let isDisputed = false; 
+                let isCompletelyExpired = false; // Защита от той самой ошибки
                 const updateTimeMs = parseSafeDate(item.updated_at || item.created_at);
                 const nowMs = Date.now();
 
@@ -2502,16 +2503,17 @@ if (['available', 'pending', 'canceled'].includes(rawStatus)) {
                             if (days === 0 && hours === 0) timeStr = `${minutes}м`;
                             expirationHtml = `<span style="color: rgba(255,255,255,0.5);">Сгорит:</span> <span style="color: #ff3b30; font-weight: 900;">${timeStr}</span>`;
                         } else if (nowMs >= baseLifeTimeMs && nowMs < finalDeleteTimeMs) {
-                            // ФАЗА 2: Сгорел, но есть 7 дней на оспаривание
+                            // ФАЗА 2: Сгорел, Оспаривание (ТАЙМЕР НАД КНОПКОЙ ДЕЙСТВИЕ)
                             isExpired = true;
                             isDisputed = true;
                             const graceLeftMs = finalDeleteTimeMs - nowMs;
                             const daysGrace = Math.floor(graceLeftMs / (1000 * 60 * 60 * 24));
                             const hoursGrace = Math.floor((graceLeftMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                            expirationHtml = `<span style="color: #ffcc00; font-weight: 900;">ОСПАРИВАНИЕ (${daysGrace}д ${hoursGrace}ч)</span>`;
+                            expirationHtml = `<span style="color: #ffcc00; font-weight: 900;">Оспаривание: ${daysGrace}д ${hoursGrace}ч</span>`;
                         } else {
                             // ФАЗА 3: Время вышло полностью
                             isExpired = true;
+                            isCompletelyExpired = true;
                             expirationHtml = `<span style="color: #ff3b30; font-weight: 900;">СГОРЕЛ</span>`;
                         }
                     }
@@ -2531,11 +2533,8 @@ if (['available', 'pending', 'canceled'].includes(rawStatus)) {
                 let isArchived = ['received', 'exchanged', 'exchanged_swap'].includes(status);
                 let isFailed = status === 'failed';
                 
-                // 🔥 ВОТ ОНО: вычисляем полностью сгоревшие скины (чтобы не было undefined)
-                let isCompletelyExpired = (isExpired && !isDisputed && ['available', 'pending', 'canceled', 'failed'].includes(status));
-                
-                // Блюрим всё, что в архиве, с ошибкой или полностью сгорело
-                let isGrayBlurred = isArchived || isFailed || isCompletelyExpired; 
+                // Блюрим всё, что в архиве, с ошибкой или сгорело (isExpired покрывает обе фазы сгорания)
+                let isGrayBlurred = isArchived || isFailed || isExpired; 
                 
                 let centerOverlay = '';
                 let overlayHtml = '';
@@ -2544,13 +2543,10 @@ if (['available', 'pending', 'canceled'].includes(rawStatus)) {
                 const isErrorStatus = ['failed', 'canceled', 'available'].includes(status);
                 const hasCustomError = isErrorStatus && item.details && item.details.includes('||');
                 
-                const shouldShowOverlay = (status === 'canceled' || (status === 'available' && hasCustomError)) && !isCancelAcked && !isCompletelyExpired;
+                // Показываем оверлей только для отмен. Оспаривание больше не перебивает стили!
+                const shouldShowOverlay = (status === 'canceled' || (status === 'available' && hasCustomError)) && !isCancelAcked && !isExpired;
 
-                if (isDisputed) {
-                    overlayHtml = `
-                        <div class="inv-overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(130, 15, 15, 0.35); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 5; border-radius: 12px; pointer-events: none; border: 1px solid rgba(255, 69, 58, 0.2);"></div>
-                    `;
-                } else if (shouldShowOverlay) {
+                if (shouldShowOverlay) {
                     let titleText = "Трейд<br>отменен!";
                     let subText = "Попробуйте вывести еще раз";
                     let titleColor = '#fff'; 
@@ -2593,9 +2589,16 @@ if (['available', 'pending', 'canceled'].includes(rawStatus)) {
                     } else if (status === 'exchanged_swap') {
                         centerOverlay = `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:${fsOverlay}; font-weight:900; color:#b0b0b0; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5; transform: translateY(-10px);">В свапе</div>` + lowerSkinName;
                     } else if (isFailed) {
+                        // Ошибка
                         centerOverlay = `<div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:${fsOverlay}; font-weight:900; color:#ff453a; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5; line-height: 1.2; transform: translateY(-10px);">ОШИБКА<span style="font-size: 8px; color: rgba(255,255,255,0.6); margin-top: 4px; letter-spacing: 0; text-transform: none;">обратитесь к администратору</span></div>` + lowerSkinName;
-                    } else if (isCompletelyExpired) {
-                        centerOverlay = `<div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:${fsOverlay}; font-weight:900; color:#ff453a; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5; line-height: 1.2; transform: translateY(-10px);">ВРЕМЯ ВЫШЛО<span style="font-size: 10px; font-weight: 800; color: rgba(255,255,255,0.7); margin-top: 4px; letter-spacing: 0; text-transform: none; text-shadow: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90%;">${cleanName}</span></div>`;
+                    } else if (isExpired) {
+                        // 🔥 ВРЕМЯ ВЫШЛО (С огоньком сверху и названием скина ровно под текстом)
+                        centerOverlay = `
+                            <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:${fsOverlay}; font-weight:900; color:#ff453a; text-shadow:0 2px 5px rgba(0,0,0,0.8); text-transform:uppercase; text-align:center; z-index:5; line-height: 1.2; transform: translateY(-5px);">
+                                <span style="font-size: 16px; margin-bottom: 2px;">🔥</span>
+                                ВРЕМЯ ВЫШЛО
+                                <span style="font-size: 10px; font-weight: 800; color: rgba(255,255,255,0.7); margin-top: 6px; letter-spacing: 0; text-transform: none; text-shadow: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90%;">${cleanName}</span>
+                            </div>`;
                     }
                 } 
                 else if (status === 'auto_queued' || status === 'market_pending') {
@@ -2610,20 +2613,8 @@ if (['available', 'pending', 'canceled'].includes(rawStatus)) {
 
                 if (isArchived || isFailed) {
                     bottomBtnText = ''; 
-                } else if (isDisputed) {
-                    bottomBtnText = `<i class="fa-solid fa-clock"></i> ВРЕМЯ ВЫШЛО`;
-                    bottomBtnAction = `onclick="toggleActionPanel('${historyId}', true, event)"`;
-                    bottomBtnStyle = 'background: rgba(255, 69, 58, 0.1); color: #ff453a; border-top: 1px solid rgba(255, 69, 58, 0.2);';
-                    
-                    panelContent = `
-                        <div style="font-size: ${currentGridSize === '3' ? '8px' : '10px'}; color: #ffcc00; font-weight: 800; text-align: center; margin-bottom: 8px; line-height: 1.2;">
-                            Время вышло, но скин можно<br>попробовать восстановить!
-                        </div>
-                        <button onclick="openSupportModal('${historyId}', event); toggleActionPanel('${historyId}', false, event);" style="box-sizing:border-box; background:rgba(255, 204, 0, 0.2); border:1px solid rgba(255, 204, 0, 0.4); color:#ffcc00; border-radius:6px; font-size:${fsBtn}; font-weight:800; padding:6px; width:100%; margin-bottom:4px; transition:0.2s; backdrop-filter:blur(5px);">
-                            <i class="fa-solid fa-headset"></i> НАПИСАТЬ АДМИНУ
-                        </button>
-                    `;
-                } else if (isCompletelyExpired) {
+                } else if (isExpired) {
+                    // 🔥 Кнопка ДЕЙСТВИЕ для сгоревших скинов (а таймер нарисуется прямо над ней в HTML ниже)
                     bottomBtnText = ` <i class="fa-solid fa-chevron-up"></i> ДЕЙСТВИЕ <i class="fa-solid fa-chevron-up" style="font-size:${fsChevron}; margin-left:2px;"></i>`;
                     bottomBtnAction = `onclick="toggleActionPanel('${historyId}', true, event)"`;
                     bottomBtnStyle = 'background: rgba(0,0,0,0.6); border-top: 1px solid var(--glass-border); color: #fff;';
@@ -2702,7 +2693,7 @@ if (['available', 'pending', 'canceled'].includes(rawStatus)) {
 
                     <div onclick="openSupportModal('${historyId}', event)" style="position:absolute; top:4px; left:4px; width:${supportSize}; height:${supportSize}; border-radius:50%; background:rgba(255,255,255,0.05); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); color:var(--text-color-muted); font-weight:900; display:flex; justify-content:center; align-items:center; z-index:20; font-size:${supportFont}; border: 1px solid var(--glass-border); cursor:pointer;">!</div>
 
-                    <div style="position:absolute; inset:0; display:flex; justify-content:center; align-items:center; overflow:hidden; z-index:1; padding-bottom: 15px;" onclick="${!isArchived && !isFailed && !isCompletelyExpired ? `openFullscreenWeapon('${imageUrl}', '${safeNameStr}')` : ''}">
+                    <div style="position:absolute; inset:0; display:flex; justify-content:center; align-items:center; overflow:hidden; z-index:1; padding-bottom: 15px;" onclick="${!isArchived && !isFailed ? `openFullscreenWeapon('${imageUrl}', '${safeNameStr}')` : ''}">
                         <img src="${imageUrl}" style="${imageStyles}">
                         ${centerOverlay}
                     </div>
@@ -2718,7 +2709,8 @@ if (['available', 'pending', 'canceled'].includes(rawStatus)) {
                     
                     ${bottomBtnText ? `
                     <div ${bottomBtnAction} style="position:absolute; bottom:0; left:0; width:100%; display:flex; flex-direction:column; justify-content:center; align-items:center; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); font-size:${fsAction}; font-weight:800; padding:2px 0; cursor:pointer; transition:0.2s; z-index:15; ${bottomBtnStyle}">
-                        ${expirationHtml && !isExpired ? `<div style="font-size:${fsExp}; margin-bottom:2px;">${expirationHtml}</div>` : ''}
+                        <!-- 🔥 Выводим таймер оспаривания ровно над ДЕЙСТВИЕМ! (Убрано условие !isExpired) -->
+                        ${expirationHtml ? `<div style="font-size:${fsExp}; margin-bottom:2px;">${expirationHtml}</div>` : ''}
                         <span style="display:flex; align-items:center; gap: 3px;">${bottomBtnText}</span>
                     </div>
                     ` : ''}
