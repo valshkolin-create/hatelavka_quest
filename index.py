@@ -354,6 +354,38 @@ async def check_twinks_and_send_alert(
 
     except Exception as e:
         logging.error(f"[TWINK CHECK] Ошибка системы при комплексной проверке юзера {telegram_id}: {e}", exc_info=True)
+
+def is_item_expired(updated_at_str: str, source: str) -> bool:
+    """Проверяет, сгорел ли скин (прошло 14 или 3 дня)"""
+    if not updated_at_str:
+        return False
+    try:
+        # Приводим дату от БД (Supabase) в строгий ISO формат для Python
+        date_str = str(updated_at_str).replace(" ", "T")
+        if date_str.endswith("Z"):
+            date_str = date_str[:-1] + "+00:00"
+        # Фикс для таймзон вида "+03" (без минут), чтобы Python не ругался
+        date_str = re.sub(r'([+-]\d{2})$', r'\g<1>:00', date_str) 
+        
+        updated_time = datetime.fromisoformat(date_str)
+        if updated_time.tzinfo is None:
+            updated_time = updated_time.replace(tzinfo=timezone.utc)
+            
+        amnesty_date = datetime.fromisoformat("2026-07-15T00:00:00+03:00")
+        
+        # Логика сгорания (как на фронте)
+        if updated_time < amnesty_date:
+            life_days = 14
+        else:
+            life_days = 3 if source in ['raffle', 'auction', 'twitch'] else 14
+            
+        expire_time = updated_time + timedelta(days=life_days)
+        
+        # Если сейчас время БОЛЬШЕ времени сгорания — значит сгорел
+        return datetime.now(timezone.utc) >= expire_time
+    except Exception as e:
+        # Если дата кривая, пропускаем (на всякий случай)
+        return False
         
 async def get_user_balance_from_bott(telegram_id: int) -> float | None:
     """Асинхронно получает баланс, используя глобальный клиент для скорости."""
@@ -28041,14 +28073,14 @@ async def sell_inventory_item(
     
     print(f"[SELL] Запрос обмена: User={user_id}, HistoryID={req.history_id}")
 
-    # 1. Получаем текущие данные
+    # 1. Получаем текущие данные (ДООБАВЛЕНО: updated_at, created_at, source)
     check_resp = await supabase.get(
         "/cs_history",
         params={
             "id": f"eq.{req.history_id}", 
             "user_id": f"eq.{user_id}", 
             "status": "in.(pending,failed,available,canceled)", 
-            "select": "id, status, replaced_price, item:cs_items(price, price_rub)"
+            "select": "id, status, updated_at, created_at, source, replaced_price, item:cs_items(price, price_rub)"
         }
     )
     
@@ -28058,6 +28090,19 @@ async def sell_inventory_item(
     
     row = rows[0]
     current_status = row.get('status')
+
+    # ==========================================
+    # 🛡️ ЗАЩИТА: БЛОКИРУЕМ ПРОДАЖУ СГОРЕВШИХ СКИНОВ
+    # ==========================================
+    upd_time = row.get('updated_at') or row.get('created_at')
+    item_source = row.get('source', 'shop')
+    
+    if is_item_expired(upd_time, item_source):
+        raise HTTPException(
+            status_code=400, 
+            detail="Скин сгорел, продажа невозможна! Нажмите «Оспаривать»."
+        )
+    # ==========================================
 
     # 2. 🔥 АТОМАРНАЯ ПЛОМБА: Меняем статус ТОЛЬКО если он не изменился за эти миллисекунды!
     patch_res = await supabase.patch(
@@ -28246,7 +28291,7 @@ async def get_replacement_options(target_price_rub: float, target_price_base: fl
     random.shuffle(final_pool)
     return final_pool[:limit]
 
-# 3. Запросить вывод (ГИБРИДНАЯ ВЫДАЧА: МАРКЕТ + СКЛАД + ЗАМЕНЫ)
+
 @app.post("/api/v1/user/inventory/withdraw")
 async def withdraw_inventory_item(
     req: InventorySellRequest,
@@ -28297,6 +28342,18 @@ async def withdraw_inventory_item(
     history_record = rows[0]
     current_status = history_record.get('status')
     
+    # ==========================================
+    # 🛡️ ЗАЩИТА: БЛОКИРУЕМ ВЫВОД СГОРЕВШИХ СКИНОВ
+    # ==========================================
+    upd_time = history_record.get('updated_at') or history_record.get('created_at')
+    item_source = history_record.get('source', 'shop')
+    
+    if is_item_expired(upd_time, item_source):
+        raise HTTPException(
+            status_code=400, 
+            detail="⏳ Время на вывод вышло! Нажмите «Оспаривать» в инвентаре для связи с поддержкой."
+        )
+
     # ==========================================
     # 🕒 ЖЕСТКАЯ БЛОКИРОВКА ПОВТОРНЫХ ВЫВОДОВ
     # ==========================================
