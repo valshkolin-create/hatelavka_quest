@@ -27964,14 +27964,14 @@ async def sell_all_inventory_items(
     await verify_activity_lock(u_list[0], supabase)
     # 👆 КОНЕЦ ВСТАВКИ 👆
 
-    # 1. Получаем ТОЛЬКО ID предметов пользователя, доступных для продажи
-    # Не считаем здесь билеты, так как это данные "до выстрела"
+    # 1. Получаем ТОЛЬКО предметы пользователя, доступные для продажи 
+    # (ДООБАВЛЕНО: updated_at, created_at, source для проверки на сгорание)
     check_resp = await supabase.get(
         "/cs_history",
         params={
             "user_id": f"eq.{user_id}",
             "status": "in.(pending,failed,available,canceled)",
-            "select": "id" 
+            "select": "id, updated_at, created_at, source" 
         }
     )
     
@@ -27979,8 +27979,26 @@ async def sell_all_inventory_items(
     if not rows or not isinstance(rows, list):
         raise HTTPException(status_code=400, detail="Нет предметов для обмена")
 
-    ids_to_update = [str(row['id']) for row in rows]
-    ids_csv = ",".join(ids_to_update)
+    # ==========================================
+    # 🛡️ ЗАЩИТА: ОТСЕИВАЕМ СГОРЕВШИЕ СКИНЫ
+    # ==========================================
+    valid_ids = []
+    for row in rows:
+        upd_time = row.get('updated_at') or row.get('created_at')
+        item_source = row.get('source', 'shop')
+        
+        # Если скин НЕ сгорел — добавляем его ID в список на продажу
+        if not is_item_expired(upd_time, item_source):
+            valid_ids.append(str(row['id']))
+
+    if not valid_ids:
+        raise HTTPException(
+            status_code=400, 
+            detail="Нет доступных скинов для продажи (сгоревшие скины продать нельзя)."
+        )
+
+    ids_csv = ",".join(valid_ids)
+    # ==========================================
 
     # 2. АТОМАРНЫЙ МАССОВЫЙ ПАТЧ
     # 🔥 Главная фишка: просим Supabase вернуть цены (replaced_price, item) 
