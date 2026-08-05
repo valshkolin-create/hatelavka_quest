@@ -798,23 +798,24 @@ html body nav.floating-bottom-bar .comic-badge {
     </div>
 
     <!-- 👇 ВСТАВЛЯЕМ ОКНО ИСТОРИИ СЮДА 👇 -->
-    <!-- LIQUID GLASS MODAL ДЛЯ ДЕТАЛЬНОЙ ИСТОРИИ -->
+    <!-- LIQUID GLASS MODAL ДЛЯ ДЕТАЛЬНОЙ ИСТОРИИ (Теперь по центру) -->
     <div id="history-details-modal" class="modal-overlay" onclick="if(event.target===this) closeHistoryModal()">
-        <div class="bottom-sheet">
-            <div class="sheet-header">
+        <div class="custom-popup" style="background: var(--glass-bg); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border: 1px solid var(--glass-border); border-radius: 24px; padding: 20px; max-width: 360px; width: 90%; margin: auto; position: relative; box-shadow: var(--glass-shadow); max-height: 85vh; display: flex; flex-direction: column; box-sizing: border-box;">
+            
+            <div class="sheet-header" style="margin-bottom: 15px; flex-shrink: 0;">
                 <h3 class="sheet-title" id="history-modal-title">Детали истории</h3>
                 <button class="sheet-close" onclick="closeHistoryModal()"><i class="fa-solid fa-xmark"></i></button>
             </div>
             
-            <div id="history-modal-content" style="max-height: 50vh; overflow-y: auto;">
+            <div id="history-modal-content" style="overflow-y: auto; flex-grow: 1; padding-bottom: 5px;">
                 <div style="display:flex; justify-content:center; padding: 30px;">
                     <i class="fa-solid fa-circle-notch fa-spin" style="font-size: 24px; color: #fff;"></i>
                 </div>
             </div>
+            
         </div>
     </div>
     <!-- 👆 КОНЕЦ ОКНА ИСТОРИИ 👆 -->
-
     <!-- ============================================== -->
     <!-- ВОЗВРАЩЕННЫЕ ПОПАПЫ (УВЕДОМЛЕНИЯ, TRUST, HELP) -->
     <!-- ============================================== -->
