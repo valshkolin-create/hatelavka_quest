@@ -1835,6 +1835,10 @@ window.clearAllRewards = function() {
                 }
             }
         }
+        // 👇🔥 ВЫЗОВ РЕФЕРАЛЬНОГО МАГАЗИНА 🔥👇
+        else if (tabName === 'referral') {
+            await window.initProfileShop();
+        }
             } catch (error) {
                 contentArea.innerHTML = `<div style="text-align:center; color:var(--text-color-muted); padding-top: 50px;">Ошибка загрузки раздела: ${error.message}</div>`;
             }
@@ -3184,6 +3188,123 @@ if (['available', 'pending', 'canceled'].includes(rawStatus)) {
 
 window.closeHistoryModal = function() {
     document.getElementById('history-details-modal').classList.remove('visible');
+};
+
+        // ==========================================
+// 🔥 ЛОГИКА РЕФЕРАЛЬНОГО МАГАЗИНА 🔥
+// ==========================================
+window.getRankInfo = function(refs) {
+    if (refs >= 100) return "Легенда";
+    if (refs >= 50) return "Золото";
+    if (refs >= 10) return "Серебро";
+    return "Новичок";
+};
+
+window.initProfileShop = async function() {
+    try {
+        const res = await window.apiRequest('/api/v1/profile/shop/items', 'POST', null, true);
+        
+        const balEl = document.getElementById('user-ref-balance');
+        const countEl = document.getElementById('rank-count');
+        const nameEl = document.getElementById('rank-name');
+        const bannerEl = document.getElementById('rank-banner-container');
+        const container = document.getElementById('shop-items-container');
+        const loader = document.getElementById('shop-loader');
+
+        if (balEl) balEl.innerText = res.user_balance || 0;
+        if (countEl) countEl.innerText = res.referrals_count || 0;
+        if (nameEl) nameEl.innerText = window.getRankInfo(res.referrals_count || 0);
+        if (bannerEl) bannerEl.style.display = 'flex';
+        
+        if (loader) loader.style.display = 'none';
+        if (container) container.style.display = 'grid';
+        
+        if (!res.items || res.items.length === 0) {
+            if (container) {
+                container.style.display = 'block';
+                container.innerHTML = `
+                    <div style="text-align:center; padding-top: 30px;">
+                        <i class="fa-solid fa-store-slash" style="font-size: 40px; margin-bottom: 15px; opacity: 0.2; color: #fff;"></i>
+                        <p style="font-size: 14px; color: var(--text-color-muted); font-weight: 600;">Наград пока нет</p>
+                    </div>`;
+            }
+            return;
+        }
+
+        if (container) container.innerHTML = '';
+        
+        res.items.forEach(item => {
+            const fallbackImg = 'https://placehold.co/100x100/18181b/3f3f46?text=ITEM';
+            
+            let btnHtml = '';
+            if (item.lock_reason === 'limit_reached') {
+                btnHtml = `<button class="shop-btn btn-locked"><i class="fa-solid fa-check"></i> ПОЛУЧЕНО</button>`;
+            } else if (item.stock === 0) {
+                btnHtml = `<button class="shop-btn btn-locked">РАЗОБРАЛИ</button>`;
+            } else if (item.is_locked) {
+                btnHtml = `<button class="shop-btn btn-locked"><i class="fa-solid fa-lock"></i> ${item.lock_reason}</button>`;
+            } else {
+                if (item.price === 0) {
+                    btnHtml = `<button class="shop-btn btn-claim" onclick="window.buyProfileShopItem(${item.id}, '${item.name}', 0)">ЗАБРАТЬ</button>`;
+                } else {
+                    btnHtml = `<button class="shop-btn btn-buy" onclick="window.buyProfileShopItem(${item.id}, '${item.name}', ${item.price})">ЗА ${item.price} <i class="fa-solid fa-ticket"></i></button>`;
+                }
+            }
+
+            let badgeHtml = '';
+            if (item.stock > 0) badgeHtml = `<div style="position:absolute; top:8px; left:8px; background:rgba(255,255,255,0.1); border-radius:6px; font-size:8px; padding:2px 6px; color:#fff; font-weight:800; border:1px solid var(--glass-border);">Остаток: ${item.stock}</div>`;
+            
+            let questBadge = '';
+            if (item.unlock_type === 'quest' && !item.is_locked) {
+                questBadge = `<div style="position:absolute; top:8px; right:8px; color:#34c759; font-size:12px;"><i class="fa-solid fa-circle-check"></i></div>`;
+            }
+
+            if (container) {
+                container.innerHTML += `
+                    <div class="shop-card">
+                        ${badgeHtml}
+                        ${questBadge}
+                        <img src="${item.image_url || fallbackImg}" class="shop-card-img" alt="${item.name}">
+                        <div class="shop-card-title">${item.name}</div>
+                        <div class="shop-card-desc">${item.description || ''}</div>
+                        ${btnHtml}
+                    </div>
+                `;
+            }
+        });
+        
+    } catch (error) {
+        if (error.message !== 'Activity Lock') {
+            const loader = document.getElementById('shop-loader');
+            if (loader) loader.innerHTML = `<div style="color: #ff453a; font-size: 12px; font-weight: 800; text-align: center;">Ошибка загрузки наград: ${error.message}</div>`;
+        }
+    }
+};
+
+window.buyProfileShopItem = function(itemId, itemName, price) {
+    if (window.tg && window.tg.HapticFeedback) window.tg.HapticFeedback.impactOccurred('light');
+    
+    let confirmText = price === 0 
+        ? `Забрать "${itemName}" бесплатно?` 
+        : `Получить "${itemName}"?<br><span style="font-size: 11px; color: var(--text-color-muted);">Будет списано ${price} билетов</span>`;
+
+    window.showCustomConfirmHTML(confirmText, async (close) => {
+        document.getElementById('global-loader').classList.add('active');
+        try {
+            const res = await window.apiRequest('/api/v1/profile/shop/buy', 'POST', { item_id: itemId }, true);
+            if (window.tg && window.tg.HapticFeedback) window.tg.HapticFeedback.notificationOccurred('success');
+            
+            window.customAlert(res.message || "Успешно получено! Ожидайте выдачи.", "Супер");
+            
+            await window.initProfileShop();
+            close();
+        } catch (e) {
+            if (e.message !== 'Activity Lock') window.customAlert("Ошибка: " + e.message);
+            close();
+        } finally {
+            document.getElementById('global-loader').classList.remove('active');
+        }
+    }, price === 0 ? "ЗАБРАТЬ" : "ПОЛУЧИТЬ", price === 0 ? "rgba(52, 199, 89, 0.15)" : "rgba(255, 215, 0, 0.15)", price === 0 ? "#34c759" : "#ffd700");
 };
 
     </script>
