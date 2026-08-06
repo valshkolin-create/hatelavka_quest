@@ -2805,7 +2805,6 @@ async def cmd_start(message: types.Message):
         logging.error(f"/start error: {e}")
 
 # 1. ЛОВИМ НОВЫЙ ПОСТ В КАНАЛЕ
-# 1. ЛОВИМ НОВЫЙ ПОСТ В КАНАЛЕ
 @router.message(F.is_automatic_forward)
 async def auto_giveaway_on_new_post(message: types.Message):
     # Добавлен расширенный лог для старта
@@ -2864,16 +2863,22 @@ async def auto_giveaway_on_new_post(message: types.Message):
         selected_pool_entry = random.choice(pool_items)
         item_id = selected_pool_entry["item_id"]
 
-        target_users = random.randint(int(settings.get('auto_gw_min_msg', 10)), int(settings.get('auto_gw_max_msg', 20)))
+        min_msg = int(settings.get('auto_gw_min_msg', 10))
+        max_msg = int(settings.get('auto_gw_max_msg', 20))
+        target_users = random.randint(min_msg, max_msg)
 
         # 🔥 Логируем успешное создание
         logging.info(f"✅ Создаем розыгрыш на пост {group_post_id}. Предмет: {item_id}, нужно юзеров: {target_users}")
 
+        # 🔥 ИСПРАВЛЕННЫЙ БЛОК ЗАПИСИ В БД (Только существующие колонки)
         await supabase.post("/post_giveaways", json={
             "post_id": group_post_id,
-            "channel_message_id": channel_post_id,
-            "target_users": target_users,
-            "item_id": item_id
+            "min_messages": min_msg,
+            "max_messages": max_msg,
+            "target_message": target_users,
+            "reward_type": "cs2_skin",
+            "reward_value": item_id,
+            "is_active": True
         })
 
         # Пишем загадку в комменты
@@ -7032,32 +7037,33 @@ async def get_available_coins():
 @app.get("/api/admin/comment_giveaways/list")
 async def get_giveaway_list(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
     try:
-        # Берем только активные розыгрыши из новой таблицы
-        gw_resp = await supabase.get("/post_giveaways", params={"is_active": "is.true", "order": "created_at.desc"})
+        # 1. УБРАЛИ created_at. Сортируем по post_id
+        gw_resp = await supabase.get("/post_giveaways", params={"is_active": "is.true", "order": "post_id.desc"})
         if gw_resp.status_code != 200:
-            return {"status": "error", "message": "Ошибка БД"}
+            return {"status": "error", "message": f"Ошибка БД: {gw_resp.text}"}
         
         giveaways = gw_resp.json()
         if not giveaways:
             return {"status": "success", "data": []}
-        
-        # Собираем статистику (сколько юзеров уже написало)
-        post_ids = [str(g["post_id"]) for g in giveaways]
-        stats_resp = await supabase.get("/post_comment_stats", params={"post_id": f"in.({','.join(post_ids)})"})
-        
-        stats_dict = {}
-        if stats_resp.status_code == 200:
-            for s in stats_resp.json():
-                stats_dict[s["post_id"]] = s.get("unique_user_ids", [])
-                
-        # Склеиваем данные для фронтенда
-        for g in giveaways:
-            g["unique_user_ids"] = stats_dict.get(g["post_id"], [])
-            g["target_message"] = g["target_users"] # Подгоняем ключ под HTML
             
+        # 2. Таблица post_comment_stats БОЛЬШЕ НЕ НУЖНА. 
+        # Массив юзеров уже есть внутри каждого розыгрыша!
+        
+        # 3. Адаптируем названия из базы под твой HTML-фронтенд
+        for g in giveaways:
+            # Фронтенд ждет target_users, а в БД лежит target_message
+            g["target_users"] = g.get("target_message", 0)
+            # Фронтенд ждет item_id для скина, а в БД лежит reward_value
+            g["item_id"] = g.get("reward_value", "Авто")
+            
+            # Убеждаемся, что массив юзеров есть (на случай если в БД null)
+            if not g.get("unique_user_ids"):
+                g["unique_user_ids"] = []
+                
         return {"status": "success", "data": giveaways}
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
 
 @app.post("/api/admin/comment_giveaways/create")
 async def create_manual_giveaway(req: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
@@ -7076,12 +7082,16 @@ async def create_manual_giveaway(req: Request, supabase: httpx.AsyncClient = Dep
         item_id = random.choice(pool_items)["item_id"]
         target_users = random.randint(min_msg, max_msg)
         
-        # Записываем старт в БД
+        # 🔥 ИСПРАВЛЕННЫЙ INSERT В БАЗУ ДАННЫХ
+        # Теперь используем только те колонки, которые реально существуют в SQL!
         await supabase.post("/post_giveaways", json={
             "post_id": post_id,
-            "channel_message_id": 0, 
-            "target_users": target_users,
-            "item_id": item_id
+            "min_messages": min_msg,
+            "max_messages": max_msg,
+            "target_message": target_users,  # В БД это называется так
+            "reward_type": "cs2_skin",       # Обязательное текстовое поле
+            "reward_value": item_id,         # Записываем ID предмета сюда
+            "is_active": True
         })
         
         return {"status": "success", "target_message": target_users}
