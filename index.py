@@ -1,4 +1,4 @@
-import os
+0import os
 import logging 
 import base64
 import uuid 
@@ -3130,6 +3130,21 @@ async def process_giveaway_comment(message: types.Message):
             
             logging.info(f"🎉 ЕСТЬ ПОБЕДИТЕЛЬ! Юзер: {winner_id}, Приз: {item_id}")
             
+            # --- 1. ДОСТАЕМ @USERNAME ПОБЕДИТЕЛЯ ---
+            try:
+                # Получаем объект участника чата
+                member = await message.bot.get_chat_member(chat_id=message.chat.id, user_id=winner_id)
+                if member.user.username:
+                    # Если юзернейм есть, пишем через @
+                    winner_mention = f"@{member.user.username}"
+                else:
+                    # Если юзернейма нет, делаем кликабельное имя
+                    winner_mention = f"<a href='tg://user?id={winner_id}'>{member.user.first_name}</a>"
+            except Exception as e:
+                logging.warning(f"Не удалось получить профиль победителя: {e}")
+                # Резервный вариант, если бот не смог получить информацию
+                winner_mention = f"<a href='tg://user?id={winner_id}'>Победитель</a>"
+
             item_resp = await supabase.get("/cs_items", params={"id": f"eq.{item_id}"})
             item_data = item_resp.json()[0]
             
@@ -3153,14 +3168,15 @@ async def process_giveaway_comment(message: types.Message):
             ])
             
             # --- РАСКРЫВАЕМ ЗАГАДКУ С ФОТКОЙ И КНОПКОЙ ---
+            # Здесь теперь используется winner_mention вместо жесткого "Счастливчик"
             announcement_text = (
                 f"🎉 <b>РОЗЫГРЫШ ЗАВЕРШЕН!</b>\n\n"
-                f"🏆 <b>Победитель:</b> <a href='tg://user?id={winner_id}'>Счастливчик</a>\n"
+                f"🏆 <b>Победитель:</b> {winner_mention}\n"
                 f"🎁 <b>Секретный приз оказался:</b> {item_data['name']}\n\n"
                 f"<i>Скин уже в инвентаре, можно выводить!</i>"
             )
             
-            # 🔥 ИСПРАВЛЕННЫЕ МЕТОДЫ ОТПРАВКИ (answer_photo / answer) 🔥
+            # 🔥 ОТПРАВЛЯЕМ ПОСТ В КОММЕНТАРИИ 🔥
             if image_url:
                 await message.answer_photo(
                     photo=image_url,
@@ -3176,6 +3192,32 @@ async def process_giveaway_comment(message: types.Message):
                     parse_mode="HTML",
                     reply_markup=win_kb  
                 )
+                
+            # --- 2. РЕДАКТИРУЕМ ИСХОДНЫЙ ПОСТ РОЗЫГРЫША ---
+            post_edit_text = (
+                f"🎉 <b>РОЗЫГРЫШ ЗАВЕРШЕН!</b>\n\n"
+                f"Победитель {winner_mention} забрал(а) <b>{item_data['name']}</b>!"
+            )
+            
+            try:
+                # Попытка 1: Отредактировать текст сообщения (если пост был без картинки)
+                await message.bot.edit_message_text(
+                    text=post_edit_text,
+                    chat_id=message.chat.id,
+                    message_id=group_post_id,
+                    parse_mode="HTML"
+                )
+            except Exception:
+                try:
+                    # Попытка 2: Отредактировать подпись (если оригинальный пост был картинкой/видео)
+                    await message.bot.edit_message_caption(
+                        caption=post_edit_text,
+                        chat_id=message.chat.id,
+                        message_id=group_post_id,
+                        parse_mode="HTML"
+                    )
+                except Exception as e:
+                    logging.error(f"Не удалось отредактировать исходный пост розыгрыша: {e}")
 
     except Exception as e:
         logging.error(f"Ошибка проверки комментария розыгрыша: {e}", exc_info=True)
