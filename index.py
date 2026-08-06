@@ -2807,8 +2807,6 @@ async def cmd_start(message: types.Message):
 # 1. ЛОВИМ НОВЫЙ ПОСТ В КАНАЛЕ (через системный репост в чат)
 @router.message(F.is_automatic_forward)
 async def auto_giveaway_on_new_post(message: types.Message):
-    # message.message_id - это ID в чате комментариев (именно к нему идут реплаи)
-    # message.forward_from_message_id - это оригинальный ID в самом канале
     group_post_id = message.message_id
     channel_post_id = message.forward_from_message_id
     channel_id = message.forward_from_chat.id 
@@ -2816,48 +2814,51 @@ async def auto_giveaway_on_new_post(message: types.Message):
     try:
         supabase = await get_supabase_client()
         
-        # Получаем глобальные настройки
+        # 1. Проверяем включен ли тумблер
         set_resp = await supabase.get("/settings", params={"key": "eq.admin_controls"})
         if set_resp.status_code != 200 or not set_resp.json():
             return
         settings = set_resp.json()[0].get('value', {})
         
-        # Если тумблер выключен - ничего не делаем
         if not settings.get('is_auto_giveaway_enabled', False):
             return
 
-        # Генерируем цель уникальных юзеров
-        min_u = int(settings.get('auto_gw_min_msg', 10))
-        max_u = int(settings.get('auto_gw_max_msg', 20))
-        target_users = random.randint(min_u, max_u)
-
-        # Выбираем случайный предмет из cs_items, который активен и есть в наличии
-        items_resp = await supabase.get("/cs_items", params={"is_active": "is.true", "quantity": "gt.0"})
-        items = items_resp.json() if items_resp.status_code == 200 else []
+        # 2. БЕРЕМ ВСЕ АКТИВНЫЕ СКИНЫ ИЗ ПУЛА РОЗЫГРЫШЕЙ (БЕСКОНЕЧНЫЕ)
+        pool_resp = await supabase.get("/giveaway_items_pool", params={"is_active": "is.true"})
+        pool_items = pool_resp.json() if pool_resp.status_code == 200 else []
         
-        if not items:
-            logging.warning("Нет активных предметов на складе для авто-розыгрыша!")
+        if not pool_items:
+            logging.warning("Пул предметов для розыгрышей пуст! Добавьте ID скинов в giveaway_items_pool.")
             return
             
-        selected_item = random.choice(items)
+        selected_pool_entry = random.choice(pool_items)
+        item_id = selected_pool_entry["item_id"]
 
-        # 1. Записываем розыгрыш в БД
+        # Получаем данные о скине из cs_items для текста
+        item_resp = await supabase.get("/cs_items", params={"id": f"eq.{item_id}"})
+        if item_resp.status_code != 200 or not item_resp.json():
+            return
+        selected_item = item_resp.json()[0]
+
+        target_users = random.randint(int(settings.get('auto_gw_min_msg', 10)), int(settings.get('auto_gw_max_msg', 20)))
+
+        # 3. Создаем розыгрыш
         await supabase.post("/post_giveaways", json={
             "post_id": group_post_id,
             "channel_message_id": channel_post_id,
             "target_users": target_users,
-            "item_id": selected_item["id"]
+            "item_id": item_id
         })
 
-        # 2. Бот пишет сообщение с правилами в комментариях
+        # 4. Пишем в комменты
         await message.reply(
             f"🎁 <b>РОЗЫГРЫШ ЗАПУЩЕН!</b>\n\n"
             f"Предмет: <b>{selected_item['name']}</b> ({selected_item.get('condition', 'FN')})\n"
             f"Условия: просто оставь любой комментарий.\n\n"
-            f"<i>Победитель определится автоматически, когда наберется нужное число людей!</i>"
+            f"<i>Победитель определится автоматически!</i>"
         )
 
-        # 3. Бот редактирует оригинальный пост в канале!
+        # 5. Редактируем пост в канале
         old_text = message.text or message.caption or ""
         promo_text = "\n\n🎁 <i>Под этим постом идет розыгрыш скина! Зайди в комментарии, чтобы участвовать.</i>"
         new_text = old_text + promo_text
@@ -4389,9 +4390,9 @@ async def manual_add_giveaway_user(
         if not user_id:
              raise HTTPException(status_code=404, detail="Не удалось определить ID")
 
-        # 1. Закидываем юзера в БД
+        # 1. Закидываем юзера в БД (Используем новую RPC функцию)
         resp = await supabase.post(
-            "/rpc/process_giveaway_comment", 
+            "/rpc/process_cs_giveaway_comment", 
             json={"p_post_id": post_id, "p_user_id": user_id}
         )
         
@@ -4402,54 +4403,57 @@ async def manual_add_giveaway_user(
             if isinstance(result, dict) and result.get("status") == "winner":
                 winner_id = result.get("winner_id")
                 
-                # Подтягиваем инфу о награде, чтобы выдать её
+                # Подтягиваем инфу о розыгрыше, чтобы узнать какой предмет разыгрывался
                 giveaway_info = await supabase.get("/post_giveaways", params={"post_id": f"eq.{post_id}"})
+                
                 if giveaway_info.status_code == 200 and giveaway_info.json():
                     g_data = giveaway_info.json()[0]
-                    r_type = g_data['reward_type']
-                    r_val = g_data['reward_value']
-                    reply_text = g_data.get('reply_text', '🎉 Розыгрыш завершен!')
-                    image_url = g_data.get('image_url', '')
+                    item_id = g_data['item_id']
 
-                    # --- ВЫДАЕМ НАГРАДУ ---
-                    if r_type == 'coins':
-                        promo_resp = await supabase.get("/promocodes", params={"is_used": "eq.false", "telegram_id": "is.null", "reward_value": f"eq.{r_val}", "limit": "1"})
-                        if promo_resp.status_code == 200 and promo_resp.json():
-                            promo_id = promo_resp.json()[0]['id']
-                            # Привязываем код к победителю в базе
-                            await supabase.patch("/promocodes", params={"id": f"eq.{promo_id}"}, json={"telegram_id": int(winner_id), "description": "НАГРАДА ЗА ТГ ПОСТ"})
-                            
-                            # Сразу запускаем автоматическое зачисление в Bot-t (в фоне)
-                            asyncio.create_task(
-                                activate_single_promocode(
-                                    promo_id=promo_id,
-                                    telegram_id=int(winner_id),
-                                    reward_value=r_val,
-                                    description="НАГРАДА ЗА ТГ ПОСТ"
-                                )
+                    # Берем данные о самом предмете (название, картинка)
+                    item_resp = await supabase.get("/cs_items", params={"id": f"eq.{item_id}"})
+                    if item_resp.status_code == 200 and item_resp.json():
+                        item_data = item_resp.json()[0]
+                        item_name = item_data['name']
+                        image_url = item_data.get('image_url', '')
+
+                        # --- ВЫДАЕМ НАГРАДУ В ИНВЕНТАРЬ ---
+                        history_payload = {
+                            "user_id": int(winner_id),
+                            "item_id": int(item_id),
+                            "status": "received",
+                            "source": "shop",
+                            "case_name": "Розыгрыш ТГ",
+                            "is_swapped": False
+                        }
+                        await supabase.post("/cs_history", json=history_payload)
+
+                        # --- ОТПРАВЛЯЕМ ИТОГИ В КАНАЛ ---
+                        chat_id = os.getenv("ALLOWED_CHAT_ID") or ALLOWED_CHAT_ID
+                        if chat_id:
+                            # Получаем глобальные настройки текста
+                            reply_text = '🎉 Розыгрыш завершен!'
+                            set_resp = await supabase.get("/settings", params={"key": "eq.admin_controls"})
+                            if set_resp.status_code == 200 and set_resp.json():
+                                settings = set_resp.json()[0].get('value', {})
+                                reply_text = settings.get('auto_gw_reply_text', reply_text)
+
+                            announcement = (
+                                f"{reply_text}\n\n"
+                                f"🏆 <b>Победитель:</b> <a href='tg://user?id={winner_id}'>Счастливчик</a>\n"
+                                f"🎁 <b>Приз:</b> {item_name}\n\n"
+                                f"<i>Скин уже в инвентаре, можно выводить!</i>"
                             )
                             
-                    elif r_type == 'tickets':
-                        await supabase.post("/rpc/increment_tickets", json={"p_user_id": int(winner_id), "p_amount": r_val})
+                            try:
+                                if image_url:
+                                    await bot.send_photo(chat_id=int(chat_id), photo=image_url, caption=announcement, reply_to_message_id=int(post_id), parse_mode="HTML")
+                                else:
+                                    await bot.send_message(chat_id=int(chat_id), text=announcement, reply_to_message_id=int(post_id), parse_mode="HTML")
+                            except Exception as bot_e:
+                                logging.error(f"Ошибка отправки итога из админки: {bot_e}")
 
-                    # --- ОТПРАВЛЯЕМ ПОСТ В КАНАЛ ---
-                    chat_id = os.getenv("ALLOWED_CHAT_ID") or ALLOWED_CHAT_ID
-                    if chat_id:
-                        announcement = (
-                            f"{reply_text}\n\n"
-                            f"🏆 <b>Победитель:</b> <a href='tg://user?id={winner_id}'>Счастливчик</a>\n"
-                            f"🎁 <b>Приз:</b> {r_val} {r_type}\n\n"
-                            f"<i>Награда зачислена!</i>"
-                        )
-                        try:
-                            if image_url:
-                                await bot.send_photo(chat_id=int(chat_id), photo=image_url, caption=announcement, reply_to_message_id=int(post_id), parse_mode="HTML")
-                            else:
-                                await bot.send_message(chat_id=int(chat_id), text=announcement, reply_to_message_id=int(post_id), parse_mode="HTML")
-                        except Exception as bot_e:
-                            logging.error(f"Ошибка отправки итога из админки: {bot_e}")
-
-                return {"status": "success", "message": "Лимит достигнут! Бот выдал приз и написал в чат.", "winner": True}
+                return {"status": "success", "message": "Лимит достигнут! Бот выдал скин и написал в чат.", "winner": True}
             
             # Если лимит еще не достигнут
             return {"status": "success", "message": "Участник успешно добавлен!"}
@@ -11670,10 +11674,11 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
     import os
     import traceback
     import logging
+    import asyncio
     from datetime import datetime, timezone
-    from dateutil import parser
     
-    print(f"[{datetime.now(timezone.utc).isoformat()}] CRON STARTED: check_tm_trades")
+    now = datetime.now(timezone.utc)
+    print(f"[{now.isoformat()}] CRON STARTED: check_tm_trades")
 
     try:
         TM_API_KEY = os.getenv("CSGO_MARKET_API_KEY")
@@ -11684,59 +11689,46 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
         results_log = []
 
         # =========================================================
-        # ФАЗА 0: ЧИСТКА ФАНТОМНЫХ ПРЕДМЕТОВ
+        # 🔥 МЕГА-БЫСТРАЯ БАЗА: ПОЛУЧАЕМ ФАНТОМЫ И АКТИВНЫЕ ТРЕЙДЫ ЗА 1 ПРЫЖОК
         # =========================================================
-        try:
-            clean_res = await supabase.get(
-                "/cs_history", 
-                params={
-                    "status": "eq.pending",
-                    "select": "id, source, item:cs_items(id)"
-                }
-            )
+        db_res = await supabase.post("/rpc/get_cron_tm_data")
+        
+        if db_res.status_code >= 400:
+            err_msg = f"CRON FATAL: БД Ошибка: {db_res.text}"
+            print(err_msg)
+            return {"status": "error", "message": err_msg}
             
-            if clean_res.status_code == 200:
-                potential_phantoms = clean_res.json()
-                for rec in potential_phantoms:
-                    source = rec.get("source")
-                    
-                    if not rec.get("item") and source not in ["raffle", "twitch", "auction"]:
-                        p_id = rec.get("id")
-                        await supabase.delete("/cs_history", params={"id": f"eq.{p_id}"})
-                        msg = f"CLEANUP: Deleted phantom item #{p_id}"
-                        print(msg)
-                        results_log.append(msg)
-        except Exception as e:
-            print(f"CRON CLEANUP ERROR: {e}")
-            logging.error(f"Cleanup error: {e}")
+        data = db_res.json()
+        potential_phantoms = data.get("phantoms", [])
+        active_trades = data.get("active_trades", [])
+
+        # =========================================================
+        # 🔥 ФАЗА 0: ЧИСТКА ФАНТОМНЫХ ПРЕДМЕТОВ (ПАРАЛЛЕЛЬНО)
+        # =========================================================
+        if potential_phantoms:
+            delete_tasks = []
+            for rec in potential_phantoms:
+                source = rec.get("source")
+                if source not in ["raffle", "twitch", "auction"]:
+                    p_id = rec.get("id")
+                    # Готовим задачи для параллельного удаления
+                    delete_tasks.append(supabase.delete("/cs_history", params={"id": f"eq.{p_id}"}))
+                    msg = f"CLEANUP: Deleted phantom item #{p_id}"
+                    results_log.append(msg)
+            
+            # Удаляем все найденные фантомы разом
+            if delete_tasks:
+                await asyncio.gather(*delete_tasks)
+                print(f"CRON: Deleted {len(delete_tasks)} phantoms concurrently.")
 
         # =========================================================
         # ФАЗА 1: ПРОВЕРКА ТРЕЙДОВ МАРКЕТА
         # =========================================================
-        res = await supabase.get(
-            "/cs_history", 
-            params={
-                "status": "in.(waiting,processing,market_pending,offer_sent)", 
-                "select": "id, updated_at, status, tradeofferid, assetid",
-                "order": "updated_at.asc", # 🔥 СТРОГО ASC! Иначе старые заявки зависнут навсегда!
-                "limit": "10" 
-            }
-        )
-        
-        if res.status_code >= 400:
-            err_msg = f"CRON FATAL: БД Ошибка: {res.text}"
-            print(err_msg)
-            return {"status": "error", "message": err_msg}
-            
-        active_trades = res.json()
-
         if not active_trades and not results_log:
             print("CRON FINISHED: No active trades found.")
             return {"status": "ok", "message": "Ничего не найдено для обработки"}
 
         print(f"CRON: Found {len(active_trades)} trades to check.")
-
-        now = datetime.now(timezone.utc)
         now_iso = now.isoformat()
 
         async with httpx.AsyncClient(timeout=7.0) as client:
@@ -11748,7 +11740,15 @@ async def cron_check_tm_trades(supabase: httpx.AsyncClient = Depends(get_supabas
                 
                 market_custom_id = str(trade.get("tradeofferid") or "")
                 
-                trade_time = parser.parse(updated_at_str) if updated_at_str else now
+                # 🔥 ОПТИМИЗАЦИЯ CPU: Сверхбыстрый парсинг даты вместо тяжелого dateutil
+                if updated_at_str:
+                    try:
+                        trade_time = datetime.fromisoformat(updated_at_str.replace('Z', '+00:00'))
+                    except ValueError:
+                        trade_time = now
+                else:
+                    trade_time = now
+                    
                 if trade_time.tzinfo is None:
                     trade_time = trade_time.replace(tzinfo=timezone.utc)
                     
