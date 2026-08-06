@@ -4581,7 +4581,7 @@ async def manual_add_giveaway_user(
                             "user_id": int(winner_id),
                             "item_id": int(item_id),
                             "status": "available",  # <-- ИСПРАВЛЕНО НА AVAILABLE
-                            "source": "raffle",           # 🔥 СТАВИМ КЛАСС RAFFLE
+                            "source": "raffle",            # 🔥 СТАВИМ КЛАСС RAFFLE
                             "case_name": "Победа в розыгрыше", # 🔥 КАК У ТЕБЯ В JSON
                             "is_swapped": False
                         }
@@ -4651,12 +4651,12 @@ async def manual_add_giveaway_user(
                                 except Exception as e_caption:
                                     logging.error(f"❌ Не удалось отредактировать пост из API:\nОшибка текста: {e_text}\nОшибка подписи: {e_caption}")
 
-            return {"status": "success", "message": "Лимит достигнут! Бот выдал скин и написал в чат.", "winner": True}
-        
-        # Если лимит еще не достигнут
-        return {"status": "success", "message": "Участник успешно добавлен!"}
-    else:
-        raise HTTPException(status_code=500, detail="Ошибка базы данных")
+                return {"status": "success", "message": "Лимит достигнут! Бот выдал скин и написал в чат.", "winner": True}
+            
+            # Если лимит еще не достигнут
+            return {"status": "success", "message": "Участник успешно добавлен!"}
+        else:
+            raise HTTPException(status_code=500, detail="Ошибка базы данных")
 
     except HTTPException:
         raise
@@ -24745,7 +24745,7 @@ async def force_close_giveaway(
         # 4. 🔥 ЧЕСТНЫЙ РАНДОМ (РУЧНОЙ СЦЕНАРИЙ)
         winner_id = random.choice(unique_users)
 
-        # Переменные для CS2 скинов
+        # Базовые переменные для призов
         item_name = f"{r_val} {r_type}"
         image_url = None
         win_kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -24792,7 +24792,7 @@ async def force_close_giveaway(
         elif r_type == 'tickets':
             await supabase.post("/rpc/increment_tickets", json={"p_user_id": int(winner_id), "p_amount": r_val})
 
-        # 🔥 НОВАЯ ВЕТКА ДЛЯ CS2 СКИНОВ
+        # 🔥 ВЕТКА ДЛЯ CS2 СКИНОВ
         elif r_type == 'cs2_skin':
             item_id = int(r_val)
             
@@ -24807,7 +24807,7 @@ async def force_close_giveaway(
             history_payload = {
                 "user_id": int(winner_id),
                 "item_id": item_id,
-                "status": "received",
+                "status": "available",  # <-- ИСПРАВЛЕНО НА AVAILABLE
                 "source": "raffle", 
                 "case_name": "Победа в розыгрыше",
                 "is_swapped": False
@@ -24818,14 +24818,25 @@ async def force_close_giveaway(
         chat_id = os.getenv("ALLOWED_CHAT_ID") or (ALLOWED_CHAT_ID if 'ALLOWED_CHAT_ID' in globals() else None)
         
         if chat_id:
+            # --- ДОСТАЕМ @USERNAME ДЛЯ КРАСИВОГО УПОМИНАНИЯ ---
+            try:
+                member = await bot.get_chat_member(chat_id=int(chat_id), user_id=int(winner_id))
+                if member.user.username:
+                    winner_mention = f"@{member.user.username}"
+                else:
+                    winner_mention = f"<a href='tg://user?id={winner_id}'>{member.user.first_name}</a>"
+            except Exception as e:
+                logging.warning(f"Не удалось получить профиль победителя при ручном закрытии: {e}")
+                winner_mention = f"<a href='tg://user?id={winner_id}'>Победитель</a>"
+
             try:
                 # Если это CS2 скин — отправляем красиво с фоткой и кнопкой
                 if r_type == 'cs2_skin':
                     announcement = (
                         f"{reply_text}\n\n"
-                        f"🏆 <b>Победитель:</b> <a href='tg://user?id={winner_id}'>Счастливчик</a>\n"
+                        f"🏆 <b>Победитель:</b> {winner_mention}\n"
                         f"🎁 <b>Приз оказался:</b> {item_name}\n\n"
-                        f"<i>Скин уже зачислен в инвентарь!</i>"
+                        f"<i>Скин уже зачислен в инвентарь, можно выводить!</i>"
                     )
                     
                     if image_url:
@@ -24833,16 +24844,42 @@ async def force_close_giveaway(
                     else:
                         await bot.send_message(chat_id=int(chat_id), text=announcement, reply_to_message_id=int(post_id), parse_mode="HTML", reply_markup=win_kb)
                 
-                # Старая логика для коинов и билетов
+                # Логика для коинов и билетов
                 else:
                     announcement = (
                         f"{reply_text}\n\n"
-                        f"🏆 <b>Победитель:</b> <a href='tg://user?id={winner_id}'>Счастливчик</a>\n"
+                        f"🏆 <b>Победитель:</b> {winner_mention}\n"
                         f"🎁 <b>Приз:</b> {r_val} {r_type}\n\n"
                         f"<i>Награда автоматически зачислена на баланс!</i>"
                     )
                     await bot.send_message(chat_id=int(chat_id), text=announcement, reply_to_message_id=int(post_id), parse_mode="HTML")
-            
+
+                # --- РЕДАКТИРУЕМ ИСХОДНЫЙ ПОСТ РОЗЫГРЫША ---
+                post_edit_text = (
+                    f"🎉 <b>РОЗЫГРЫШ ЗАВЕРШЕН!</b>\n\n"
+                    f"Победитель {winner_mention} забрал(а) <b>{item_name}</b>!"
+                )
+                
+                try:
+                    # Попытка 1: Редактируем как текст
+                    await bot.edit_message_text(
+                        text=post_edit_text,
+                        chat_id=int(chat_id),
+                        message_id=int(post_id),
+                        parse_mode="HTML"
+                    )
+                except Exception as e_text:
+                    try:
+                        # Попытка 2: Редактируем как подпись (если картинка)
+                        await bot.edit_message_caption(
+                            caption=post_edit_text,
+                            chat_id=int(chat_id),
+                            message_id=int(post_id),
+                            parse_mode="HTML"
+                        )
+                    except Exception as e_caption:
+                        logging.error(f"❌ Не удалось отредактировать пост из API ручного завершения:\nТекст: {e_text}\nПодпись: {e_caption}")
+
             except Exception as e:
                 logging.error(f"Не удалось опубликовать итоги ручного завершения: {e}")
 
