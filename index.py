@@ -31453,7 +31453,7 @@ class ProfileShopBuyRequest(BaseModel):
 # =========================================================================
 # 1. РЕФЕРАЛЬНЫЙ МАГАЗИН: ПОЛУЧЕНИЕ СПИСКА ТОВАРОВ И БАЛАНСА
 # =========================================================================
-@router.post("/api/v1/profile/shop/items")
+@app.post("/api/v1/profile/shop/items")
 async def get_profile_shop_items(
     request_data: ProfileShopItemsRequest,
     supabase: httpx.AsyncClient = Depends(get_supabase_client)
@@ -31555,7 +31555,7 @@ async def get_profile_shop_items(
 # =========================================================================
 # 2. РЕФЕРАЛЬНЫЙ МАГАЗИН: ПОКУПКА/ПОЛУЧЕНИЕ НАГРАДЫ
 # =========================================================================
-@router.post("/api/v1/profile/shop/buy")
+@app.post("/api/v1/profile/shop/buy")
 async def buy_profile_shop_item(
     request_data: ProfileShopBuyRequest,
     background_tasks: BackgroundTasks,
@@ -31669,7 +31669,7 @@ async def buy_profile_shop_item(
     except Exception as e:
         logging.error(f"[PROFILE_SHOP] Глобальная ошибка: {e}")
         raise HTTPException(status_code=500, detail="Ошибка при транзакции")
-
+        
 # --- HTML routes ---
 # @app.get('/favicon.ico', include_in_schema=False)
 # async def favicon(): return Response(status_code=204)
