@@ -108,7 +108,7 @@
             <div class="toggle-container">
                 <div>
                     <div class="toggle-label">Авто-розыгрыши CS2</div>
-                    <div class="toggle-desc">Выдавать скины со склада под каждым новым постом канала</div>
+                    <div class="toggle-desc">Выдавать скины из пула под каждым новым постом канала</div>
                 </div>
                 <label class="switch">
                     <input type="checkbox" id="auto_toggle_enabled">
@@ -118,7 +118,7 @@
 
             <div class="section-box">
                 <h3 class="sec-title"><i class="fa-solid fa-robot"></i> Настройки пула (Уникальные юзеры)</h3>
-                <div style="font-size:11px;color:#aaa;margin-bottom:15px;">Бот сам сгенерирует число уникальных участников между этими значениями. Спам комментариями от одного юзера не работает. Предмет выбирается рандомно из активных на складе.</div>
+                <div style="font-size:11px;color:#aaa;margin-bottom:15px;">Бот сам сгенерирует число уникальных участников между этими значениями. Спам комментариями от одного юзера не работает. Предмет выбирается рандомно из бесконечного пула розыгрышей.</div>
 
                 <div class="cond-grid">
                     <div>
@@ -149,7 +149,7 @@
                 <h3 class="sec-title"><i class="fa-solid fa-link"></i> Привязка к посту</h3>
                 <label>ID сообщения в чате комментариев</label>
                 <input type="number" id="manual_post_id" placeholder="Например: 15432" required>
-                <div style="font-size:11px;color:#aaa;margin-top:5px;">Предмет будет выбран автоматически из активных скинов CS2.</div>
+                <div style="font-size:11px;color:#aaa;margin-top:5px;">Предмет будет выбран автоматически из активного пула розыгрышей.</div>
             </div>
 
             <div class="section-box">
@@ -306,7 +306,7 @@
                     switchTab('list'); 
                 } else {
                     tg.HapticFeedback.notificationOccurred('error');
-                    showCustomAlert('Ошибка', 'Не удалось создать розыгрыш. Убедитесь, что на складе есть активные предметы.');
+                    showCustomAlert('Ошибка', 'Не удалось создать розыгрыш. Убедитесь, что в пуле есть предметы.');
                 }
             } catch (error) {
                 tg.HapticFeedback.notificationOccurred('error');
