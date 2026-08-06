@@ -2228,22 +2228,20 @@ async def get_supabase_client() -> httpx.AsyncClient:
     if _lazy_supabase_client is not None and not _lazy_supabase_client.is_closed:
         return _lazy_supabase_client
         
-    logging.info("🔌 (Re)Creating global Supabase client...")
+    logging.info("🔌 Creating Serverless-safe Supabase client...")
     
-    # 🔥 ИЗМЕНЕНИЕ: Расширяем пулы и время жизни соединений.
-    # Увеличиваем max_connections до 100, чтобы при наплыве юзеры не выстраивались в очередь.
-    # Увеличиваем keepalive_expiry до 300 (5 минут) — это КРИТИЧЕСКИ ВАЖНО, чтобы не 
-    # тратить по 300-500мс на новое SSL/TCP рукопожатие каждые 10 секунд простоя.
+    # 🔥 ИЗМЕНЕНИЕ ДЛЯ SERVERLESS (Vercel / Lambda) 🔥
+    # Отключаем удержание соединений (keepalive=0). 
+    # В облачных функциях старые соединения "умирают" молча и вызывают ReadTimeout.
     limits = httpx.Limits(
-        max_keepalive_connections=50, 
-        max_connections=100, 
-        keepalive_expiry=300
+        max_keepalive_connections=0, # Не храним старые соединения
+        max_connections=100
     )
     
     _lazy_supabase_client = httpx.AsyncClient(
         base_url=f"{SUPABASE_URL}/rest/v1",
         headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"},
-        timeout=30.0, # 🔥 Оставляем 10 секунд, этого более чем достаточно
+        timeout=30.0, 
         limits=limits
     )
     
