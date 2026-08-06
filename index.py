@@ -3131,7 +3131,6 @@ async def process_giveaway_comment(message: types.Message):
             logging.info(f"🎉 ЕСТЬ ПОБЕДИТЕЛЬ! Юзер: {winner_id}, Приз: {item_id}")
             
             # --- 1. ДОСТАЕМ @USERNAME НАСТОЯЩЕГО ПОБЕДИТЕЛЯ ---
-            # Запрашиваем информацию о пользователе, которого выбрала база (winner_id)
             try:
                 member = await message.bot.get_chat_member(chat_id=message.chat.id, user_id=int(winner_id))
                 if member.user.username:
@@ -3140,7 +3139,6 @@ async def process_giveaway_comment(message: types.Message):
                     winner_mention = f"<a href='tg://user?id={winner_id}'>{member.user.first_name}</a>"
             except Exception as e:
                 logging.warning(f"Не удалось получить профиль победителя: {e}")
-                # Фолбэк, если юзер, например, успел выйти из чата
                 winner_mention = f"<a href='tg://user?id={winner_id}'>Счастливчик</a>"
 
             item_resp = await supabase.get("/cs_items", params={"id": f"eq.{item_id}"})
@@ -3153,7 +3151,7 @@ async def process_giveaway_comment(message: types.Message):
             history_payload = {
                 "user_id": int(winner_id),
                 "item_id": int(item_id),
-                "status": "available",  # <-- ИСПРАВЛЕНО (было "received")
+                "status": "available", 
                 "source": "raffle", 
                 "case_name": "Победа в розыгрыше",
                 "is_swapped": False
@@ -3191,25 +3189,43 @@ async def process_giveaway_comment(message: types.Message):
                 )
                 
             # --- 3. РЕДАКТИРУЕМ ИСХОДНЫЙ ПОСТ РОЗЫГРЫША ---
-            post_edit_text = (
+            win_text = (
                 f"🎉 <b>РОЗЫГРЫШ ЗАВЕРШЕН!</b>\n\n"
                 f"Победитель {winner_mention} забрал(а) <b>{item_data['name']}</b>!"
             )
             
-            # Ищем, откуда родом этот пост. Если он из канала, нужно редактировать в канале!
+            # Достаем оригинальный текст поста (сохраняем HTML-разметку, если доступно)
+            original_html = ""
+            if message.reply_to_message:
+                if getattr(message.reply_to_message, 'html_text', None):
+                    original_html = message.reply_to_message.html_text
+                else:
+                    original_html = message.reply_to_message.caption or message.reply_to_message.text or ""
+
+            phrase_to_replace = "🎁 Под этим постом идет розыгрыш секретного скина! Зайди в комментарии, чтобы участвовать."
+            
+            # Если находим эту фразу в тексте - меняем ТОЛЬКО ЕЁ
+            if phrase_to_replace in original_html:
+                post_edit_text = original_html.replace(phrase_to_replace, win_text)
+            elif original_html:
+                # Если фразы почему-то нет (например, её изменили), просто допишем итог в конец поста
+                post_edit_text = f"{original_html}\n\n{win_text}"
+            else:
+                # На случай, если пост вообще был без текста
+                post_edit_text = win_text
+            
+            # Ищем, откуда родом этот пост
             target_chat_id = message.chat.id
             target_msg_id = group_post_id
             
             if message.reply_to_message and message.reply_to_message.sender_chat and message.reply_to_message.sender_chat.type == "channel":
                 target_chat_id = message.reply_to_message.sender_chat.id
-                # Достаем ID оригинального сообщения в самом канале
                 if message.reply_to_message.forward_from_message_id:
                     target_msg_id = message.reply_to_message.forward_from_message_id
 
             logging.info(f"Пытаемся отредактировать пост. Chat ID: {target_chat_id}, Msg ID: {target_msg_id}")
 
             try:
-                # Попытка 1: Отредактировать текст сообщения (если пост был без картинки)
                 await message.bot.edit_message_text(
                     text=post_edit_text,
                     chat_id=target_chat_id,
@@ -3218,16 +3234,15 @@ async def process_giveaway_comment(message: types.Message):
                 )
                 logging.info("✅ Пост успешно отредактирован (Текст)!")
             except Exception as e1:
-                logging.warning(f"⚠️ Не удалось отредактировать как текст (возможно там картинка): {e1}")
+                logging.warning(f"⚠️ Не удалось отредактировать как текст (вероятно это медиа): {e1}")
                 try:
-                    # Попытка 2: Отредактировать подпись (если оригинальный пост был картинкой/видео)
                     await message.bot.edit_message_caption(
                         caption=post_edit_text,
                         chat_id=target_chat_id,
                         message_id=target_msg_id,
                         parse_mode="HTML"
                     )
-                    logging.info("✅ Пост успешно отредактирован (Подпись к медиа)!")
+                    logging.info("✅ Пост успешно отредактирован (Подпись к картинке/видео)!")
                 except Exception as e2:
                     logging.error(f"❌ Не удалось отредактировать исходный пост вообще: {e2}")
 
