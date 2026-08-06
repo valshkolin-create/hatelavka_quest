@@ -4422,10 +4422,11 @@ async def manual_add_giveaway_user(
                             "user_id": int(winner_id),
                             "item_id": int(item_id),
                             "status": "received",
-                            "source": "shop",
-                            "case_name": "Розыгрыш ТГ",
+                            "source": "raffle",           # 🔥 СТАВИМ КЛАСС RAFFLE
+                            "case_name": "Победа в розыгрыше", # 🔥 КАК У ТЕБЯ В JSON
                             "is_swapped": False
                         }
+                        # Ничего не списываем, предмет бесконечно берется из пула
                         await supabase.post("/cs_history", json=history_payload)
 
                         # --- ОТПРАВЛЯЕМ ИТОГИ В КАНАЛ ---
@@ -31440,6 +31441,234 @@ async def get_history_details(
 
     else:
         raise HTTPException(status_code=400, detail="Неверный тип данных (ожидалось cases или coupons)")
+
+# --- СХЕМЫ (УНИКАЛЬНЫЕ НАЗВАНИЯ) ---
+class ProfileShopItemsRequest(BaseModel):
+    initData: str
+
+class ProfileShopBuyRequest(BaseModel):
+    initData: str
+    item_id: int
+
+# =========================================================================
+# 1. РЕФЕРАЛЬНЫЙ МАГАЗИН: ПОЛУЧЕНИЕ СПИСКА ТОВАРОВ И БАЛАНСА
+# =========================================================================
+@router.post("/api/v1/profile/shop/items")
+async def get_profile_shop_items(
+    request_data: ProfileShopItemsRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    telegram_id = user_info["id"]
+
+    try:
+        # 1. Запрашиваем юзера (баланс билетов, рефералы, бан)
+        user_res = await supabase.get(
+            "/users",
+            params={"telegram_id": f"eq.{telegram_id}", "select": "tickets,referrals_count,is_banned"}
+        )
+        user_data = user_res.json()
+        
+        if not user_data or len(user_data) == 0:
+            raise HTTPException(status_code=404, detail="Пользователь не найден")
+        if user_data[0].get("is_banned"):
+            raise HTTPException(status_code=403, detail="Ваш аккаунт заблокирован.")
+
+        # Парсим билеты как float (хранятся с копейками)
+        balance = float(user_data[0].get("tickets", 0))
+        refs_count = int(user_data[0].get("referrals_count", 0))
+
+        # 2. Асинхронно стягиваем товары, покупки юзера (для лимитов) и выполненные квесты
+        async def fetch_items():
+            res = await supabase.get("/shop_items", params={"is_active": "eq.true", "order": "price.asc"})
+            return res.json()
+
+        async def fetch_purchases():
+            res = await supabase.get("/shop_purchases", params={"user_id": f"eq.{telegram_id}", "select": "item_id"})
+            return res.json()
+
+        async def fetch_quests():
+            res = await supabase.get("/quest_submissions", params={"user_id": f"eq.{telegram_id}", "status": "eq.approved", "select": "quest_id"})
+            return res.json()
+
+        items_data, purchases_data, quests_data = await asyncio.gather(fetch_items(), fetch_purchases(), fetch_quests())
+
+        # Считаем, сколько раз юзер купил каждый товар
+        purchase_counts = {}
+        for p in purchases_data:
+            i_id = p.get("item_id")
+            purchase_counts[i_id] = purchase_counts.get(i_id, 0) + 1
+
+        # Собираем ID выполненных квестов
+        completed_quests = {str(q.get("quest_id")) for q in quests_data}
+
+        # 3. Обрабатываем товары перед отправкой на фронт
+        processed_items = []
+        for item in items_data:
+            item_id = item.get("id")
+            unlock_type = item.get("unlock_type", "none")
+            unlock_target = str(item.get("unlock_target", ""))
+            user_limit = int(item.get("user_limit", 1))
+            
+            p_count = purchase_counts.get(item_id, 0)
+            
+            # Логика блокировок
+            is_locked = False
+            lock_reason = ""
+
+            if p_count >= user_limit:
+                is_locked = True
+                lock_reason = "limit_reached"
+            elif unlock_type == 'referrals':
+                target_refs = int(unlock_target) if unlock_target.isdigit() else 0
+                if refs_count < target_refs:
+                    is_locked = True
+                    lock_reason = f"Нужно {target_refs} рефералов"
+            elif unlock_type == 'quest':
+                if unlock_target not in completed_quests:
+                    is_locked = True
+                    lock_reason = "Выполни квест"
+
+            processed_items.append({
+                **item,
+                "is_locked": is_locked,
+                "lock_reason": lock_reason,
+                "purchased_count": p_count
+            })
+
+        return {
+            "user_balance": balance,
+            "referrals_count": refs_count,
+            "items": processed_items
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"[PROFILE_SHOP] Ошибка загрузки: {e}")
+        raise HTTPException(status_code=500, detail="Ошибка базы данных")
+
+
+# =========================================================================
+# 2. РЕФЕРАЛЬНЫЙ МАГАЗИН: ПОКУПКА/ПОЛУЧЕНИЕ НАГРАДЫ
+# =========================================================================
+@router.post("/api/v1/profile/shop/buy")
+async def buy_profile_shop_item(
+    request_data: ProfileShopBuyRequest,
+    background_tasks: BackgroundTasks,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    logging.info(f"========== [PROFILE_SHOP] ПОЛУЧЕНИЕ ТОВАРА {request_data.item_id} ==========")
+    
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    telegram_id = user_info["id"]
+    item_id = request_data.item_id
+
+    await verify_user_not_banned(telegram_id, supabase)
+
+    try:
+        # 1. Запрашиваем товар и юзера
+        async def fetch_item():
+            res = await supabase.get("/shop_items", params={"id": f"eq.{item_id}", "is_active": "eq.true"})
+            return res.json()
+            
+        async def fetch_user():
+            res = await supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}", "select": "tickets,referrals_count"})
+            return res.json()
+            
+        async def fetch_user_purchases():
+            res = await supabase.get("/shop_purchases", params={"user_id": f"eq.{telegram_id}", "item_id": f"eq.{item_id}"})
+            return res.json()
+
+        item_data, user_data, purchases_data = await asyncio.gather(fetch_item(), fetch_user(), fetch_user_purchases())
+        
+        if not item_data:
+            raise HTTPException(status_code=404, detail="Товар не найден")
+            
+        item = item_data[0]
+        price = float(item.get("price", 0))
+        stock = int(item.get("stock", -1))
+        user_limit = int(item.get("user_limit", 1))
+        unlock_type = item.get("unlock_type", "none")
+        unlock_target = str(item.get("unlock_target", ""))
+        
+        # Запоминаем текущий баланс для атомарного списания
+        current_db_balance = user_data[0].get("tickets", 0)
+        old_balance = float(current_db_balance)
+        refs_count = int(user_data[0].get("referrals_count", 0))
+
+        # --- ПРОВЕРКИ БЕЗОПАСНОСТИ ---
+        if stock == 0:
+            raise HTTPException(status_code=400, detail="Товар закончился!")
+        if len(purchases_data) >= user_limit:
+            raise HTTPException(status_code=400, detail="Вы исчерпали лимит получений этого товара!")
+        if old_balance < price:
+            raise HTTPException(status_code=400, detail=f"Недостаточно билетов! Нужно: {price}")
+
+        # Проверка условий разблокировки
+        if unlock_type == 'referrals':
+            if refs_count < int(unlock_target if unlock_target.isdigit() else 0):
+                raise HTTPException(status_code=403, detail="Недостаточно рефералов для покупки!")
+        elif unlock_type == 'quest':
+            q_res = await supabase.get("/quest_submissions", params={"user_id": f"eq.{telegram_id}", "quest_id": f"eq.{unlock_target}", "status": "eq.approved"})
+            if not q_res.json():
+                raise HTTPException(status_code=403, detail="Вы не выполнили требуемый квест!")
+
+        new_balance = round(old_balance - price, 2)
+
+        # --- АТОМАРНАЯ ТРАНЗАКЦИЯ (Списание билетов) ---
+        patch_user = await supabase.patch(
+            "/users",
+            params={"telegram_id": f"eq.{telegram_id}", "tickets": f"eq.{current_db_balance}"},
+            json={"tickets": new_balance},
+            headers={"Prefer": "return=representation"}
+        )
+        if not patch_user.json():
+            raise HTTPException(status_code=400, detail="Транзакция обрабатывается! Не нажимайте дважды.")
+
+        # --- АТОМАРНАЯ ТРАНЗАКЦИЯ (Списание стока) ---
+        if stock > 0:
+            patch_stock = await supabase.patch(
+                "/shop_items",
+                params={"id": f"eq.{item_id}", "stock": f"eq.{stock}"},
+                json={"stock": stock - 1},
+                headers={"Prefer": "return=representation"}
+            )
+            if not patch_stock.json():
+                # Откат транзакции баланса
+                await supabase.patch("/users", params={"telegram_id": f"eq.{telegram_id}"}, json={"tickets": old_balance})
+                raise HTTPException(status_code=400, detail="Кто-то успел забрать быстрее. Билеты возвращены.")
+
+        # --- УСПЕХ: ВЫДАЧА ---
+        await supabase.post(
+            "/shop_purchases",
+            json={"user_id": int(telegram_id), "item_id": int(item_id), "price_paid": price, "status": "completed"}
+        )
+        
+        async def log_manual_reward_bg(uid, title, cost):
+            try:
+                await supabase.post("/manual_rewards", json={
+                    "user_id": uid, "status": "pending", "source_type": "ref_shop",
+                    "reward_details": title, "source_description": f"Забрали в профиле за {cost} билетов"
+                })
+            except Exception as e:
+                logging.error(f"[PROFILE_SHOP BG] Ошибка manual_rewards: {e}")
+
+        background_tasks.add_task(log_manual_reward_bg, telegram_id, item.get("name"), price)
+
+        return {"status": "ok", "message": "Успешно получено!"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"[PROFILE_SHOP] Глобальная ошибка: {e}")
+        raise HTTPException(status_code=500, detail="Ошибка при транзакции")
 
 # --- HTML routes ---
 # @app.get('/favicon.ico', include_in_schema=False)
