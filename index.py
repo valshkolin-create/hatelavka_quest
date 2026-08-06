@@ -4466,6 +4466,97 @@ async def manual_add_giveaway_user(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+    # --- УПРАВЛЕНИЕ ПУЛОМ РОЗЫГРЫШЕЙ ---
+
+@app.get("/api/v1/admin/comment_giveaways/pool")
+async def get_giveaway_pool(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    try:
+        # Получаем все записи из пула
+        pool_resp = await supabase.get("/giveaway_items_pool", params={"order": "id.desc"})
+        if pool_resp.status_code != 200:
+            return {"status": "error", "message": "Ошибка загрузки пула"}
+            
+        pool_items = pool_resp.json()
+        if not pool_items:
+            return {"status": "success", "data": []}
+            
+        # Собираем ID предметов, чтобы вытащить их названия и картинки из cs_items
+        item_ids = [str(p["item_id"]) for p in pool_items]
+        cs_resp = await supabase.get("/cs_items", params={"id": f"in.({','.join(item_ids)})"})
+        
+        cs_dict = {}
+        if cs_resp.status_code == 200:
+            for item in cs_resp.json():
+                cs_dict[item["id"]] = item
+                
+        # Склеиваем данные
+        result = []
+        for p in pool_items:
+            info = cs_dict.get(p["item_id"], {})
+            result.append({
+                "pool_id": p["id"],
+                "item_id": p["item_id"],
+                "name": info.get("name", "Неизвестный предмет"),
+                "image_url": info.get("image_url", ""),
+                "price": info.get("price", 0)
+            })
+            
+        return {"status": "success", "data": result}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@app.post("/api/v1/admin/comment_giveaways/pool/add")
+async def add_to_giveaway_pool(
+    req: Request,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    try:
+        data = await req.json()
+        item_id = data.get("item_id")
+        
+        if not item_id:
+            raise HTTPException(status_code=400, detail="Укажите ID предмета")
+            
+        # Проверяем, существует ли предмет в cs_items
+        check_item = await supabase.get("/cs_items", params={"id": f"eq.{item_id}"})
+        if not check_item.json():
+            raise HTTPException(status_code=404, detail="Предмет с таким ID не найден на складе!")
+            
+        # Проверяем, нет ли его уже в пуле
+        check_pool = await supabase.get("/giveaway_items_pool", params={"item_id": f"eq.{item_id}"})
+        if check_pool.json():
+            raise HTTPException(status_code=400, detail="Этот предмет уже есть в пуле розыгрышей!")
+            
+        # Добавляем
+        resp = await supabase.post("/giveaway_items_pool", json={"item_id": int(item_id), "is_active": True})
+        if resp.status_code in (200, 201):
+            return {"status": "success", "message": "Предмет добавлен в витрину!"}
+        else:
+            raise HTTPException(status_code=500, detail="Ошибка базы данных при добавлении")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/v1/admin/comment_giveaways/pool/remove")
+async def remove_from_giveaway_pool(
+    req: Request,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    try:
+        data = await req.json()
+        pool_id = data.get("pool_id")
+        
+        resp = await supabase.delete("/giveaway_items_pool", params={"id": f"eq.{pool_id}"})
+        if resp.status_code in (200, 204):
+            return {"status": "success", "message": "Удалено из пула!"}
+        else:
+            raise HTTPException(status_code=500, detail="Ошибка удаления")
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/api/v1/admin/comment_giveaways/settings/update")
 async def update_auto_giveaway_settings(
     req: Request,
