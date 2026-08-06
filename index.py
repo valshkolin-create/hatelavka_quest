@@ -5154,7 +5154,12 @@ async def telegram_webhook(update: dict):
     # 2. Фильтрация чата
     if "message" in update:
         chat_id = update["message"].get("chat", {}).get("id")
+        
+        # 🔥 ДОБАВЛЕННЫЙ ЛОГ ДЛЯ ОТЛАДКИ 🔥
+        logging.info(f"🔎 DEBUG WEBHOOK: Пришло сообщение из чата с ID: {chat_id}")
+        
         if ALLOWED_CHAT_ID != 0 and chat_id != ALLOWED_CHAT_ID and update["message"].get("chat", {}).get("type") != "private":
+            logging.info(f"🚫 DEBUG WEBHOOK: Сообщение отклонено! Ожидался ALLOWED_CHAT_ID: {ALLOWED_CHAT_ID}, а пришел: {chat_id}")
             return JSONResponse(content={"status": "ignored"})
 
     try:
