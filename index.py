@@ -2243,7 +2243,7 @@ async def get_supabase_client() -> httpx.AsyncClient:
     _lazy_supabase_client = httpx.AsyncClient(
         base_url=f"{SUPABASE_URL}/rest/v1",
         headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"},
-        timeout=10.0, # 🔥 Оставляем 10 секунд, этого более чем достаточно
+        timeout=30.0, # 🔥 Оставляем 10 секунд, этого более чем достаточно
         limits=limits
     )
     
