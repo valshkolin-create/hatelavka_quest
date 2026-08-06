@@ -2804,10 +2804,14 @@ async def cmd_start(message: types.Message):
     except Exception as e:
         logging.error(f"/start error: {e}")
 
-# 1. ЛОВИМ НОВЫЙ ПОСТ В КАНАЛЕ (через системный репост в чат)
+# 1. ЛОВИМ НОВЫЙ ПОСТ В КАНАЛЕ
 # 1. ЛОВИМ НОВЫЙ ПОСТ В КАНАЛЕ
 @router.message(F.is_automatic_forward)
 async def auto_giveaway_on_new_post(message: types.Message):
+    # 🔥 ЕСЛИ НА ПОСТЕ ЕСТЬ КНОПКИ — СКИПАЕМ
+    if message.reply_markup:
+        return
+
     group_post_id = message.message_id
     channel_post_id = message.forward_from_message_id
     channel_id = message.forward_from_chat.id 
@@ -2874,6 +2878,7 @@ async def auto_giveaway_on_new_post(message: types.Message):
     except Exception as e:
         logging.error(f"Ошибка запуска авто-розыгрыша: {e}", exc_info=True)
 
+
 # 2. ИДЕАЛЬНЫЙ ЛОВЕЦ КОММЕНТАРИЕВ
 @router.message()
 async def process_giveaway_comment(message: types.Message):
@@ -2920,6 +2925,9 @@ async def process_giveaway_comment(message: types.Message):
             item_resp = await supabase.get("/cs_items", params={"id": f"eq.{item_id}"})
             item_data = item_resp.json()[0]
             
+            # 🔥 Достаем картинку скина
+            image_url = item_data.get('image_url', '')
+            
             # Выдаем предмет
             history_payload = {
                 "user_id": int(winner_id),
@@ -2930,16 +2938,36 @@ async def process_giveaway_comment(message: types.Message):
                 "is_swapped": False
             }
             await supabase.post("/cs_history", json=history_payload)
+
+            # --- СОЗДАЕМ КНОПКУ ---
+            win_kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="📱 Открыть профиль", url="https://t.me/HATElavka_bot/profile")]
+            ])
             
-            # --- РАСКРЫВАЕМ ЗАГАДКУ ---
-            await message.reply(
+            # --- РАСКРЫВАЕМ ЗАГАДКУ С ФОТКОЙ И КНОПКОЙ ---
+            announcement_text = (
                 f"🎉 <b>РОЗЫГРЫШ ЗАВЕРШЕН!</b>\n\n"
                 f"🏆 <b>Победитель:</b> <a href='tg://user?id={winner_id}'>Счастливчик</a>\n"
                 f"🎁 <b>Секретный приз оказался:</b> {item_data['name']}\n\n"
-                f"<i>Скин уже в инвентаре, можно выводить!</i>",
-                reply_to_message_id=group_post_id,
-                parse_mode="HTML"
+                f"<i>Скин уже в инвентаре, можно выводить!</i>"
             )
+            
+            # Если есть картинка - шлем с картинкой, если нет - просто текст
+            if image_url:
+                await message.reply_photo(
+                    photo=image_url,
+                    caption=announcement_text,
+                    reply_to_message_id=group_post_id,
+                    parse_mode="HTML",
+                    reply_markup=win_kb  # 🔥 ПРИКРЕПЛЯЕМ КНОПКУ
+                )
+            else:
+                await message.reply(
+                    text=announcement_text,
+                    reply_to_message_id=group_post_id,
+                    parse_mode="HTML",
+                    reply_markup=win_kb  # 🔥 ПРИКРЕПЛЯЕМ КНОПКУ
+                )
 
     except Exception as e:
         logging.error(f"Ошибка проверки комментария розыгрыша: {e}")
