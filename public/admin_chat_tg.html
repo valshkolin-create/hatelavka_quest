@@ -16,7 +16,6 @@
             --danger: #ff4d4d;
             --text: #ffffff;
             --text-sec: #aaaaaa;
-            --blur: 10px;
         }
 
         body {
@@ -40,41 +39,44 @@
 
         /* --- Forms --- */
         .admin-form label { display: block; font-size: 12px; color: var(--text-sec); margin: 12px 0 5px; font-weight: 500; }
-        .admin-form input, .admin-form select, .admin-form textarea {
+        .admin-form input, .admin-form textarea {
             width: 100%; box-sizing: border-box; background: var(--card-bg); border: 1px solid var(--card-border);
             color: var(--text); padding: 12px; border-radius: 12px; font-size: 14px; outline: none; transition: 0.2s;
         }
         .admin-form input:focus, .admin-form textarea:focus { border-color: var(--primary); background: rgba(255,255,255,0.03); }
-        .admin-form input[readonly] { background: rgba(0,0,0,0.4); color: var(--primary); cursor: pointer; font-weight: bold; text-align: center; }
         
         .section-box { background: rgba(255,255,255,0.03); border-radius: 16px; padding: 15px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.05); }
         .sec-title { font-size: 13px; color: var(--primary); margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
         .cond-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
+        /* --- Toggle Switch --- */
+        .toggle-container { display: flex; justify-content: space-between; align-items: center; padding: 15px; background: rgba(40, 167, 69, 0.1); border: 1px solid rgba(40, 167, 69, 0.3); border-radius: 14px; margin-bottom: 20px; }
+        .toggle-label { font-size: 15px; font-weight: 700; color: #fff; }
+        .toggle-desc { font-size: 11px; color: var(--text-sec); margin-top: 4px; }
+        
+        .switch { position: relative; display: inline-block; width: 50px; height: 28px; flex-shrink: 0; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.2); transition: .3s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 4px; bottom: 4px; background-color: white; transition: .3s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--accent); }
+        input:checked + .slider:before { transform: translateX(22px); }
+
         /* --- Buttons --- */
-        .icon-btn { width: 36px; height: 36px; border-radius: 12px; background: rgba(255,255,255,0.1); border: 1px solid var(--card-border); color: var(--text); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; }
-        .icon-btn:active { transform: scale(0.9); }
         .action-submit-btn { border: none; padding: 15px; border-radius: 14px; font-weight: 700; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: 0.2s; width: 100%; margin-top: 20px; background: var(--primary); color: #000; }
         .action-submit-btn:active { transform: scale(0.97); opacity: 0.8; }
-
-        /* --- Preview --- */
-        .preview-box { background: #182533; border-radius: 12px; padding: 12px; margin-top: 20px; border-left: 3px solid var(--primary); }
-        .prev-reply-line { border-left: 2px solid #64b5ef; padding-left: 8px; margin-bottom: 8px; font-size: 12px; color: #aaa; }
-        .prev-img { width: 100%; max-height: 180px; object-fit: cover; border-radius: 8px; margin-bottom: 8px; display: none; }
-        .prev-img.show { display: block; }
-        .prev-text { font-size: 13px; line-height: 1.4; white-space: pre-wrap; }
+        .btn-green { background: var(--accent); color: #fff; }
 
         /* --- Cards List --- */
         .giveaway-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 16px; padding: 15px; margin-bottom: 15px; }
         .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
         .card-title { font-weight: 700; font-size: 15px; }
         .status-badge { font-size: 10px; padding: 3px 8px; border-radius: 6px; font-weight: 700; background: rgba(40, 167, 69, 0.2); color: var(--accent); }
-        .status-badge.inactive { background: rgba(255, 77, 77, 0.2); color: var(--danger); }
         .card-info { font-size: 12px; color: var(--text-sec); margin-bottom: 15px; line-height: 1.5; }
         .card-info span { color: #fff; font-weight: 600; }
-        .btn-danger { background: rgba(255, 77, 77, 0.15); color: var(--danger); border: 1px solid rgba(255, 77, 77, 0.3); padding: 10px; border-radius: 10px; width: 100%; font-weight: 600; cursor: pointer; transition: 0.2s; }
-        
-        /* Custom Alerts & Bottom Sheet */
+        .btn-danger { background: rgba(255, 77, 77, 0.15); color: var(--danger); border: 1px solid rgba(255, 77, 77, 0.3); padding: 10px; border-radius: 10px; width: 100%; font-weight: 600; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 8px; }
+        .btn-add { background: rgba(40,167,69,0.15); color: var(--accent); border-color: rgba(40,167,69,0.3); }
+
+        /* --- Modals --- */
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
         .modal-active { display: flex; }
         .alert-box { background: #252525; width: 85%; padding: 20px; border-radius: 16px; text-align: center; border: 1px solid var(--card-border); }
@@ -83,154 +85,95 @@
         .alert-btn { background: var(--primary); color: #000; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 700; width: 100%; cursor: pointer; }
         .alert-btn.cancel { background: transparent; color: var(--text-sec); margin-top: 5px; }
         .hidden { display: none !important; }
-
-        /* Coins Bottom Sheet */
-        .bottom-sheet-container { position: absolute; bottom: 0; width: 100%; background: #1c1c1e; border-radius: 24px 24px 0 0; padding: 20px; display: flex; flex-direction: column; box-sizing: border-box; animation: slideUp 0.3s ease-out; }
-        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-        .coin-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 12px; margin-bottom: 10px; cursor: pointer; border: 1px solid var(--card-border); transition: 0.2s; }
-        .coin-item:active { transform: scale(0.98); border-color: var(--primary); background: rgba(255, 215, 0, 0.1); }
-        .coin-val { font-size: 16px; font-weight: 700; color: var(--primary); }
-        .coin-count { font-size: 12px; color: var(--text-sec); background: rgba(255,255,255,0.1); padding: 4px 8px; border-radius: 8px;}
     </style>
 </head>
 <body>
 
     <div class="page-header">
         <button onclick="goBack()" class="back-btn"><i class="fa-solid fa-chevron-left"></i></button>
-        <h1 class="page-title">Комментарии</h1>
+        <h1 class="page-title">Комментарии CS2</h1>
         <div style="width: 36px;"></div> 
     </div>
 
     <div class="tabs">
-        <button id="tab-btn-create" class="tab active" onclick="switchTab('create')">Ручной</button>
-        <button id="tab-btn-auto" class="tab" onclick="switchTab('auto')">Авто 🎁</button>
+        <button id="tab-btn-auto" class="tab active" onclick="switchTab('auto')">Авто 🎁</button>
+        <button id="tab-btn-create" class="tab" onclick="switchTab('create')">Ручной</button>
         <button id="tab-btn-list" class="tab" onclick="switchTab('list')">Активные</button>
     </div>
 
-    <div id="tab-create" class="tab-content">
-        <form id="create-form" class="admin-form">
-            
-            <div class="section-box">
-                <h3 class="sec-title"><i class="fa-solid fa-link"></i> Привязка к посту</h3>
-                <label>ID сообщения в чате комментариев</label>
-                <input type="number" name="post_id" placeholder="Например: 15432" required>
-                <div style="font-size:11px;color:#aaa;margin-top:5px;">Перешлите пост из канала в бота, чтобы узнать ID, или скопируйте ссылку на сообщение в группе.</div>
-            </div>
-
-            <div class="section-box">
-                <h3 class="sec-title"><i class="fa-solid fa-dice"></i> Рандом</h3>
-                <div class="cond-grid">
-                    <div>
-                        <label>Мин. сообщений</label>
-                        <input type="number" name="min_messages" value="5" required>
-                    </div>
-                    <div>
-                        <label>Макс. сообщений</label>
-                        <input type="number" name="max_messages" value="15" required>
-                    </div>
-                </div>
-                <div style="font-size:11px;color:#aaa;margin-top:5px;">Бот сгенерирует случайное число между этими значениями.</div>
-            </div>
-
-            <div class="section-box">
-                <h3 class="sec-title"><i class="fa-solid fa-gift"></i> Награда и ответ</h3>
-                
-                <div class="cond-grid">
-                    <div>
-                        <label>Тип награды</label>
-                        <select name="reward_type" id="inp-reward-type" required onchange="handleRewardType()">
-                            <option value="tickets" selected>Билеты 🎫</option>
-                            <option value="coins">Монеты 🪙</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label>Номинал</label>
-                        <div style="display: flex; gap: 8px;">
-                            <input type="number" name="reward_value" id="inp-reward-val" value="10" required oninput="updatePreview()">
-                            <button type="button" id="btn-select-coins" class="icon-btn hidden" onclick="openCoinsModal('inp-reward-val')" style="background: var(--primary); color: #000; flex-shrink: 0;">
-                                <i class="fa-solid fa-list-ol"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <label>Картинка для ответа (URL)</label>
-                <div style="display: flex; gap: 8px; align-items: center;">
-                    <input type="text" name="image_url" id="inp-img" placeholder="https://..." oninput="updatePreview()">
-                    <button type="button" class="icon-btn" onclick="document.getElementById('file-upload').click()">
-                        <i class="fa-solid fa-cloud-arrow-up"></i>
-                    </button>
-                    <input type="file" id="file-upload" hidden accept="image/*" onchange="uploadImage(this, 'inp-img')">
-                </div>
-
-                <label>Текст ответа бота</label>
-                <textarea name="reply_text" id="inp-desc" rows="3" placeholder="🎉 Поздравляем! Ты выиграл..." required oninput="updatePreview()">🎉 Поздравляем! Твой комментарий оказался счастливым!</textarea>
-            </div>
-
-            <div class="preview-box" id="preview-box">
-                <div style="font-size: 10px; text-transform: uppercase; color: #777; margin-bottom: 5px;">Превью ответа бота</div>
-                <div class="prev-reply-line">
-                    <span style="color: #64b5ef; font-weight: bold;">User</span><br>
-                    Обычный комментарий под постом...
-                </div>
-                <img src="" id="prev-img" class="prev-img">
-                <div class="prev-text" id="prev-txt"></div>
-            </div>
-
-            <button type="button" onclick="submitGiveaway()" class="action-submit-btn">
-                <i class="fa-solid fa-bolt"></i>
-                <span>СОЗДАТЬ РОЗЫГРЫШ</span>
-            </button>
-        </form>
-    </div>
-
-    <div id="tab-auto" class="tab-content hidden">
+    <!-- АВТОМАТИЧЕСКИЕ НАСТРОЙКИ -->
+    <div id="tab-auto" class="tab-content">
         <form id="auto-form" class="admin-form">
-            <div class="section-box">
-                <h3 class="sec-title"><i class="fa-solid fa-robot"></i> Дефолтные настройки для 🎁</h3>
-                <div style="font-size:11px;color:#aaa;margin-bottom:15px;">Эти настройки будут применяться ко всем новым постам в канале, где бот найдет эмодзи 🎁.</div>
-
-                <div class="cond-grid">
-                    <div>
-                        <label>Мин. сообщений</label>
-                        <input type="number" name="min_msg" id="auto_min_msg" value="10" required>
-                    </div>
-                    <div>
-                        <label>Макс. сообщений</label>
-                        <input type="number" name="max_msg" id="auto_max_msg" value="25" required>
-                    </div>
+            
+            <div class="toggle-container">
+                <div>
+                    <div class="toggle-label">Авто-розыгрыши CS2</div>
+                    <div class="toggle-desc">Выдавать скины со склада под каждым новым постом канала</div>
                 </div>
-
-                <div class="cond-grid">
-                    <div>
-                        <label>Тип награды</label>
-                        <select name="reward_type" id="auto-reward-type" required onchange="handleAutoRewardType()">
-                            <option value="tickets" selected>Билеты 🎫</option>
-                            <option value="coins">Монеты 🪙</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label>Номинал</label>
-                        <div style="display: flex; gap: 8px;">
-                            <input type="number" name="reward_value" id="auto-reward-val" value="30" required>
-                            <button type="button" id="auto-btn-select-coins" class="icon-btn hidden" onclick="openCoinsModal('auto-reward-val')" style="background: var(--primary); color: #000; flex-shrink: 0;">
-                                <i class="fa-solid fa-list-ol"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <label>Текст ответа бота</label>
-                <textarea name="reply_text" id="auto_reply_text" rows="3" required>🎉 Поздравляем! Твой комментарий оказался счастливым!</textarea>
+                <label class="switch">
+                    <input type="checkbox" id="auto_toggle_enabled">
+                    <span class="slider"></span>
+                </label>
             </div>
 
-            <button type="button" onclick="submitAutoSettings()" class="action-submit-btn" style="background: #28a745; color: #fff;">
+            <div class="section-box">
+                <h3 class="sec-title"><i class="fa-solid fa-robot"></i> Настройки пула (Уникальные юзеры)</h3>
+                <div style="font-size:11px;color:#aaa;margin-bottom:15px;">Бот сам сгенерирует число уникальных участников между этими значениями. Спам комментариями от одного юзера не работает. Предмет выбирается рандомно из активных на складе.</div>
+
+                <div class="cond-grid">
+                    <div>
+                        <label>Мин. уникальных</label>
+                        <input type="number" id="auto_min_msg" value="10" required>
+                    </div>
+                    <div>
+                        <label>Макс. уникальных</label>
+                        <input type="number" id="auto_max_msg" value="25" required>
+                    </div>
+                </div>
+
+                <label>Текст ответа при победе</label>
+                <textarea id="auto_reply_text" rows="3" required>🎉 Поздравляем! Твой комментарий оказался счастливым! Скин отправлен в инвентарь.</textarea>
+            </div>
+
+            <button type="button" onclick="submitAutoSettings()" class="action-submit-btn btn-green">
                 <i class="fa-solid fa-save"></i>
                 <span>СОХРАНИТЬ АВТО-НАСТРОЙКИ</span>
             </button>
         </form>
     </div>
 
+    <!-- РУЧНОЕ СОЗДАНИЕ -->
+    <div id="tab-create" class="tab-content hidden">
+        <form id="create-form" class="admin-form">
+            <div class="section-box">
+                <h3 class="sec-title"><i class="fa-solid fa-link"></i> Привязка к посту</h3>
+                <label>ID сообщения в чате комментариев</label>
+                <input type="number" id="manual_post_id" placeholder="Например: 15432" required>
+                <div style="font-size:11px;color:#aaa;margin-top:5px;">Предмет будет выбран автоматически из активных скинов CS2.</div>
+            </div>
+
+            <div class="section-box">
+                <h3 class="sec-title"><i class="fa-solid fa-users"></i> Участники</h3>
+                <div class="cond-grid">
+                    <div>
+                        <label>Мин. уникальных</label>
+                        <input type="number" id="manual_min_msg" value="5" required>
+                    </div>
+                    <div>
+                        <label>Макс. уникальных</label>
+                        <input type="number" id="manual_max_msg" value="15" required>
+                    </div>
+                </div>
+            </div>
+
+            <button type="button" onclick="submitManualGiveaway()" class="action-submit-btn">
+                <i class="fa-solid fa-bolt"></i>
+                <span>ЗАПУСТИТЬ НА ЭТОТ ПОСТ</span>
+            </button>
+        </form>
+    </div>
+
+    <!-- СПИСОК АКТИВНЫХ -->
     <div id="tab-list" class="tab-content hidden">
         <div id="list-container">
             <div style="text-align:center; padding: 40px; color: var(--text-sec);">
@@ -239,17 +182,7 @@
         </div>
     </div>
 
-    <div id="modal-coins" class="modal-overlay" style="align-items: flex-end;" onclick="if(event.target===this) closeModal('modal-coins')">
-        <div class="bottom-sheet-container">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
-                <h3 style="margin:0">Доступные номиналы</h3>
-                <button type="button" onclick="closeModal('modal-coins')" style="background:none; border:none; color:var(--text-sec); font-size:20px; cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            <div id="coins-list" style="overflow-y: auto; display: flex; flex-direction: column; max-height: 50vh; padding-bottom: 20px;">
-                </div>
-        </div>
-    </div>
-
+    <!-- МОДАЛКА АЛЕРТОВ -->
     <div id="modal-alert" class="modal-overlay">
         <div class="alert-box">
             <div class="alert-title" id="alert-title">Title</div>
@@ -263,15 +196,10 @@
         const tg = window.Telegram.WebApp;
         tg.expand();
 
-        let currentCoinTarget = 'inp-reward-val'; // По умолчанию склад отправляет монеты в ручную форму
-
         tg.BackButton.show();
         tg.BackButton.onClick(() => {
             if (document.getElementById('modal-alert').classList.contains('modal-active')) {
                 closeModal('modal-alert'); return;
-            }
-            if (document.getElementById('modal-coins').classList.contains('modal-active')) {
-                closeModal('modal-coins'); return;
             }
             window.location.href = '/admin';
         });
@@ -286,176 +214,80 @@
             
             if(t === 'list') {
                 loadGiveaways(); 
-            } else if (t === 'auto') {
-                loadAutoSettings();
             }
         }
 
-        // --- ЛОГИКА ВЫБОРА МОНЕТ (РУЧНАЯ ФОРМА) ---
-        function handleRewardType() {
-            const type = document.getElementById('inp-reward-type').value;
-            const valInp = document.getElementById('inp-reward-val');
-            const btnSelect = document.getElementById('btn-select-coins');
-
-            if (type === 'coins') {
-                valInp.readOnly = true;
-                valInp.value = ''; 
-                valInp.placeholder = 'Выбрать...';
-                valInp.onclick = () => openCoinsModal('inp-reward-val');
-                btnSelect.classList.remove('hidden');
-                openCoinsModal('inp-reward-val'); 
-            } else {
-                valInp.readOnly = false;
-                valInp.placeholder = '10';
-                valInp.value = '10';
-                valInp.onclick = null;
-                btnSelect.classList.add('hidden');
-            }
-            updatePreview();
-        }
-
-        // --- ЛОГИКА ВЫБОРА МОНЕТ (АВТО ФОРМА) ---
-        function handleAutoRewardType() {
-            const type = document.getElementById('auto-reward-type').value;
-            const valInp = document.getElementById('auto-reward-val');
-            const btnSelect = document.getElementById('auto-btn-select-coins');
-
-            if (type === 'coins') {
-                valInp.readOnly = true;
-                valInp.value = ''; 
-                valInp.placeholder = 'Выбрать...';
-                valInp.onclick = () => openCoinsModal('auto-reward-val');
-                btnSelect.classList.remove('hidden');
-                openCoinsModal('auto-reward-val'); 
-            } else {
-                valInp.readOnly = false;
-                valInp.placeholder = '30';
-                valInp.value = '30';
-                valInp.onclick = null;
-                btnSelect.classList.add('hidden');
-            }
-        }
-
-        // --- УНИВЕРСАЛЬНЫЙ СКЛАД ---
-        async function openCoinsModal(targetId) {
-            currentCoinTarget = targetId;
-            const m = document.getElementById('modal-coins');
-            m.classList.add('modal-active');
-            const list = document.getElementById('coins-list');
-            list.innerHTML = '<div style="text-align:center; padding: 20px; color: var(--text-sec);"><i class="fa-solid fa-spinner fa-spin"></i> Проверяем склад...</div>';
-            
+        // --- ЗАГРУЗКА И СОХРАНЕНИЕ АВТО-НАСТРОЕК ---
+        async function loadAutoSettings() {
             try {
-                const res = await fetch('/api/admin/promocodes/available_coins');
-                const data = await res.json();
-                
-                if(data.status === 'success') {
-                    if(data.data.length === 0) {
-                        list.innerHTML = '<div style="text-align:center; padding:20px; color:var(--danger);">Нет свободных монет на складе! Создайте промокоды.</div>';
-                        return;
-                    }
-                    
-                    let html = '';
-                    data.data.forEach(item => {
-                        html += `
-                        <div class="coin-item" onclick="selectCoin(${item.value})">
-                            <div class="coin-val">🪙 ${item.value} монет</div>
-                            <div class="coin-count">В наличии: ${item.count}</div>
-                        </div>`;
-                    });
-                    list.innerHTML = html;
-                } else {
-                    list.innerHTML = '<div style="text-align:center; color:var(--danger);">Ошибка загрузки БД</div>';
-                }
-            } catch(e) {
-                list.innerHTML = '<div style="text-align:center; color:var(--danger);">Ошибка сети</div>';
-            }
-        }
-
-        function selectCoin(val) {
-            document.getElementById(currentCoinTarget).value = val;
-            closeModal('modal-coins');
-            if(currentCoinTarget === 'inp-reward-val') updatePreview();
-            tg.HapticFeedback.selectionChanged();
-        }
-
-        // --- ПРЕВЬЮ И ЗАГРУЗКА КАРТИНОК ---
-        function updatePreview() {
-            const getVal = (name) => { const el = document.querySelector(`#create-form [name="${name}"]`); return el ? el.value : ''; };
-
-            const rType = getVal('reward_type');
-            const rVal = getVal('reward_value') || '0';
-            const desc = getVal('reply_text');
-            const imgUrl = getVal('image_url');
-            
-            let emoji = rType === 'coins' ? '🪙 монеток' : '🎫 билетов';
-            let finalDesc = desc.replace('{reward}', `${rVal} ${emoji}`);
-
-            const imgEl = document.getElementById('prev-img');
-            if (imgUrl) { 
-                imgEl.src = imgUrl; 
-                imgEl.classList.add('show'); 
-            } else { 
-                imgEl.classList.remove('show'); 
-            }
-
-            document.getElementById('prev-txt').innerHTML = finalDesc.replace(/\n/g, '<br>');
-        }
-
-        async function uploadImage(input, targetId) {
-            const file = input.files[0];
-            if (!file) return;
-
-            const btn = input.previousElementSibling;
-            const originalIcon = btn.innerHTML;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-            btn.disabled = true;
-
-            const formData = new FormData();
-            formData.append('file', file);
-
-            try {
-                const res = await fetch('/api/v1/upload', {
-                    method: 'POST', body: formData 
-                });
-
+                const res = await fetch('/api/v1/admin/comment_giveaways/settings/get');
                 if (res.ok) {
                     const data = await res.json();
-                    document.getElementById(targetId).value = data.url;
-                    updatePreview(); 
-                    showCustomAlert('Готово', 'Картинка загружена!');
-                } else {
-                    showCustomAlert('Ошибка', 'Не удалось загрузить фото');
+                    if (data.status === 'success' && data.data) {
+                        document.getElementById('auto_toggle_enabled').checked = data.data.is_auto_giveaway_enabled || false;
+                        document.getElementById('auto_min_msg').value = data.data.auto_gw_min_msg || 10;
+                        document.getElementById('auto_max_msg').value = data.data.auto_gw_max_msg || 25;
+                        document.getElementById('auto_reply_text').value = data.data.auto_gw_reply_text || '🎉 Поздравляем! Твой комментарий оказался счастливым! Скин отправлен в инвентарь.';
+                    }
                 }
-            } catch (e) {
-                showCustomAlert('Ошибка', 'Сбой соединения');
-            } finally {
-                btn.innerHTML = originalIcon;
-                btn.disabled = false;
-                input.value = ''; 
-            }
+            } catch(e) { console.log('Ошибка предзагрузки авто-настроек', e); }
         }
 
-        // --- САБМИТ РУЧНОГО РОЗЫГРЫША ---
-        async function submitGiveaway() {
-            const form = document.getElementById('create-form');
-            if(!form.reportValidity()) return;
-
-            const fd = new FormData(form);
-            const val = parseInt(fd.get('reward_value'));
+        async function submitAutoSettings() {
+            const min = parseInt(document.getElementById('auto_min_msg').value);
+            const max = parseInt(document.getElementById('auto_max_msg').value);
             
-            if (isNaN(val) || val <= 0) {
-                showCustomAlert('Внимание', 'Пожалуйста, выберите номинал награды!');
+            if (isNaN(min) || isNaN(max) || min > max) {
+                showCustomAlert('Внимание', 'Проверьте правильность минимального и максимального значений.');
                 return;
             }
 
             const payload = {
-                post_id: parseInt(fd.get('post_id')),
-                min_messages: parseInt(fd.get('min_messages')),
-                max_messages: parseInt(fd.get('max_messages')),
-                reward_type: fd.get('reward_type'),
-                reward_value: val,
-                image_url: fd.get('image_url'),
-                reply_text: fd.get('reply_text')
+                is_enabled: document.getElementById('auto_toggle_enabled').checked,
+                min_msg: min,
+                max_msg: max,
+                reply_text: document.getElementById('auto_reply_text').value
+            };
+
+            tg.MainButton.showProgress();
+
+            try {
+                const res = await fetch('/api/v1/admin/comment_giveaways/settings/update', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    tg.HapticFeedback.notificationOccurred('success');
+                    showCustomAlert('Успех!', 'Глобальные настройки для CS2 авто-розыгрышей сохранены.');
+                } else {
+                    tg.HapticFeedback.notificationOccurred('error');
+                    showCustomAlert('Ошибка', 'Не удалось сохранить настройки');
+                }
+            } catch (error) {
+                tg.HapticFeedback.notificationOccurred('error');
+                showCustomAlert('Ошибка сети', 'Проверьте соединение с сервером');
+            } finally {
+                tg.MainButton.hideProgress();
+            }
+        }
+
+        // --- РУЧНОЙ ЗАПУСК РОЗЫГРЫША ---
+        async function submitManualGiveaway() {
+            const postId = parseInt(document.getElementById('manual_post_id').value);
+            const min = parseInt(document.getElementById('manual_min_msg').value);
+            const max = parseInt(document.getElementById('manual_max_msg').value);
+
+            if (isNaN(postId) || isNaN(min) || isNaN(max)) {
+                showCustomAlert('Ошибка', 'Заполните все поля корректно.');
+                return;
+            }
+
+            const payload = {
+                post_id: postId,
+                min_messages: min,
+                max_messages: max,
+                reply_text: "🎉 Поздравляем! Твой комментарий оказался счастливым! CS2 предмет отправлен в инвентарь."
             };
 
             tg.MainButton.showProgress();
@@ -469,14 +301,12 @@
                 if (res.ok) {
                     const data = await res.json();
                     tg.HapticFeedback.notificationOccurred('success');
-                    showCustomAlert('Успех!', `Розыгрыш настроен!\nСработает на: ${data.target_message}-м юзере.`);
-                    
-                    form.reset(); 
-                    handleRewardType();
+                    showCustomAlert('Успех!', `Розыгрыш настроен!\nСработает на: ${data.target_message}-м уникальном юзере.`);
+                    document.getElementById('create-form').reset(); 
                     switchTab('list'); 
                 } else {
                     tg.HapticFeedback.notificationOccurred('error');
-                    showCustomAlert('Ошибка', 'Не удалось создать розыгрыш');
+                    showCustomAlert('Ошибка', 'Не удалось создать розыгрыш. Убедитесь, что на складе есть активные предметы.');
                 }
             } catch (error) {
                 tg.HapticFeedback.notificationOccurred('error');
@@ -486,68 +316,7 @@
             }
         }
 
-        // --- ЛОГИКА АВТО-НАСТРОЕК ---
-        async function loadAutoSettings() {
-            try {
-                const res = await fetch('/api/v1/admin/comment_giveaways/settings/get');
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.status === 'success' && data.data) {
-                        document.getElementById('auto_min_msg').value = data.data.auto_gw_min_msg || 10;
-                        document.getElementById('auto_max_msg').value = data.data.auto_gw_max_msg || 25;
-                        document.getElementById('auto-reward-type').value = data.data.auto_gw_reward_type || 'tickets';
-                        document.getElementById('auto-reward-val').value = data.data.auto_gw_reward_value || 30;
-                        document.getElementById('auto_reply_text').value = data.data.auto_gw_reply_text || '🎉 Поздравляем! Твой комментарий оказался счастливым!';
-                        handleAutoRewardType();
-                    }
-                }
-            } catch(e) { console.log('Ошибка предзагрузки авто-настроек', e); }
-        }
-
-        async function submitAutoSettings() {
-            const form = document.getElementById('auto-form');
-            if(!form.reportValidity()) return;
-
-            const fd = new FormData(form);
-            const val = parseInt(fd.get('reward_value'));
-            
-            if (isNaN(val) || val <= 0) {
-                showCustomAlert('Внимание', 'Пожалуйста, выберите номинал!');
-                return;
-            }
-
-            const payload = {
-                min_msg: parseInt(fd.get('min_msg')),
-                max_msg: parseInt(fd.get('max_msg')),
-                reward_type: fd.get('reward_type'),
-                reward_value: val,
-                reply_text: fd.get('reply_text')
-            };
-
-            tg.MainButton.showProgress();
-
-            try {
-                const res = await fetch('/api/v1/admin/comment_giveaways/settings/update', {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(payload)
-                });
-
-                if (res.ok) {
-                    tg.HapticFeedback.notificationOccurred('success');
-                    showCustomAlert('Успех!', 'Глобальные настройки для авто-розыгрышей сохранены.');
-                } else {
-                    tg.HapticFeedback.notificationOccurred('error');
-                    showCustomAlert('Ошибка', 'Не удалось сохранить настройки');
-                }
-            } catch (error) {
-                tg.HapticFeedback.notificationOccurred('error');
-                showCustomAlert('Ошибка сети', 'Проверьте соединение с сервером');
-            } finally {
-                tg.MainButton.hideProgress();
-            }
-        }
-
-        // --- ЛОГИКА СПИСКА И ЗАКРЫТИЯ ---
+        // --- СПИСОК И УПРАВЛЕНИЕ ---
         async function loadGiveaways() {
             const container = document.getElementById('list-container');
             container.innerHTML = '<div style="text-align:center; padding: 40px; color: var(--text-sec);"><i class="fa-solid fa-spinner fa-spin"></i> Загрузка...</div>';
@@ -568,8 +337,6 @@
 
         function renderList(list) {
             const container = document.getElementById('list-container');
-            
-            // 🔥 ФИЛЬТРУЕМ: Оставляем только активные розыгрыши
             const activeList = list ? list.filter(item => item.is_active === true) : [];
 
             if(activeList.length === 0) {
@@ -579,7 +346,7 @@
 
             let html = '';
             activeList.forEach(item => {
-                const rName = item.reward_type === 'coins' ? 'Монеты' : (item.reward_type === 'tickets' ? 'Билеты' : item.reward_type);
+                const usersCount = item.unique_user_ids ? item.unique_user_ids.length : 0;
                 
                 html += `
                 <div class="giveaway-card">
@@ -588,12 +355,12 @@
                         <div class="status-badge">Активен</div>
                     </div>
                     <div class="card-info">
-                        Награда: <span>${item.reward_value} ${rName}</span><br>
-                        Сработает на: <span>${item.target_message}-м сообщении</span><br>
-                        Уже собрано: <span>${item.unique_user_ids ? item.unique_user_ids.length : 0} юзеров</span>
+                        Награда: <span>CS2 Скин (ID: ${item.item_id || 'Авто'})</span><br>
+                        Нужно юзеров: <span>${item.target_users || item.target_message}</span><br>
+                        Уже собрано: <span>${usersCount} уникальных</span>
                     </div>
                     
-                    <button onclick="manualAddUser(${item.post_id})" class="btn-danger" style="background: rgba(40,167,69,0.15); color: var(--accent); border-color: rgba(40,167,69,0.3); margin-bottom: 8px;">
+                    <button onclick="manualAddUser(${item.post_id})" class="btn-danger btn-add">
                         <i class="fa-solid fa-user-plus"></i> Добавить участника
                     </button>
 
@@ -606,9 +373,7 @@
         }
 
         async function manualAddUser(postId) {
-            // Запрашиваем ник или ID у админа
             const identifier = window.prompt("Введите @username или цифровой ID участника:\n(Например: @MILLIONs_333)");
-            
             if (!identifier || identifier.trim() === '') return;
 
             try {
@@ -622,7 +387,7 @@
                     const data = await res.json();
                     tg.HapticFeedback.notificationOccurred('success');
                     showCustomAlert('Готово!', data.message);
-                    loadGiveaways(); // Обновляем список, чтобы увидеть новый счетчик
+                    loadGiveaways();
                 } else {
                     const err = await res.json();
                     tg.HapticFeedback.notificationOccurred('error');
@@ -634,7 +399,7 @@
         }
 
         async function forceCloseGiveaway(postId) {
-            showConfirm('Завершить досрочно?', 'Будет выбран случайный победитель из уже собранных участников, а розыгрыш будет закрыт.', async () => {
+            showConfirm('Завершить досрочно?', 'Будет выбран случайный победитель из уже собранных участников, ему выдадут предмет, а розыгрыш закроется.', async () => {
                 try {
                     const res = await fetch('/api/v1/admin/raffles/force_close', {
                         method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -684,7 +449,7 @@
         }
 
         // Init
-        handleRewardType();
+        loadAutoSettings();
     </script>
 </body>
 </html>
