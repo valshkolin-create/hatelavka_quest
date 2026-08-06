@@ -5163,7 +5163,7 @@ async def telegram_webhook(update: dict):
         
         # 🔥 ГЛАВНОЕ ИЗМЕНЕНИЕ: Запускаем задачу вне жизненного цикла HTTP-запроса 🔥
         # Vercel закроет соединение и остановит счетчик CPU мгновенно!
-        asyncio.create_task(dp.feed_update(bot, update_obj))
+        await dp.feed_update(bot, update_obj)
         
     except Exception as e:
         logging.error(f"Update parse error: {e}")
