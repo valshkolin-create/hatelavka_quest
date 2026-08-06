@@ -40,11 +40,11 @@
 
         /* --- Forms --- */
         .admin-form label { display: block; font-size: 12px; color: var(--text-sec); margin: 12px 0 5px; font-weight: 500; }
-        .admin-form input, .admin-form textarea {
+        .admin-form input, .admin-form textarea, .admin-form select {
             width: 100%; box-sizing: border-box; background: var(--card-bg); border: 1px solid var(--card-border);
             color: var(--text); padding: 12px; border-radius: 12px; font-size: 14px; outline: none; transition: 0.2s;
         }
-        .admin-form input:focus, .admin-form textarea:focus { border-color: var(--primary); background: rgba(255,255,255,0.03); }
+        .admin-form input:focus, .admin-form textarea:focus, .admin-form select:focus { border-color: var(--primary); background: rgba(255,255,255,0.03); }
         
         .section-box { background: rgba(255,255,255,0.03); border-radius: 16px; padding: 15px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.05); }
         .sec-title { font-size: 13px; color: var(--primary); margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
@@ -65,6 +65,7 @@
         /* --- Buttons --- */
         .action-submit-btn { border: none; padding: 15px; border-radius: 14px; font-weight: 700; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: 0.2s; width: 100%; margin-top: 20px; background: var(--primary); color: #000; }
         .action-submit-btn:active { transform: scale(0.97); opacity: 0.8; }
+        .action-submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .btn-green { background: var(--accent); color: #fff; }
         .btn-outline { background: rgba(255, 215, 0, 0.1); border: 1px solid var(--primary); color: var(--primary); }
 
@@ -87,8 +88,14 @@
         .btn-icon { background: rgba(255, 77, 77, 0.15); color: var(--danger); border: none; width: 34px; height: 34px; border-radius: 8px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; }
         .btn-icon:active { transform: scale(0.9); }
         
-        .select-item { cursor: pointer; transition: 0.2s; }
-        .select-item:active { transform: scale(0.98); border-color: var(--primary); background: rgba(255,215,0,0.05); }
+        .select-item { cursor: pointer; transition: 0.2s; border: 2px solid transparent; }
+        .select-item:active { transform: scale(0.98); background: rgba(255,255,255,0.05); }
+        
+        /* Активное состояние для множественного выбора */
+        .select-item.selected { border-color: var(--accent); background: rgba(40,167,69,0.1); }
+        .select-item .check-icon { display: none; color: var(--accent); font-size: 18px; }
+        .select-item.selected .check-icon { display: block; }
+        .select-item.selected .chevron-icon { display: none; }
 
         /* --- Modals & Bottom Sheet --- */
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
@@ -101,7 +108,11 @@
         .hidden { display: none !important; }
 
         @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-        .bottom-sheet-container { position: absolute; bottom: 0; width: 100%; background: #1c1c1e; border-radius: 24px 24px 0 0; padding: 20px; display: flex; flex-direction: column; box-sizing: border-box; animation: slideUp 0.3s ease-out; max-height: 85vh; }
+        .bottom-sheet-container { position: absolute; bottom: 0; width: 100%; background: #1c1c1e; border-radius: 24px 24px 0 0; padding: 20px; display: flex; flex-direction: column; box-sizing: border-box; animation: slideUp 0.3s ease-out; height: 90vh; }
+        
+        /* Сортировка в модалке */
+        .sort-control { display: flex; gap: 10px; margin-bottom: 15px; }
+        .sort-control select { flex: 1; padding: 8px; border-radius: 8px; background: var(--card-bg); color: #fff; border: 1px solid var(--card-border); outline: none; font-size: 13px; }
     </style>
 </head>
 <body>
@@ -162,11 +173,11 @@
     <!-- ПУЛ ПРЕДМЕТОВ -->
     <div id="tab-pool" class="tab-content hidden">
         <div class="section-box admin-form">
-            <h3 class="sec-title"><i class="fa-solid fa-box-open"></i> Добавить скин в витрину</h3>
-            <div style="font-size:11px;color:#aaa;margin-bottom:15px;">Выберите скин со склада. Он будет бесконечно крутиться в авто-розыгрышах.</div>
+            <h3 class="sec-title"><i class="fa-solid fa-box-open"></i> Добавить скины в витрину</h3>
+            <div style="font-size:11px;color:#aaa;margin-bottom:15px;">Выберите скины со склада. Они будут бесконечно крутиться в авто-розыгрышах.</div>
             
             <button type="button" onclick="openCSModal()" class="action-submit-btn btn-outline" style="margin-top: 5px;">
-                <i class="fa-solid fa-list-ul"></i> Выбрать предмет со склада
+                <i class="fa-solid fa-list-ul"></i> Выбрать предметы со склада
             </button>
         </div>
 
@@ -217,16 +228,28 @@
         </div>
     </div>
 
-    <!-- BOTTOM SHEET ДЛЯ ВЫБОРА СКИНОВ -->
+    <!-- BOTTOM SHEET ДЛЯ МАССОВОГО ВЫБОРА СКИНОВ -->
     <div id="modal-cs-items" class="modal-overlay" style="align-items: flex-end;" onclick="if(event.target===this) closeModal('modal-cs-items')">
         <div class="bottom-sheet-container">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
-                <h3 style="margin:0">Выберите скин со склада</h3>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
+                <h3 style="margin:0">Выберите скины</h3>
                 <button type="button" onclick="closeModal('modal-cs-items')" style="background:none; border:none; color:var(--text-sec); font-size:20px; cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
             </div>
-            <div id="cs-items-list" style="overflow-y: auto; display: flex; flex-direction: column; flex: 1; padding-bottom: 20px;">
+            
+            <div class="sort-control">
+                <select id="cs_sort_select" onchange="sortCSItems(this.value)">
+                    <option value="desc">Сначала дорогие</option>
+                    <option value="asc">Сначала дешевые</option>
+                </select>
+            </div>
+
+            <div id="cs-items-list" style="overflow-y: auto; display: flex; flex-direction: column; flex: 1; padding-bottom: 10px;">
                 <!-- Сюда подгружаются предметы -->
             </div>
+            
+            <button id="btn-add-selected" class="action-submit-btn btn-green" style="margin-top: 10px; margin-bottom: 10px;" onclick="addSelectedPoolItems()" disabled>
+                Добрать выбранные (0)
+            </button>
         </div>
     </div>
 
@@ -308,7 +331,10 @@
             }
         }
 
-        // --- УПРАВЛЕНИЕ ПУЛОМ И ВЫБОР СКИНА ---
+        // --- УПРАВЛЕНИЕ ПУЛОМ И МАССОВЫЙ ВЫБОР СКИНА ---
+        let allCSItems = [];
+        let selectedCSItemIds = new Set(); // Используем Set для быстрого управления
+
         async function loadPoolItems() {
             const container = document.getElementById('pool-list-container');
             container.innerHTML = '<div style="text-align:center; padding: 20px; color: var(--text-sec);"><i class="fa-solid fa-spinner fa-spin"></i> Загрузка...</div>';
@@ -350,35 +376,20 @@
         async function openCSModal() {
             const m = document.getElementById('modal-cs-items');
             m.classList.add('modal-active');
+            
             const list = document.getElementById('cs-items-list');
             list.innerHTML = '<div style="text-align:center; padding: 40px; color: var(--text-sec);"><i class="fa-solid fa-spinner fa-spin"></i> Загрузка склада...</div>';
             
+            selectedCSItemIds.clear(); // Очищаем выбор
+            updateAddButtonState();
+
             try {
                 const res = await fetch('/api/v1/admin/comment_giveaways/available_cs_items');
                 const data = await res.json();
                 
                 if (data.status === 'success') {
-                    if (data.data.length === 0) {
-                        list.innerHTML = '<div style="text-align:center; color:var(--danger); padding:20px;">Нет активных предметов на складе!</div>';
-                        return;
-                    }
-                    
-                    let html = '';
-                    data.data.forEach(item => {
-                        const img = item.image_url ? `<img src="${item.image_url}" class="pool-img">` : `<div class="pool-img"></div>`;
-                        html += `
-                        <div class="select-item" onclick="selectCSItem(${item.id})">
-                            <div class="pool-item-info">
-                                ${img}
-                                <div>
-                                    <div class="pool-name">${item.name}</div>
-                                    <div class="pool-id-tag">ID: ${item.id} | ${item.price}₽</div>
-                                </div>
-                            </div>
-                            <i class="fa-solid fa-chevron-right" style="color:var(--text-sec)"></i>
-                        </div>`;
-                    });
-                    list.innerHTML = html;
+                    allCSItems = data.data;
+                    sortCSItems(document.getElementById('cs_sort_select').value);
                 } else {
                     list.innerHTML = '<div style="text-align:center; color:var(--danger);">Ошибка базы данных</div>';
                 }
@@ -387,32 +398,108 @@
             }
         }
 
-        async function selectCSItem(id) {
-            closeModal('modal-cs-items');
-            addPoolItem(id);
+        // Функция сортировки и рендера списка
+        function sortCSItems(direction) {
+            if (!allCSItems || allCSItems.length === 0) {
+                document.getElementById('cs-items-list').innerHTML = '<div style="text-align:center; color:var(--danger); padding:20px;">Нет предметов на складе!</div>';
+                return;
+            }
+
+            // Сортируем массив
+            allCSItems.sort((a, b) => {
+                const priceA = parseFloat(a.price) || 0;
+                const priceB = parseFloat(b.price) || 0;
+                return direction === 'desc' ? priceB - priceA : priceA - priceB;
+            });
+
+            renderCSItemsList();
         }
 
-        async function addPoolItem(id) {
-            tg.MainButton.showProgress();
-            try {
-                const res = await fetch('/api/v1/admin/comment_giveaways/pool/add', {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({item_id: id})
-                });
-                const data = await res.json();
+        function renderCSItemsList() {
+            const list = document.getElementById('cs-items-list');
+            let html = '';
+            
+            allCSItems.forEach(item => {
+                const img = item.image_url ? `<img src="${item.image_url}" class="pool-img">` : `<div class="pool-img"></div>`;
+                const isSelected = selectedCSItemIds.has(item.id);
+                const activeClass = isSelected ? 'selected' : '';
                 
-                if (res.ok) {
-                    tg.HapticFeedback.notificationOccurred('success');
-                    showCustomAlert('Успех', 'Скин добавлен в пул розыгрышей!');
-                    loadPoolItems();
-                } else {
-                    tg.HapticFeedback.notificationOccurred('error');
-                    showCustomAlert('Ошибка', data.detail || 'Не удалось добавить');
+                html += `
+                <div class="select-item ${activeClass}" id="cs-item-${item.id}" onclick="toggleCSItemSelect(${item.id})">
+                    <div class="pool-item-info">
+                        ${img}
+                        <div>
+                            <div class="pool-name">${item.name}</div>
+                            <div class="pool-id-tag">ID: ${item.id} | <b>${item.price}₽</b></div>
+                        </div>
+                    </div>
+                    <i class="fa-solid fa-chevron-right chevron-icon" style="color:var(--text-sec)"></i>
+                    <i class="fa-solid fa-circle-check check-icon"></i>
+                </div>`;
+            });
+            list.innerHTML = html;
+        }
+
+        // Логика выделения предмета
+        function toggleCSItemSelect(id) {
+            const el = document.getElementById(`cs-item-${id}`);
+            if (selectedCSItemIds.has(id)) {
+                selectedCSItemIds.delete(id);
+                el.classList.remove('selected');
+            } else {
+                selectedCSItemIds.add(id);
+                el.classList.add('selected');
+            }
+            tg.HapticFeedback.selectionChanged();
+            updateAddButtonState();
+        }
+
+        function updateAddButtonState() {
+            const btn = document.getElementById('btn-add-selected');
+            const count = selectedCSItemIds.size;
+            btn.innerText = `Добавить выбранные (${count})`;
+            btn.disabled = count === 0;
+        }
+
+        // Массовое добавление предметов
+        async function addSelectedPoolItems() {
+            if (selectedCSItemIds.size === 0) return;
+            
+            tg.MainButton.showProgress();
+            const btn = document.getElementById('btn-add-selected');
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Добавляем...';
+            btn.disabled = true;
+
+            let successCount = 0;
+            let errorCount = 0;
+
+            // Отправляем запросы поочередно, чтобы не перегрузить БД
+            for (const id of selectedCSItemIds) {
+                try {
+                    const res = await fetch('/api/v1/admin/comment_giveaways/pool/add', {
+                        method: 'POST', headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({item_id: id})
+                    });
+                    if (res.ok) {
+                        successCount++;
+                    } else {
+                        errorCount++;
+                    }
+                } catch(e) {
+                    errorCount++;
                 }
-            } catch(e) {
-                showCustomAlert('Ошибка', 'Сбой сети');
-            } finally {
-                tg.MainButton.hideProgress();
+            }
+
+            tg.MainButton.hideProgress();
+            closeModal('modal-cs-items');
+            loadPoolItems();
+
+            if (errorCount === 0) {
+                tg.HapticFeedback.notificationOccurred('success');
+                showCustomAlert('Успех', `Все предметы (${successCount} шт.) добавлены в пул!`);
+            } else {
+                tg.HapticFeedback.notificationOccurred('warning');
+                showCustomAlert('Внимание', `Добавлено: ${successCount}. Ошибок (или дубликатов): ${errorCount}.`);
             }
         }
 
