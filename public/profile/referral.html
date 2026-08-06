@@ -1,0 +1,181 @@
+<!-- /public/profile/referral.html -->
+
+<style>
+    /* Специфичные стили для магазина, дополняющие твой Liquid Glass */
+    .shop-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+        margin-top: 15px;
+        padding-bottom: 20px;
+    }
+
+    .shop-card {
+        background: var(--glass-bg);
+        backdrop-filter: var(--glass-blur);
+        -webkit-backdrop-filter: var(--glass-blur);
+        border: 1px solid var(--glass-border);
+        border-radius: 16px;
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        box-shadow: var(--glass-shadow);
+        transition: transform 0.2s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .shop-card:active {
+        transform: scale(0.95);
+    }
+
+    .shop-card-img {
+        width: 80px;
+        height: 80px;
+        object-fit: contain;
+        margin-bottom: 10px;
+        filter: drop-shadow(0 5px 15px rgba(0,0,0,0.5));
+    }
+
+    .shop-card-title {
+        font-size: 13px;
+        font-weight: 800;
+        color: #fff;
+        text-align: center;
+        margin-bottom: 4px;
+        line-height: 1.2;
+    }
+
+    .shop-card-desc {
+        font-size: 10px;
+        color: var(--text-color-muted);
+        text-align: center;
+        margin-bottom: 12px;
+        flex-grow: 1;
+    }
+
+    .shop-buy-btn {
+        width: 100%;
+        background: rgba(255, 215, 0, 0.1);
+        border: 1px solid rgba(255, 215, 0, 0.3);
+        color: #ffd700;
+        border-radius: 10px;
+        padding: 8px;
+        font-size: 12px;
+        font-weight: 900;
+        cursor: pointer;
+        transition: 0.2s;
+    }
+    
+    .shop-buy-btn:active {
+        background: rgba(255, 215, 0, 0.2);
+    }
+
+    .shop-out-of-stock {
+        background: rgba(255, 69, 58, 0.1);
+        border-color: rgba(255, 69, 58, 0.3);
+        color: #ff453a;
+        pointer-events: none;
+    }
+</style>
+
+<div class="events-header-bar" style="margin-bottom: 5px;">
+    <h3 style="margin: 0; font-size: 18px; font-weight: 900; color: #fff; text-transform: uppercase; letter-spacing: 1px;">Магазин</h3>
+    <div style="background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 8px; padding: 4px 10px; font-size: 12px; font-weight: 800; color: #fff;">
+        <span id="user-ref-balance"><i class="fa-solid fa-circle-notch fa-spin"></i></span> <i class="fa-solid fa-coins" style="color: #ffd700;"></i>
+    </div>
+</div>
+<p style="font-size: 11px; color: var(--text-color-muted); margin: 0 0 15px 0;">Обменивай реферальные поинты на уникальные награды и скины.</p>
+
+<div id="shop-loader" style="display:flex; justify-content:center; padding: 40px;">
+    <i class="fa-solid fa-circle-notch fa-spin" style="font-size: 28px; color: var(--text-color-muted);"></i>
+</div>
+
+<div class="shop-grid" id="shop-items-container" style="display: none;">
+    <!-- Товары будут загружены сюда -->
+</div>
+
+<script>
+    // Инициализация при загрузке вкладки
+    async function initShop() {
+        try {
+            // Запрашиваем баланс и список товаров одним или двумя запросами
+            // Предполагаем, что у тебя будет эндпоинт для магазина
+            const res = await window.apiRequest('/api/v1/shop/items', 'POST', null, true);
+            
+            // Обновляем баланс пользователя в шапке
+            document.getElementById('user-ref-balance').innerText = res.user_balance || 0;
+            
+            const container = document.getElementById('shop-items-container');
+            document.getElementById('shop-loader').style.display = 'none';
+            container.style.display = 'grid';
+            
+            if (!res.items || res.items.length === 0) {
+                container.style.display = 'block';
+                container.innerHTML = `
+                    <div style="text-align:center; padding-top: 30px;">
+                        <i class="fa-solid fa-store-slash" style="font-size: 40px; margin-bottom: 15px; opacity: 0.2; color: #fff;"></i>
+                        <p style="font-size: 14px; color: var(--text-color-muted); font-weight: 600;">Магазин пока пуст</p>
+                    </div>`;
+                return;
+            }
+
+            container.innerHTML = '';
+            res.items.forEach(item => {
+                const isOutOfStock = item.stock === 0;
+                const btnClass = isOutOfStock ? 'shop-buy-btn shop-out-of-stock' : 'shop-buy-btn';
+                const btnText = isOutOfStock ? 'НЕТ В НАЛИЧИИ' : `КУПИТЬ ЗА ${item.price}`;
+                const fallbackImg = 'https://placehold.co/100x100/18181b/3f3f46?text=ITEM';
+
+                container.innerHTML += `
+                    <div class="shop-card">
+                        ${item.stock > 0 ? `<div style="position:absolute; top:8px; left:8px; background:rgba(255,255,255,0.1); border-radius:6px; font-size:9px; padding:2px 6px; color:#fff; font-weight:800; border:1px solid var(--glass-border);">Осталось: ${item.stock}</div>` : ''}
+                        <img src="${item.image_url || fallbackImg}" class="shop-card-img" alt="${item.name}">
+                        <div class="shop-card-title">${item.name}</div>
+                        <div class="shop-card-desc">${item.description || ''}</div>
+                        <button class="${btnClass}" ${isOutOfStock ? 'disabled' : `onclick="buyShopItem(${item.id}, '${item.name}', ${item.price})"`}>
+                            ${btnText} ${!isOutOfStock ? '<i class="fa-solid fa-coins"></i>' : ''}
+                        </button>
+                    </div>
+                `;
+            });
+            
+        } catch (error) {
+            document.getElementById('shop-loader').innerHTML = `<div style="color: #ff453a; font-size: 12px; font-weight: 800; text-align: center;">Ошибка загрузки магазина</div>`;
+        }
+    }
+
+    // Глобальная функция покупки, привязанная к твоему UI
+    window.buyShopItem = function(itemId, itemName, price) {
+        if (window.tg && window.tg.HapticFeedback) window.tg.HapticFeedback.impactOccurred('light');
+        
+        window.showCustomConfirmHTML(`Купить "${itemName}"<br><span style="font-size: 12px; color: var(--text-color-muted);">С баланса спишется ${price} монет</span>`, async (close) => {
+            
+            document.getElementById('global-loader').classList.add('active');
+            
+            try {
+                // Боевой запрос на бэкенд для покупки
+                const res = await window.apiRequest('/api/v1/shop/buy', 'POST', { item_id: itemId }, true);
+                
+                if (window.tg && window.tg.HapticFeedback) window.tg.HapticFeedback.notificationOccurred('success');
+                
+                window.customAlert(`Предмет "${itemName}" успешно куплен!`, "Отлично");
+                
+                // Перезагружаем магазин, чтобы обновить остатки и баланс
+                await initShop();
+                close();
+            } catch (e) {
+                if (e.message !== 'Activity Lock') {
+                    window.customAlert("Ошибка покупки: " + e.message);
+                }
+                close();
+            } finally {
+                document.getElementById('global-loader').classList.remove('active');
+            }
+        }, "ПОДТВЕРДИТЬ", "rgba(52, 199, 89, 0.15)", "#34c759"); // Зеленая кнопка подтверждения
+    };
+
+    // Запускаем
+    initShop();
+</script>
