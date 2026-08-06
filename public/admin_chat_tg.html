@@ -90,8 +90,6 @@
         
         .select-item { cursor: pointer; transition: 0.2s; border: 2px solid transparent; }
         .select-item:active { transform: scale(0.98); background: rgba(255,255,255,0.05); }
-        
-        /* Активное состояние для множественного выбора */
         .select-item.selected { border-color: var(--accent); background: rgba(40,167,69,0.1); }
         .select-item .check-icon { display: none; color: var(--accent); font-size: 18px; }
         .select-item.selected .check-icon { display: block; }
@@ -110,9 +108,10 @@
         @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
         .bottom-sheet-container { position: absolute; bottom: 0; width: 100%; background: #1c1c1e; border-radius: 24px 24px 0 0; padding: 20px; display: flex; flex-direction: column; box-sizing: border-box; animation: slideUp 0.3s ease-out; height: 90vh; }
         
-        /* Сортировка в модалке */
         .sort-control { display: flex; gap: 10px; margin-bottom: 15px; }
         .sort-control select { flex: 1; padding: 8px; border-radius: 8px; background: var(--card-bg); color: #fff; border: 1px solid var(--card-border); outline: none; font-size: 13px; }
+        
+        .chance-badge { background: rgba(255,215,0,0.2); color: var(--primary); font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -136,7 +135,7 @@
             <div class="toggle-container">
                 <div>
                     <div class="toggle-label">Авто-розыгрыши CS2</div>
-                    <div class="toggle-desc">Выдавать скины из пула под каждым новым постом канала</div>
+                    <div class="toggle-desc">Включить хаотичные розыгрыши</div>
                 </div>
                 <label class="switch">
                     <input type="checkbox" id="auto_toggle_enabled">
@@ -145,8 +144,17 @@
             </div>
 
             <div class="section-box">
-                <h3 class="sec-title"><i class="fa-solid fa-robot"></i> Настройки (Уникальные юзеры)</h3>
-                <div style="font-size:11px;color:#aaa;margin-bottom:15px;">Бот сам сгенерирует число уникальных участников между этими значениями. Предмет выбирается рандомно из пула.</div>
+                <h3 class="sec-title"><i class="fa-solid fa-dice"></i> Вероятность появления</h3>
+                <div style="font-size:11px;color:#aaa;margin-bottom:15px;">Укажи шанс в процентах. Если поставить 30%, розыгрыш будет срабатывать примерно на 3 из 10 постов. Эффект казино! 🎰</div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <input type="number" id="auto_chance" min="1" max="100" value="100" required style="width: 80px; text-align: center; font-weight: bold;">
+                    <span style="font-size: 18px; font-weight: bold;">%</span>
+                </div>
+            </div>
+
+            <div class="section-box">
+                <h3 class="sec-title"><i class="fa-solid fa-users"></i> Настройки (Уникальные юзеры)</h3>
+                <div style="font-size:11px;color:#aaa;margin-bottom:15px;">Бот сам сгенерирует число участников между этими значениями, чтобы никто не знал точный конец розыгрыша.</div>
 
                 <div class="cond-grid">
                     <div>
@@ -174,7 +182,7 @@
     <div id="tab-pool" class="tab-content hidden">
         <div class="section-box admin-form">
             <h3 class="sec-title"><i class="fa-solid fa-box-open"></i> Добавить скины в витрину</h3>
-            <div style="font-size:11px;color:#aaa;margin-bottom:15px;">Выберите скины со склада. Они будут бесконечно крутиться в авто-розыгрышах.</div>
+            <div style="font-size:11px;color:#aaa;margin-bottom:15px;">Выберите скины со склада. Они будут бесконечно и хаотично выпадать в авто-розыгрышах.</div>
             
             <button type="button" onclick="openCSModal()" class="action-submit-btn btn-outline" style="margin-top: 5px;">
                 <i class="fa-solid fa-list-ul"></i> Выбрать предметы со склада
@@ -298,6 +306,7 @@
                     const data = await res.json();
                     if (data.status === 'success' && data.data) {
                         document.getElementById('auto_toggle_enabled').checked = data.data.is_auto_giveaway_enabled || false;
+                        document.getElementById('auto_chance').value = data.data.auto_gw_chance || 100;
                         document.getElementById('auto_min_msg').value = data.data.auto_gw_min_msg || 10;
                         document.getElementById('auto_max_msg').value = data.data.auto_gw_max_msg || 25;
                         document.getElementById('auto_reply_text').value = data.data.auto_gw_reply_text || '🎉 Поздравляем! Твой комментарий оказался счастливым! Скин отправлен в инвентарь.';
@@ -307,8 +316,15 @@
         }
 
         async function submitAutoSettings() {
+            const chanceVal = parseInt(document.getElementById('auto_chance').value);
+            if (chanceVal < 1 || chanceVal > 100 || isNaN(chanceVal)) {
+                showCustomAlert('Ошибка', 'Шанс должен быть от 1 до 100%');
+                return;
+            }
+
             const payload = {
                 is_enabled: document.getElementById('auto_toggle_enabled').checked,
+                chance: chanceVal,
                 min_msg: parseInt(document.getElementById('auto_min_msg').value),
                 max_msg: parseInt(document.getElementById('auto_max_msg').value),
                 reply_text: document.getElementById('auto_reply_text').value
@@ -333,7 +349,7 @@
 
         // --- УПРАВЛЕНИЕ ПУЛОМ И МАССОВЫЙ ВЫБОР СКИНА ---
         let allCSItems = [];
-        let selectedCSItemIds = new Set(); // Используем Set для быстрого управления
+        let selectedCSItemIds = new Set();
 
         async function loadPoolItems() {
             const container = document.getElementById('pool-list-container');
@@ -380,7 +396,7 @@
             const list = document.getElementById('cs-items-list');
             list.innerHTML = '<div style="text-align:center; padding: 40px; color: var(--text-sec);"><i class="fa-solid fa-spinner fa-spin"></i> Загрузка склада...</div>';
             
-            selectedCSItemIds.clear(); // Очищаем выбор
+            selectedCSItemIds.clear(); 
             updateAddButtonState();
 
             try {
@@ -398,14 +414,12 @@
             }
         }
 
-        // Функция сортировки и рендера списка
         function sortCSItems(direction) {
             if (!allCSItems || allCSItems.length === 0) {
                 document.getElementById('cs-items-list').innerHTML = '<div style="text-align:center; color:var(--danger); padding:20px;">Нет предметов на складе!</div>';
                 return;
             }
 
-            // Сортируем массив
             allCSItems.sort((a, b) => {
                 const priceA = parseFloat(a.price) || 0;
                 const priceB = parseFloat(b.price) || 0;
@@ -440,7 +454,6 @@
             list.innerHTML = html;
         }
 
-        // Логика выделения предмета
         function toggleCSItemSelect(id) {
             const el = document.getElementById(`cs-item-${id}`);
             if (selectedCSItemIds.has(id)) {
@@ -461,7 +474,6 @@
             btn.disabled = count === 0;
         }
 
-        // Массовое добавление предметов
         async function addSelectedPoolItems() {
             if (selectedCSItemIds.size === 0) return;
             
@@ -473,21 +485,15 @@
             let successCount = 0;
             let errorCount = 0;
 
-            // Отправляем запросы поочередно, чтобы не перегрузить БД
             for (const id of selectedCSItemIds) {
                 try {
                     const res = await fetch('/api/v1/admin/comment_giveaways/pool/add', {
                         method: 'POST', headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({item_id: id})
                     });
-                    if (res.ok) {
-                        successCount++;
-                    } else {
-                        errorCount++;
-                    }
-                } catch(e) {
-                    errorCount++;
-                }
+                    if (res.ok) successCount++;
+                    else errorCount++;
+                } catch(e) { errorCount++; }
             }
 
             tg.MainButton.hideProgress();
