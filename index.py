@@ -2805,11 +2805,15 @@ async def cmd_start(message: types.Message):
         logging.error(f"/start error: {e}")
 
 # 1. ЛОВИМ НОВЫЙ ПОСТ В КАНАЛЕ
+# 1. ЛОВИМ НОВЫЙ ПОСТ В КАНАЛЕ
 @router.message(F.is_automatic_forward)
 async def auto_giveaway_on_new_post(message: types.Message):
-    logging.info(f"Поймал авто-форвард! Кнопки: {bool(message.reply_markup)}")
+    # Добавлен расширенный лог для старта
+    logging.info(f"🔎 Пришел пост (авто-форвард)! ID: {message.message_id}, Кнопки: {bool(message.reply_markup)}")
+    
     # 🔥 ЕСЛИ НА ПОСТЕ ЕСТЬ КНОПКИ — СКИПАЕМ
     if message.reply_markup:
+        logging.warning("⚠️ Пост пропущен: обнаружены кнопки (reply_markup)!")
         return
 
     group_post_id = message.message_id
@@ -2821,11 +2825,20 @@ async def auto_giveaway_on_new_post(message: types.Message):
         
         # 1. Загружаем настройки
         set_resp = await supabase.get("/settings", params={"key": "eq.admin_controls"})
-        if set_resp.status_code != 200 or not set_resp.json():
+        
+        # 🔥 Улучшенная проверка ответа от базы
+        if set_resp.status_code != 200:
+            logging.error(f"⚠️ Ошибка БД при запросе настроек: {set_resp.text}")
             return
+            
+        if not set_resp.json():
+            logging.warning("⚠️ Настройки admin_controls не найдены в БД!")
+            return
+            
         settings = set_resp.json()[0].get('value', {})
         
         if not settings.get('is_auto_giveaway_enabled', False):
+            logging.info("⚠️ Авто-розыгрыши выключены в базе (is_auto_giveaway_enabled = False).")
             return
 
         # 🔥 2. ПРОВЕРКА ХАОТИЧНОСТИ (ШАНС) 🔥
@@ -2836,16 +2849,25 @@ async def auto_giveaway_on_new_post(message: types.Message):
 
         # 3. Розыгрыш сработал! Берем предмет из пула
         pool_resp = await supabase.get("/giveaway_items_pool", params={"is_active": "is.true"})
+        
+        # 🔥 Проверка на ошибки при получении пула
+        if pool_resp.status_code != 200:
+            logging.error(f"⚠️ Ошибка БД при запросе пула предметов: {pool_resp.text}")
+            return
+            
         pool_items = pool_resp.json() if pool_resp.status_code == 200 else []
         
         if not pool_items:
-            logging.warning("Пул пуст!")
+            logging.warning("⚠️ Пул пуст! Предметы для розыгрыша закончились или не активированы.")
             return
             
         selected_pool_entry = random.choice(pool_items)
         item_id = selected_pool_entry["item_id"]
 
         target_users = random.randint(int(settings.get('auto_gw_min_msg', 10)), int(settings.get('auto_gw_max_msg', 20)))
+
+        # 🔥 Логируем успешное создание
+        logging.info(f"✅ Создаем розыгрыш на пост {group_post_id}. Предмет: {item_id}, нужно юзеров: {target_users}")
 
         await supabase.post("/post_giveaways", json={
             "post_id": group_post_id,
