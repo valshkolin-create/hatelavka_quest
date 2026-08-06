@@ -3130,20 +3130,14 @@ async def process_giveaway_comment(message: types.Message):
             
             logging.info(f"🎉 ЕСТЬ ПОБЕДИТЕЛЬ! Юзер: {winner_id}, Приз: {item_id}")
             
-            # --- 1. ДОСТАЕМ @USERNAME ПОБЕДИТЕЛЯ ---
-            try:
-                # Получаем объект участника чата
-                member = await message.bot.get_chat_member(chat_id=message.chat.id, user_id=winner_id)
-                if member.user.username:
-                    # Если юзернейм есть, пишем через @
-                    winner_mention = f"@{member.user.username}"
-                else:
-                    # Если юзернейма нет, делаем кликабельное имя
-                    winner_mention = f"<a href='tg://user?id={winner_id}'>{member.user.first_name}</a>"
-            except Exception as e:
-                logging.warning(f"Не удалось получить профиль победителя: {e}")
-                # Резервный вариант, если бот не смог получить информацию
-                winner_mention = f"<a href='tg://user?id={winner_id}'>Победитель</a>"
+            # --- 1. ДОСТАЕМ @USERNAME НАПРЯМУЮ ---
+            # Так как победил тот, кто только что написал этот комментарий, 
+            # берем его ник прямо из объекта message!
+            if message.from_user.username:
+                winner_mention = f"@{message.from_user.username}"
+            else:
+                # На случай, если у человека скрыт/не установлен username
+                winner_mention = f"<a href='tg://user?id={winner_id}'>{message.from_user.first_name}</a>"
 
             item_resp = await supabase.get("/cs_items", params={"id": f"eq.{item_id}"})
             item_data = item_resp.json()[0]
@@ -3151,11 +3145,11 @@ async def process_giveaway_comment(message: types.Message):
             # 🔥 Достаем картинку скина
             image_url = item_data.get('image_url', '')
             
-            # Выдаем предмет
+            # --- 2. ВЫДАЕМ ПРЕДМЕТ СО СТАТУСОМ AVAILABLE ---
             history_payload = {
                 "user_id": int(winner_id),
                 "item_id": int(item_id),
-                "status": "received",
+                "status": "available",  # <-- ИСПРАВЛЕНО (было "received")
                 "source": "raffle", 
                 "case_name": "Победа в розыгрыше",
                 "is_swapped": False
@@ -3168,7 +3162,6 @@ async def process_giveaway_comment(message: types.Message):
             ])
             
             # --- РАСКРЫВАЕМ ЗАГАДКУ С ФОТКОЙ И КНОПКОЙ ---
-            # Здесь теперь используется winner_mention вместо жесткого "Счастливчик"
             announcement_text = (
                 f"🎉 <b>РОЗЫГРЫШ ЗАВЕРШЕН!</b>\n\n"
                 f"🏆 <b>Победитель:</b> {winner_mention}\n"
@@ -3193,31 +3186,46 @@ async def process_giveaway_comment(message: types.Message):
                     reply_markup=win_kb  
                 )
                 
-            # --- 2. РЕДАКТИРУЕМ ИСХОДНЫЙ ПОСТ РОЗЫГРЫША ---
+            # --- 3. РЕДАКТИРУЕМ ИСХОДНЫЙ ПОСТ РОЗЫГРЫША ---
             post_edit_text = (
                 f"🎉 <b>РОЗЫГРЫШ ЗАВЕРШЕН!</b>\n\n"
                 f"Победитель {winner_mention} забрал(а) <b>{item_data['name']}</b>!"
             )
             
+            # Ищем, откуда родом этот пост. Если он из канала, нужно редактировать в канале!
+            target_chat_id = message.chat.id
+            target_msg_id = group_post_id
+            
+            if message.reply_to_message and message.reply_to_message.sender_chat and message.reply_to_message.sender_chat.type == "channel":
+                target_chat_id = message.reply_to_message.sender_chat.id
+                # Достаем ID оригинального сообщения в самом канале
+                if message.reply_to_message.forward_from_message_id:
+                    target_msg_id = message.reply_to_message.forward_from_message_id
+
+            logging.info(f"Пытаемся отредактировать пост. Chat ID: {target_chat_id}, Msg ID: {target_msg_id}")
+
             try:
                 # Попытка 1: Отредактировать текст сообщения (если пост был без картинки)
                 await message.bot.edit_message_text(
                     text=post_edit_text,
-                    chat_id=message.chat.id,
-                    message_id=group_post_id,
+                    chat_id=target_chat_id,
+                    message_id=target_msg_id,
                     parse_mode="HTML"
                 )
-            except Exception:
+                logging.info("✅ Пост успешно отредактирован (Текст)!")
+            except Exception as e1:
+                logging.warning(f"⚠️ Не удалось отредактировать как текст (возможно там картинка): {e1}")
                 try:
                     # Попытка 2: Отредактировать подпись (если оригинальный пост был картинкой/видео)
                     await message.bot.edit_message_caption(
                         caption=post_edit_text,
-                        chat_id=message.chat.id,
-                        message_id=group_post_id,
+                        chat_id=target_chat_id,
+                        message_id=target_msg_id,
                         parse_mode="HTML"
                     )
-                except Exception as e:
-                    logging.error(f"Не удалось отредактировать исходный пост розыгрыша: {e}")
+                    logging.info("✅ Пост успешно отредактирован (Подпись к медиа)!")
+                except Exception as e2:
+                    logging.error(f"❌ Не удалось отредактировать исходный пост вообще: {e2}")
 
     except Exception as e:
         logging.error(f"Ошибка проверки комментария розыгрыша: {e}", exc_info=True)
@@ -4568,11 +4576,11 @@ async def manual_add_giveaway_user(
                         item_name = item_data['name']
                         image_url = item_data.get('image_url', '')
 
-                        # --- ВЫДАЕМ НАГРАДУ В ИНВЕНТАРЬ ---
+                        # --- ВЫДАЕМ НАГРАДУ В ИНВЕНТАРЬ (СТАТУС AVAILABLE) ---
                         history_payload = {
                             "user_id": int(winner_id),
                             "item_id": int(item_id),
-                            "status": "received",
+                            "status": "available",  # <-- ИСПРАВЛЕНО НА AVAILABLE
                             "source": "raffle",           # 🔥 СТАВИМ КЛАСС RAFFLE
                             "case_name": "Победа в розыгрыше", # 🔥 КАК У ТЕБЯ В JSON
                             "is_swapped": False
@@ -4583,6 +4591,18 @@ async def manual_add_giveaway_user(
                         # --- ОТПРАВЛЯЕМ ИТОГИ В КАНАЛ ---
                         chat_id = os.getenv("ALLOWED_CHAT_ID") or ALLOWED_CHAT_ID
                         if chat_id:
+                            
+                            # --- 1. ДОСТАЕМ @USERNAME ДЛЯ АДМИНКИ ---
+                            try:
+                                member = await bot.get_chat_member(chat_id=int(chat_id), user_id=int(winner_id))
+                                if member.user.username:
+                                    winner_mention = f"@{member.user.username}"
+                                else:
+                                    winner_mention = f"<a href='tg://user?id={winner_id}'>{member.user.first_name}</a>"
+                            except Exception as e:
+                                logging.warning(f"Не удалось получить профиль победителя из админки: {e}")
+                                winner_mention = f"<a href='tg://user?id={winner_id}'>Победитель</a>"
+
                             # Получаем глобальные настройки текста
                             reply_text = '🎉 Розыгрыш завершен!'
                             set_resp = await supabase.get("/settings", params={"key": "eq.admin_controls"})
@@ -4592,7 +4612,7 @@ async def manual_add_giveaway_user(
 
                             announcement = (
                                 f"{reply_text}\n\n"
-                                f"🏆 <b>Победитель:</b> <a href='tg://user?id={winner_id}'>Счастливчик</a>\n"
+                                f"🏆 <b>Победитель:</b> {winner_mention}\n"
                                 f"🎁 <b>Приз:</b> {item_name}\n\n"
                                 f"<i>Скин уже в инвентаре, можно выводить!</i>"
                             )
@@ -4605,12 +4625,38 @@ async def manual_add_giveaway_user(
                             except Exception as bot_e:
                                 logging.error(f"Ошибка отправки итога из админки: {bot_e}")
 
-                return {"status": "success", "message": "Лимит достигнут! Бот выдал скин и написал в чат.", "winner": True}
-            
-            # Если лимит еще не достигнут
-            return {"status": "success", "message": "Участник успешно добавлен!"}
-        else:
-            raise HTTPException(status_code=500, detail="Ошибка базы данных")
+                            # --- 3. РЕДАКТИРУЕМ ИСХОДНЫЙ ПОСТ РОЗЫГРЫША ---
+                            post_edit_text = (
+                                f"🎉 <b>РОЗЫГРЫШ ЗАВЕРШЕН!</b>\n\n"
+                                f"Победитель {winner_mention} забрал(а) <b>{item_name}</b>!"
+                            )
+                            
+                            try:
+                                # Попытка 1: Редактируем как текст
+                                await bot.edit_message_text(
+                                    text=post_edit_text,
+                                    chat_id=int(chat_id),
+                                    message_id=int(post_id),
+                                    parse_mode="HTML"
+                                )
+                            except Exception as e_text:
+                                try:
+                                    # Попытка 2: Редактируем как подпись (если картинка)
+                                    await bot.edit_message_caption(
+                                        caption=post_edit_text,
+                                        chat_id=int(chat_id),
+                                        message_id=int(post_id),
+                                        parse_mode="HTML"
+                                    )
+                                except Exception as e_caption:
+                                    logging.error(f"❌ Не удалось отредактировать пост из API:\nОшибка текста: {e_text}\nОшибка подписи: {e_caption}")
+
+            return {"status": "success", "message": "Лимит достигнут! Бот выдал скин и написал в чат.", "winner": True}
+        
+        # Если лимит еще не достигнут
+        return {"status": "success", "message": "Участник успешно добавлен!"}
+    else:
+        raise HTTPException(status_code=500, detail="Ошибка базы данных")
 
     except HTTPException:
         raise
