@@ -2913,8 +2913,12 @@ async def auto_giveaway_on_new_post(message: types.Message):
 # 2. ИДЕАЛЬНЫЙ ЛОВЕЦ КОММЕНТАРИЕВ
 @router.message()
 async def process_giveaway_comment(message: types.Message):
+    # Добавляем лог на старте
+    logging.info(f"📨 ХЭНДЛЕР СРАБОТАЛ: Пришло сообщение от {message.from_user.id} в чате {message.chat.id}")
+
     # Игнорируем ботов и сообщения в личку
     if message.from_user.is_bot or message.chat.type not in ["group", "supergroup"]:
+        logging.info("❌ ПРОПУСК: это бот или сообщение в личку")
         return
         
     # 🔥 ИЩЕМ ID ТРЕДА (Комментарии в ТГ - это треды)
@@ -2926,7 +2930,10 @@ async def process_giveaway_comment(message: types.Message):
         
     # Если это просто сообщение в чате, а не в комментах - скипаем
     if not group_post_id:
+        logging.info("❌ ПРОПУСК: нет ID треда (это обычное сообщение, а не комментарий)")
         return 
+        
+    logging.info(f"✅ КОММЕНТАРИЙ ОПОЗНАН! Привязан к посту (тред): {group_post_id}. Проверяем БД...")
     
     user_id = message.from_user.id
     
@@ -2936,22 +2943,29 @@ async def process_giveaway_comment(message: types.Message):
         # Проверяем, есть ли активный розыгрыш под этим ID
         check_gw = await supabase.get("/post_giveaways", params={"post_id": f"eq.{group_post_id}", "is_active": "is.true"})
         if not check_gw.json():
+            logging.info(f"❌ ПРОПУСК: Розыгрыш для поста {group_post_id} не найден или не активен.")
             return # Розыгрыша нет или уже закрыт
             
+        logging.info("🎯 Розыгрыш найден! Вызываем RPC...")
+        
         rpc_resp = await supabase.post("/rpc/process_cs_giveaway_comment", json={
             "p_post_id": group_post_id,
             "p_user_id": user_id
         })
         
         if rpc_resp.status_code != 200:
+            logging.error(f"⚠️ Ошибка RPC: {rpc_resp.text}")
             return
             
         result = rpc_resp.json()
+        logging.info(f"📦 Ответ от базы (RPC): {result}")
         
         # ЕСЛИ ПОБЕДИТЕЛЬ ВЫБРАН!
         if isinstance(result, dict) and result.get("status") == "winner":
             winner_id = result.get("winner_id")
             item_id = result.get("item_id")
+            
+            logging.info(f"🎉 ЕСТЬ ПОБЕДИТЕЛЬ! Юзер: {winner_id}, Приз: {item_id}")
             
             item_resp = await supabase.get("/cs_items", params={"id": f"eq.{item_id}"})
             item_data = item_resp.json()[0]
@@ -2983,25 +2997,25 @@ async def process_giveaway_comment(message: types.Message):
                 f"<i>Скин уже в инвентаре, можно выводить!</i>"
             )
             
-            # Если есть картинка - шлем с картинкой, если нет - просто текст
+            # 🔥 ИСПРАВЛЕННЫЕ МЕТОДЫ ОТПРАВКИ (answer_photo / answer) 🔥
             if image_url:
-                await message.reply_photo(
+                await message.answer_photo(
                     photo=image_url,
                     caption=announcement_text,
                     reply_to_message_id=group_post_id,
                     parse_mode="HTML",
-                    reply_markup=win_kb  # 🔥 ПРИКРЕПЛЯЕМ КНОПКУ
+                    reply_markup=win_kb  
                 )
             else:
-                await message.reply(
+                await message.answer(
                     text=announcement_text,
                     reply_to_message_id=group_post_id,
                     parse_mode="HTML",
-                    reply_markup=win_kb  # 🔥 ПРИКРЕПЛЯЕМ КНОПКУ
+                    reply_markup=win_kb  
                 )
 
     except Exception as e:
-        logging.error(f"Ошибка проверки комментария розыгрыша: {e}")
+        logging.error(f"Ошибка проверки комментария розыгрыша: {e}", exc_info=True)
 
 async def check_active_and_reply(message: types.Message):
     """Вспомогательная функция для ответов в ЛС"""
