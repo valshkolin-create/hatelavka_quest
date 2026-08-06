@@ -2879,8 +2879,7 @@ async def auto_giveaway_on_new_post(message: types.Message):
             "is_active": True
         })
 
-        # Пишем загадку в комменты
-        mystery_photo = "https://i.imgur.com/uRk4v2T.png"
+        # Пишем загадку в комменты (БЕЗ КАРТИНКИ)
         mystery_text = (
             f"🎁 <b>РОЗЫГРЫШ ЗАПУЩЕН!</b>\n\n"
             f"Предмет: <b>СЕКРЕТНЫЙ СКИН 🤫</b>\n"
@@ -2888,8 +2887,8 @@ async def auto_giveaway_on_new_post(message: types.Message):
             f"<i>Победитель определится автоматически!</i>"
         )
         
-        await message.reply_photo(photo=mystery_photo, caption=mystery_text, parse_mode="HTML")
-
+        # Заменили reply_photo на обычный reply
+        await message.reply(text=mystery_text, parse_mode="HTML")
         # Редактируем пост в канале
         old_text = message.text or message.caption or ""
         promo_text = "\n\n🎁 <i>Под этим постом идет розыгрыш секретного скина! Зайди в комментарии, чтобы участвовать.</i>"
@@ -24618,6 +24617,13 @@ async def force_close_giveaway(
         # 4. 🔥 ЧЕСТНЫЙ РАНДОМ (РУЧНОЙ СЦЕНАРИЙ)
         winner_id = random.choice(unique_users)
 
+        # Переменные для CS2 скинов
+        item_name = f"{r_val} {r_type}"
+        image_url = None
+        win_kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📱 Открыть профиль", url="https://t.me/HATElavka_bot/profile")]
+        ])
+
         # 5. ВЫДАЕМ НАГРАДУ ПОБЕДИТЕЛЮ
         if r_type == 'coins':
             promo_resp = await supabase.get("/promocodes", params={
@@ -24644,7 +24650,6 @@ async def force_close_giveaway(
                     logging.warning(f"[GIVEAWAY FORCE CLOSE] Промокод #{promo_id} на {r_val} выдан юзеру {winner_id}")
 
                     # 🔥🔥🔥 МГНОВЕННАЯ АВТО-АКТИВАЦИЯ В BOT-T 🔥🔥🔥
-                    # Запускаем фоновую задачу, чтобы не задерживать ответ API
                     asyncio.create_task(
                         activate_single_promocode(
                             promo_id=promo_id,
@@ -24653,30 +24658,63 @@ async def force_close_giveaway(
                             description="НАГРАДА ЗА ТГ ПОСТ (РУЧНОЕ ЗАВЕРШЕНИЕ)"
                         )
                     )
-
                 else:
                     logging.error(f"[GIVEAWAY ERROR] На складе нет промокодов на {r_val}!")
         
         elif r_type == 'tickets':
             await supabase.post("/rpc/increment_tickets", json={"p_user_id": int(winner_id), "p_amount": r_val})
 
+        # 🔥 НОВАЯ ВЕТКА ДЛЯ CS2 СКИНОВ
+        elif r_type == 'cs2_skin':
+            item_id = int(r_val)
+            
+            # Получаем инфу о скине со склада
+            item_resp = await supabase.get("/cs_items", params={"id": f"eq.{item_id}"})
+            if item_resp.status_code == 200 and item_resp.json():
+                item_data = item_resp.json()[0]
+                item_name = item_data['name']
+                image_url = item_data.get('image_url', '')
+
+            # Выдаем предмет победителю в инвентарь
+            history_payload = {
+                "user_id": int(winner_id),
+                "item_id": item_id,
+                "status": "received",
+                "source": "raffle", 
+                "case_name": "Победа в розыгрыше",
+                "is_swapped": False
+            }
+            await supabase.post("/cs_history", json=history_payload)
+
         # 6. ОТПРАВЛЯЕМ ПОСТ В ГРУППУ
         chat_id = os.getenv("ALLOWED_CHAT_ID") or (ALLOWED_CHAT_ID if 'ALLOWED_CHAT_ID' in globals() else None)
         
         if chat_id:
             try:
-                announcement = (
-                    f"{reply_text}\n\n"
-                    f"🏆 <b>Победитель:</b> <a href='tg://user?id={winner_id}'>Счастливчик</a>\n"
-                    f"🎁 <b>Приз:</b> {r_val} {r_type}\n\n"
-                    f"<i>Награда автоматически зачислена на баланс!</i>"
-                )
-                await bot.send_message(
-                    chat_id=int(chat_id),
-                    text=announcement,
-                    reply_to_message_id=int(post_id),
-                    parse_mode="HTML"
-                )
+                # Если это CS2 скин — отправляем красиво с фоткой и кнопкой
+                if r_type == 'cs2_skin':
+                    announcement = (
+                        f"{reply_text}\n\n"
+                        f"🏆 <b>Победитель:</b> <a href='tg://user?id={winner_id}'>Счастливчик</a>\n"
+                        f"🎁 <b>Приз оказался:</b> {item_name}\n\n"
+                        f"<i>Скин уже зачислен в инвентарь!</i>"
+                    )
+                    
+                    if image_url:
+                        await bot.send_photo(chat_id=int(chat_id), photo=image_url, caption=announcement, reply_to_message_id=int(post_id), parse_mode="HTML", reply_markup=win_kb)
+                    else:
+                        await bot.send_message(chat_id=int(chat_id), text=announcement, reply_to_message_id=int(post_id), parse_mode="HTML", reply_markup=win_kb)
+                
+                # Старая логика для коинов и билетов
+                else:
+                    announcement = (
+                        f"{reply_text}\n\n"
+                        f"🏆 <b>Победитель:</b> <a href='tg://user?id={winner_id}'>Счастливчик</a>\n"
+                        f"🎁 <b>Приз:</b> {r_val} {r_type}\n\n"
+                        f"<i>Награда автоматически зачислена на баланс!</i>"
+                    )
+                    await bot.send_message(chat_id=int(chat_id), text=announcement, reply_to_message_id=int(post_id), parse_mode="HTML")
+            
             except Exception as e:
                 logging.error(f"Не удалось опубликовать итоги ручного завершения: {e}")
 
