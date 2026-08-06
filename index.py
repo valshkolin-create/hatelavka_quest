@@ -2228,20 +2228,27 @@ async def get_supabase_client() -> httpx.AsyncClient:
     if _lazy_supabase_client is not None and not _lazy_supabase_client.is_closed:
         return _lazy_supabase_client
         
-    logging.info("🔌 Creating Serverless-safe Supabase client...")
+    logging.info("🔌 Creating Supabase client (Optimized for Vercel + High Load)...")
     
-    # 🔥 ИЗМЕНЕНИЕ ДЛЯ SERVERLESS (Vercel / Lambda) 🔥
-    # Отключаем удержание соединений (keepalive=0). 
-    # В облачных функциях старые соединения "умирают" молча и вызывают ReadTimeout.
+    # 🔥 БАЛАНС ДЛЯ VERCEL И СПАМА РЕАКЦИЯМИ
     limits = httpx.Limits(
-        max_keepalive_connections=0, # Не храним старые соединения
-        max_connections=100
+        max_keepalive_connections=20, # Держим 20 трубок открытыми для резких наплывов (реакций)
+        max_connections=200,          # Расширяем общий пул, чтобы юзеры не стояли в очереди
+        keepalive_expiry=15.0         # ВАЖНО: убиваем трубки через 15 секунд простоя, чтобы Vercel не зависал
+    )
+    
+    # 🔥 Разделяем таймауты
+    timeout_config = httpx.Timeout(
+        connect=15.0, # Даем 15 секунд на попытку пробиться к базе при жесткой нагрузке
+        read=30.0,    # Защита от холодных стартов базы (оставляем 30)
+        write=15.0,
+        pool=15.0     # Ждем свободную трубку в пуле 15 секунд
     )
     
     _lazy_supabase_client = httpx.AsyncClient(
         base_url=f"{SUPABASE_URL}/rest/v1",
         headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"},
-        timeout=30.0, 
+        timeout=timeout_config, 
         limits=limits
     )
     
