@@ -2910,8 +2910,171 @@ async def auto_giveaway_on_new_post(message: types.Message):
         logging.error(f"Ошибка запуска авто-розыгрыша: {e}", exc_info=True)
 
 
-# 2. ИДЕАЛЬНЫЙ ЛОВЕЦ КОММЕНТАРИЕВ
-@router.message()
+# =========================================================
+# 1. ГЛАВНЫЙ ЛОВЕЦ: Ловит сообщение 1 раз и передает обеим функциям
+# =========================================================
+@router.message(F.text & ~F.command)
+async def main_message_router(message: types.Message):
+    # Сначала считаем для испытаний и розыгрыша монет
+    await track_message(message)
+    # Затем это же сообщение проверяем на розыгрыш скина CS2
+    await process_giveaway_comment(message)
+
+
+# =========================================================
+# 2. ФУНКЦИЯ СТАТИСТИКИ И ИСПЫТАНИЙ (Без декоратора @router.message)
+# =========================================================
+async def track_message(message: types.Message):
+    """
+    Твоя функция с оптимизацией.
+    """
+    # 1. Если ALLOWED_CHAT_ID задан (не 0) И текущий чат не равен ему — игнорируем
+    if ALLOWED_CHAT_ID != 0 and message.chat.id != ALLOWED_CHAT_ID:
+        return
+
+    # 2. Игнорируем ЛС (чтобы не было ошибок и лишних запросов)
+    if message.chat.type == 'private':
+        return
+
+    # 3. 🔥 ИСПРАВЛЕНИЕ: Убрали лимит на длину. Теперь считаем даже 1 символ.
+    if not message.text:
+        return
+
+    user = message.from_user
+    full_name = f"{user.first_name} {user.last_name or ''}".strip()
+
+    try:
+        # Используем глобальный клиент для скорости
+        client = await get_background_client()
+        
+        await client.post(
+            "/rpc/handle_user_message",
+            json={
+                "p_telegram_id": user.id,
+                "p_full_name": full_name,
+            }
+        )
+    except Exception as e:
+        # Логируем warning, чтобы не засорять консоль
+        logging.warning(f"Не удалось записать сообщение от {user.id}: {e}")
+
+    # Запускаем обновление прогресса испытаний в фоне (не ждем ответа БД, чтобы бот не тупил)
+    asyncio.create_task(update_challenge_progress(user.id, "tg_messages", 1))
+
+    # 👇👇👇 ЛОГИКА РОЗЫГРЫШЕЙ 👇👇👇
+    if message.reply_to_message and message.chat.type in ["group", "supergroup"]:
+        
+        # 🔥 ИСПРАВЛЕНИЕ: Безопасное получение ID поста для новых версий Telegram (Aiogram 3+)
+        post_id = None
+        reply_msg = message.reply_to_message
+
+        # 1. Пробуем достать через современный forward_origin (Aiogram 3.x)
+        if getattr(reply_msg, "forward_origin", None) and getattr(reply_msg.forward_origin, "type", "") == "channel":
+            post_id = reply_msg.forward_origin.message_id
+        # 2. Запасной вариант для старых версий
+        elif getattr(reply_msg, "forward_from_message_id", None):
+            post_id = reply_msg.forward_from_message_id
+        # 3. Если всё скрыто, берем ID самого сообщения
+        if not post_id:
+            post_id = reply_msg.message_id
+
+        print(f"🕵️‍♂️ [DEBUG] Юзер {user.id} написал коммент. Бот определил ID поста: {post_id}")
+        
+        try:
+            client = await get_background_client()
+            # 1. Вызываем нашу RPC функцию в Supabase
+            response = await client.post(
+                "/rpc/process_giveaway_comment", 
+                json={"p_post_id": post_id, "p_user_id": user.id}
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                print(f"📦 [DEBUG] Ответ от БД для поста {post_id}: {result}")
+                
+                # 2. 🔥 ЧЕСТНЫЙ РАНДОМ: Ожидаем от базы словарь с победителем
+                if isinstance(result, dict) and result.get("status") == "winner":
+                    winner_id = result.get("winner_id")
+                    reply_text = result.get("reply_text") or "🎉 Розыгрыш завершен! Победитель выбран!"
+                    
+                    # Забираем настройки розыгрыша
+                    giveaway_info = await client.get("/post_giveaways", params={"post_id": f"eq.{post_id}"})
+                    giveaway_data = giveaway_info.json()
+                    
+                    if giveaway_data:
+                        g_data = giveaway_data[0]
+                        r_type = g_data['reward_type']
+                        r_val = g_data['reward_value']
+                        
+                        # ==== ВЫДАЧА НАГРАДЫ ИМЕННО ПОБЕДИТЕЛЮ (winner_id) ====
+                        if r_type == 'coins':
+                            # 1. Ищем свободный промокод нужного номинала
+                            promo_resp = await client.get("/promocodes", params={
+                                "is_used": "eq.false",
+                                "telegram_id": "is.null",
+                                "reward_value": f"eq.{r_val}",
+                                "limit": "1"
+                            })
+                            
+                            if promo_resp.status_code == 200:
+                                promo_data = promo_resp.json()
+                                
+                                if promo_data and len(promo_data) > 0:
+                                    promo_id = promo_data[0]['id']
+                                    
+                                   # 2. Привязываем промокод к РАНДОМНОМУ ПОБЕДИТЕЛЮ
+                                    await client.patch(
+                                        "/promocodes", 
+                                        params={"id": f"eq.{promo_id}"}, 
+                                        json={
+                                            "telegram_id": int(winner_id), 
+                                            "description": "НАГРАДА ЗА ТГ ПОСТ"
+                                        }
+                                    )
+                                    logging.warning(f"[GIVEAWAY] Промокод #{promo_id} на {r_val} выдан рандомному юзеру {winner_id}")
+
+                                    # Мгновенная активация в Bot-t (в фоне)
+                                    asyncio.create_task(
+                                        activate_single_promocode(
+                                            promo_id=promo_id,
+                                            telegram_id=int(winner_id),
+                                            reward_value=r_val,
+                                            description="НАГРАДА ЗА ТГ ПОСТ"
+                                        )
+                                    )
+                                else:
+                                    # Если промокоды такого номинала закончились на складе базы
+                                    logging.error(f"[GIVEAWAY ERROR] На складе нет свободных промокодов номиналом {r_val}!")
+                        
+                        elif r_type == 'tickets':
+                            # Билеты зачисляются победителю (через RPC функцию)
+                            await client.post("/rpc/increment_tickets", json={"p_user_id": int(winner_id), "p_amount": r_val})
+
+                        # ==== АВТОМАТИЧЕСКАЯ ОТПРАВКА СООБЩЕНИЯ В ЧАТ ====
+                        try:
+                            announcement = (
+                                f"{reply_text}\n\n"
+                                f"🏆 <b>Победитель:</b> <a href='tg://user?id={winner_id}'>Крутой пачан</a>\n"
+                                f"🎁 <b>Приз:</b> {r_val} {r_type}\n\n"
+                                f"<i>Награда уже зачислена на баланс!</i>"
+                            )
+                            # Бот отвечает на пересланный пост в группе
+                            await message.bot.send_message(
+                                chat_id=message.chat.id,
+                                text=announcement,
+                                reply_to_message_id=message.reply_to_message.message_id,
+                                parse_mode="HTML"
+                            )
+                        except Exception as e:
+                            logging.error(f"Не удалось отправить пост с победителем в группу: {e}")
+
+        except Exception as e:
+            logging.error(f"[GIVEAWAY ERROR] Ошибка при обработке розыгрыша: {e}")
+
+
+# =========================================================
+# 3. ФУНКЦИЯ РОЗЫГРЫША CS2 (Без декоратора @router.message)
+# =========================================================
 async def process_giveaway_comment(message: types.Message):
     # Добавляем лог на старте
     logging.info(f"📨 ХЭНДЛЕР СРАБОТАЛ: Пришло сообщение от {message.from_user.id} в чате {message.chat.id}")
@@ -3164,155 +3327,6 @@ async def auto_start_giveaway_from_channel(message: types.Message):
         except Exception as e:
             logging.error(f"⚠️ [QSTASH] Ошибка установки таймера: {e}")
 
-@router.message(F.text & ~F.command)
-async def track_message(message: types.Message):
-    """
-    Твоя функция с оптимизацией.
-    Считает сообщения в ALLOWED_CHAT_ID, но игнорирует слишком короткие.
-    """
-    
-    # 1. Если ALLOWED_CHAT_ID задан (не 0) И текущий чат не равен ему — игнорируем
-    if ALLOWED_CHAT_ID != 0 and message.chat.id != ALLOWED_CHAT_ID:
-        return
-
-    # 2. Игнорируем ЛС (чтобы не было ошибок и лишних запросов)
-    if message.chat.type == 'private':
-        return
-
-    # 3. НОВАЯ ПРОВЕРКА: Экономим ресурсы на коротких сообщениях
-    if message.text and len(message.text) < 2:
-        return
-
-    user = message.from_user
-    full_name = f"{user.first_name} {user.last_name or ''}".strip()
-
-    try:
-        # Используем глобальный клиент для скорости
-        client = await get_background_client()
-        
-        await client.post(
-            "/rpc/handle_user_message",
-            json={
-                "p_telegram_id": user.id,
-                "p_full_name": full_name,
-            }
-        )
-    except Exception as e:
-        # Логируем warning, чтобы не засорять консоль
-        logging.warning(f"Не удалось записать сообщение от {user.id}: {e}")
-
-    # Запускаем обновление прогресса в фоне (не ждем ответа БД, чтобы бот не тупил)
-    asyncio.create_task(update_challenge_progress(user.id, "tg_messages", 1))
-
-    # 👇👇👇 ЛОГИКА РОЗЫГРЫШЕЙ 👇👇👇
-    if message.reply_to_message and message.chat.type in ["group", "supergroup"]:
-        
-        # 🔥 ИСПРАВЛЕНИЕ: Безопасное получение ID поста для новых версий Telegram (Aiogram 3+)
-        post_id = None
-        reply_msg = message.reply_to_message
-
-        # 1. Пробуем достать через современный forward_origin (Aiogram 3.x)
-        if getattr(reply_msg, "forward_origin", None) and getattr(reply_msg.forward_origin, "type", "") == "channel":
-            post_id = reply_msg.forward_origin.message_id
-        # 2. Запасной вариант для старых версий
-        elif getattr(reply_msg, "forward_from_message_id", None):
-            post_id = reply_msg.forward_from_message_id
-        # 3. Если всё скрыто, берем ID самого сообщения
-        if not post_id:
-            post_id = reply_msg.message_id
-
-        print(f"🕵️‍♂️ [DEBUG] Юзер {user.id} написал коммент. Бот определил ID поста: {post_id}")
-        
-        try:
-            client = await get_background_client()
-            # 1. Вызываем нашу RPC функцию в Supabase
-            response = await client.post(
-                "/rpc/process_giveaway_comment", 
-                json={"p_post_id": post_id, "p_user_id": user.id}
-            )
-            
-            if response.status_code == 200:
-                result = response.json()
-                print(f"📦 [DEBUG] Ответ от БД для поста {post_id}: {result}")
-                
-                # 2. 🔥 ЧЕСТНЫЙ РАНДОМ: Ожидаем от базы словарь с победителем
-                if isinstance(result, dict) and result.get("status") == "winner":
-                    winner_id = result.get("winner_id")
-                    reply_text = result.get("reply_text") or "🎉 Розыгрыш завершен! Победитель выбран!"
-                    
-                    # Забираем настройки розыгрыша
-                    giveaway_info = await client.get("/post_giveaways", params={"post_id": f"eq.{post_id}"})
-                    giveaway_data = giveaway_info.json()
-                    
-                    if giveaway_data:
-                        g_data = giveaway_data[0]
-                        r_type = g_data['reward_type']
-                        r_val = g_data['reward_value']
-                        
-                        # ==== ВЫДАЧА НАГРАДЫ ИМЕННО ПОБЕДИТЕЛЮ (winner_id) ====
-                        if r_type == 'coins':
-                            # 1. Ищем свободный промокод нужного номинала
-                            promo_resp = await client.get("/promocodes", params={
-                                "is_used": "eq.false",
-                                "telegram_id": "is.null",
-                                "reward_value": f"eq.{r_val}",
-                                "limit": "1"
-                            })
-                            
-                            if promo_resp.status_code == 200:
-                                promo_data = promo_resp.json()
-                                
-                                if promo_data and len(promo_data) > 0:
-                                    promo_id = promo_data[0]['id']
-                                    
-                                   # 2. Привязываем промокод к РАНДОМНОМУ ПОБЕДИТЕЛЮ
-                                    await client.patch(
-                                        "/promocodes", 
-                                        params={"id": f"eq.{promo_id}"}, 
-                                        json={
-                                            "telegram_id": int(winner_id), 
-                                            "description": "НАГРАДА ЗА ТГ ПОСТ"
-                                        }
-                                    )
-                                    logging.warning(f"[GIVEAWAY] Промокод #{promo_id} на {r_val} выдан рандомному юзеру {winner_id}")
-
-                                    # Мгновенная активация в Bot-t (в фоне)
-                                    asyncio.create_task(
-                                        activate_single_promocode(
-                                            promo_id=promo_id,
-                                            telegram_id=int(winner_id),
-                                            reward_value=r_val,
-                                            description="НАГРАДА ЗА ТГ ПОСТ"
-                                        )
-                                    )
-                                else:
-                                    # Если промокоды такого номинала закончились на складе базы
-                                    logging.error(f"[GIVEAWAY ERROR] На складе нет свободных промокодов номиналом {r_val}!")
-                        
-                        elif r_type == 'tickets':
-                            # Билеты зачисляются победителю (через RPC функцию)
-                            await client.post("/rpc/increment_tickets", json={"p_user_id": int(winner_id), "p_amount": r_val})
-
-                        # ==== АВТОМАТИЧЕСКАЯ ОТПРАВКА СООБЩЕНИЯ В ЧАТ ====
-                        try:
-                            announcement = (
-                                f"{reply_text}\n\n"
-                                f"🏆 <b>Победитель:</b> <a href='tg://user?id={winner_id}'>Крутой пачан</a>\n"
-                                f"🎁 <b>Приз:</b> {r_val} {r_type}\n\n"
-                                f"<i>Награда уже зачислена на баланс!</i>"
-                            )
-                            # Бот отвечает на пересланный пост в группе
-                            await message.bot.send_message(
-                                chat_id=message.chat.id,
-                                text=announcement,
-                                reply_to_message_id=message.reply_to_message.message_id,
-                                parse_mode="HTML"
-                            )
-                        except Exception as e:
-                            logging.error(f"Не удалось отправить пост с победителем в группу: {e}")
-
-        except Exception as e:
-            logging.error(f"[GIVEAWAY ERROR] Ошибка при обработке розыгрыша: {e}")
 
 async def get_admin_settings_async_global() -> AdminSettings: # Убрали аргумент supabase
     """(Глобальная) Вспомогательная функция для получения настроек админки (с кэшированием), использующая ГЛОБАЛЬНЫЙ клиент."""
