@@ -2807,6 +2807,7 @@ async def cmd_start(message: types.Message):
 # 1. ЛОВИМ НОВЫЙ ПОСТ В КАНАЛЕ
 @router.message(F.is_automatic_forward)
 async def auto_giveaway_on_new_post(message: types.Message):
+    logging.info(f"Поймал авто-форвард! Кнопки: {bool(message.reply_markup)}")
     # 🔥 ЕСЛИ НА ПОСТЕ ЕСТЬ КНОПКИ — СКИПАЕМ
     if message.reply_markup:
         return
