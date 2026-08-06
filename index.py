@@ -2805,6 +2805,7 @@ async def cmd_start(message: types.Message):
         logging.error(f"/start error: {e}")
 
 # 1. ЛОВИМ НОВЫЙ ПОСТ В КАНАЛЕ (через системный репост в чат)
+# 1. ЛОВИМ НОВЫЙ ПОСТ В КАНАЛЕ
 @router.message(F.is_automatic_forward)
 async def auto_giveaway_on_new_post(message: types.Message):
     group_post_id = message.message_id
@@ -2814,7 +2815,7 @@ async def auto_giveaway_on_new_post(message: types.Message):
     try:
         supabase = await get_supabase_client()
         
-        # 1. Проверяем включен ли тумблер
+        # 1. Загружаем настройки
         set_resp = await supabase.get("/settings", params={"key": "eq.admin_controls"})
         if set_resp.status_code != 200 or not set_resp.json():
             return
@@ -2823,26 +2824,25 @@ async def auto_giveaway_on_new_post(message: types.Message):
         if not settings.get('is_auto_giveaway_enabled', False):
             return
 
-        # 2. БЕРЕМ ВСЕ АКТИВНЫЕ СКИНЫ ИЗ ПУЛА РОЗЫГРЫШЕЙ (БЕСКОНЕЧНЫЕ)
+        # 🔥 2. ПРОВЕРКА ХАОТИЧНОСТИ (ШАНС) 🔥
+        chance = int(settings.get('auto_gw_chance', 100)) # По умолчанию 100%, если настройка пустая
+        if random.randint(1, 100) > chance:
+            logging.info(f"🎲 [Розыгрыш пропущен] Не повезло. Шанс был {chance}%.")
+            return # Розыгрыш на этот пост не срабатывает! Обычный пост.
+
+        # 3. Розыгрыш сработал! Берем предмет из пула
         pool_resp = await supabase.get("/giveaway_items_pool", params={"is_active": "is.true"})
         pool_items = pool_resp.json() if pool_resp.status_code == 200 else []
         
         if not pool_items:
-            logging.warning("Пул предметов для розыгрышей пуст! Добавьте ID скинов в giveaway_items_pool.")
+            logging.warning("Пул пуст!")
             return
             
         selected_pool_entry = random.choice(pool_items)
         item_id = selected_pool_entry["item_id"]
 
-        # Получаем данные о скине из cs_items для текста
-        item_resp = await supabase.get("/cs_items", params={"id": f"eq.{item_id}"})
-        if item_resp.status_code != 200 or not item_resp.json():
-            return
-        selected_item = item_resp.json()[0]
-
         target_users = random.randint(int(settings.get('auto_gw_min_msg', 10)), int(settings.get('auto_gw_max_msg', 20)))
 
-        # 3. Создаем розыгрыш
         await supabase.post("/post_giveaways", json={
             "post_id": group_post_id,
             "channel_message_id": channel_post_id,
@@ -2850,17 +2850,20 @@ async def auto_giveaway_on_new_post(message: types.Message):
             "item_id": item_id
         })
 
-        # 4. Пишем в комменты
-        await message.reply(
+        # Пишем загадку в комменты
+        mystery_photo = "https://i.imgur.com/uRk4v2T.png"
+        mystery_text = (
             f"🎁 <b>РОЗЫГРЫШ ЗАПУЩЕН!</b>\n\n"
-            f"Предмет: <b>{selected_item['name']}</b> ({selected_item.get('condition', 'FN')})\n"
+            f"Предмет: <b>СЕКРЕТНЫЙ СКИН 🤫</b>\n"
             f"Условия: просто оставь любой комментарий.\n\n"
             f"<i>Победитель определится автоматически!</i>"
         )
+        
+        await message.reply_photo(photo=mystery_photo, caption=mystery_text, parse_mode="HTML")
 
-        # 5. Редактируем пост в канале
+        # Редактируем пост в канале
         old_text = message.text or message.caption or ""
-        promo_text = "\n\n🎁 <i>Под этим постом идет розыгрыш скина! Зайди в комментарии, чтобы участвовать.</i>"
+        promo_text = "\n\n🎁 <i>Под этим постом идет розыгрыш секретного скина! Зайди в комментарии, чтобы участвовать.</i>"
         new_text = old_text + promo_text
         
         if message.photo:
@@ -2871,21 +2874,34 @@ async def auto_giveaway_on_new_post(message: types.Message):
     except Exception as e:
         logging.error(f"Ошибка запуска авто-розыгрыша: {e}", exc_info=True)
 
-
-# 2. ЛОВИМ КОММЕНТАРИИ ПОД ПОСТОМ
-@router.message(F.reply_to_message)
+# 2. ИДЕАЛЬНЫЙ ЛОВЕЦ КОММЕНТАРИЕВ
+@router.message()
 async def process_giveaway_comment(message: types.Message):
-    # Игнорируем ботов
-    if message.from_user.is_bot:
+    # Игнорируем ботов и сообщения в личку
+    if message.from_user.is_bot or message.chat.type not in ["group", "supergroup"]:
         return
         
-    group_post_id = message.reply_to_message.message_id
+    # 🔥 ИЩЕМ ID ТРЕДА (Комментарии в ТГ - это треды)
+    group_post_id = message.message_thread_id
+    
+    # Если треда нет (старая версия групп), пробуем через reply
+    if not group_post_id and message.reply_to_message:
+        group_post_id = message.reply_to_message.message_id
+        
+    # Если это просто сообщение в чате, а не в комментах - скипаем
+    if not group_post_id:
+        return 
+    
     user_id = message.from_user.id
     
     try:
         supabase = await get_supabase_client()
         
-        # Вызываем нашу SQL функцию
+        # Проверяем, есть ли активный розыгрыш под этим ID
+        check_gw = await supabase.get("/post_giveaways", params={"post_id": f"eq.{group_post_id}", "is_active": "is.true"})
+        if not check_gw.json():
+            return # Розыгрыша нет или уже закрыт
+            
         rpc_resp = await supabase.post("/rpc/process_cs_giveaway_comment", json={
             "p_post_id": group_post_id,
             "p_user_id": user_id
@@ -2896,36 +2912,31 @@ async def process_giveaway_comment(message: types.Message):
             
         result = rpc_resp.json()
         
-        # ЕСЛИ ПОБЕДИТЕЛЬ ВЫБРАН
+        # ЕСЛИ ПОБЕДИТЕЛЬ ВЫБРАН!
         if isinstance(result, dict) and result.get("status") == "winner":
             winner_id = result.get("winner_id")
             item_id = result.get("item_id")
             
-            # Подтягиваем инфу о предмете
             item_resp = await supabase.get("/cs_items", params={"id": f"eq.{item_id}"})
             item_data = item_resp.json()[0]
             
-            # ВАЖНО: Здесь вставь название своей таблицы истории выдачи (вместо drop_history)
+            # Выдаем предмет
             history_payload = {
-                "user_id": winner_id,
-                "item_id": item_id,
+                "user_id": int(winner_id),
+                "item_id": int(item_id),
                 "status": "received",
-                "source": "comments",
-                "case_name": "Авто-розыгрыш ТГ",
-                "created_at": datetime.now(timezone.utc).isoformat()
+                "source": "raffle", 
+                "case_name": "Победа в розыгрыше",
+                "is_swapped": False
             }
-            await supabase.post("/drop_history", json=history_payload) # <-- ЗАМЕНИ drop_history на название таблицы
+            await supabase.post("/cs_history", json=history_payload)
             
-            # Уменьшаем количество на складе
-            current_qty = item_data.get("quantity", 1)
-            await supabase.patch("/cs_items", params={"id": f"eq.{item_id}"}, json={"quantity": current_qty - 1})
-
-            # Пишем о победе в чат
+            # --- РАСКРЫВАЕМ ЗАГАДКУ ---
             await message.reply(
                 f"🎉 <b>РОЗЫГРЫШ ЗАВЕРШЕН!</b>\n\n"
                 f"🏆 <b>Победитель:</b> <a href='tg://user?id={winner_id}'>Счастливчик</a>\n"
-                f"🎁 <b>Приз:</b> {item_data['name']}\n\n"
-                f"<i>Предмет уже отправлен в твой профиль! Можешь выводить.</i>",
+                f"🎁 <b>Секретный приз оказался:</b> {item_data['name']}\n\n"
+                f"<i>Скин уже в инвентаре, можно выводить!</i>",
                 reply_to_message_id=group_post_id,
                 parse_mode="HTML"
             )
@@ -4588,15 +4599,15 @@ async def update_auto_giveaway_settings(
         if 'is_enabled' in data:
             current_settings['is_auto_giveaway_enabled'] = bool(data['is_enabled'])
             
-        # Лимиты уникальных пользователей (с фолбеком на старые значения, если вдруг не передали)
+        # 🔥 ВЕРОЯТНОСТЬ РОЗЫГРЫША (Шанс в %)
+        current_settings['auto_gw_chance'] = int(data.get('chance', current_settings.get('auto_gw_chance', 100)))
+            
+        # Лимиты уникальных пользователей
         current_settings['auto_gw_min_msg'] = int(data.get('min_msg', current_settings.get('auto_gw_min_msg', 10)))
         current_settings['auto_gw_max_msg'] = int(data.get('max_msg', current_settings.get('auto_gw_max_msg', 25)))
         
-        # Текст ответа бота (можно использовать {item_name} если будешь подставлять в коде бота)
+        # Текст ответа бота
         current_settings['auto_gw_reply_text'] = data.get('reply_text', current_settings.get('auto_gw_reply_text', '🎉 Поздравляем! Твой комментарий оказался счастливым!'))
-
-        # ВАЖНО: Поля reward_type и reward_value удалены, 
-        # так как теперь предмет выбирается рандомно со склада (is_active = true)
 
         # 3. Сохраняем обновленный JSON обратно в базу
         patch_resp = await supabase.patch(
@@ -6969,9 +6980,63 @@ async def get_available_coins():
         return {"status": "error", "detail": str(e)}
 
 @app.get("/api/admin/comment_giveaways/list")
-async def list_comment_giveaways():
-    res = supabase.table("post_giveaways").select("*").order("post_id", desc=True).execute()
-    return {"status": "success", "data": res.data}
+async def get_giveaway_list(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    try:
+        # Берем только активные розыгрыши из новой таблицы
+        gw_resp = await supabase.get("/post_giveaways", params={"is_active": "is.true", "order": "created_at.desc"})
+        if gw_resp.status_code != 200:
+            return {"status": "error", "message": "Ошибка БД"}
+        
+        giveaways = gw_resp.json()
+        if not giveaways:
+            return {"status": "success", "data": []}
+        
+        # Собираем статистику (сколько юзеров уже написало)
+        post_ids = [str(g["post_id"]) for g in giveaways]
+        stats_resp = await supabase.get("/post_comment_stats", params={"post_id": f"in.({','.join(post_ids)})"})
+        
+        stats_dict = {}
+        if stats_resp.status_code == 200:
+            for s in stats_resp.json():
+                stats_dict[s["post_id"]] = s.get("unique_user_ids", [])
+                
+        # Склеиваем данные для фронтенда
+        for g in giveaways:
+            g["unique_user_ids"] = stats_dict.get(g["post_id"], [])
+            g["target_message"] = g["target_users"] # Подгоняем ключ под HTML
+            
+        return {"status": "success", "data": giveaways}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@app.post("/api/admin/comment_giveaways/create")
+async def create_manual_giveaway(req: Request, supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    try:
+        data = await req.json()
+        post_id = data.get("post_id")
+        min_msg = data.get("min_messages", 5)
+        max_msg = data.get("max_messages", 15)
+        
+        # Берем рандомный предмет из витрины
+        pool_resp = await supabase.get("/giveaway_items_pool", params={"is_active": "is.true"})
+        pool_items = pool_resp.json() if pool_resp.status_code == 200 else []
+        if not pool_items:
+            raise HTTPException(status_code=400, detail="Пул предметов пуст!")
+        
+        item_id = random.choice(pool_items)["item_id"]
+        target_users = random.randint(min_msg, max_msg)
+        
+        # Записываем старт в БД
+        await supabase.post("/post_giveaways", json={
+            "post_id": post_id,
+            "channel_message_id": 0, 
+            "target_users": target_users,
+            "item_id": item_id
+        })
+        
+        return {"status": "success", "target_message": target_users}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/admin/comment_giveaways/delete")
 async def delete_comment_giveaway(request: Request):
