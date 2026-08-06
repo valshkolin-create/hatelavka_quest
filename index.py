@@ -4363,6 +4363,17 @@ async def get_auto_giveaway_settings(
         logging.error(f"Ошибка при получении настроек авто-розыгрыша: {e}")
         return {"status": "error", "message": str(e)}
 
+@app.get("/api/v1/admin/comment_giveaways/available_cs_items")
+async def get_available_cs_items(supabase: httpx.AsyncClient = Depends(get_supabase_client)):
+    try:
+        # Запрашиваем активные предметы со склада, сортируем по цене
+        resp = await supabase.get("/cs_items", params={"is_active": "is.true", "order": "price.desc"})
+        if resp.status_code == 200:
+            return {"status": "success", "data": resp.json()}
+        return {"status": "error", "message": "Не удалось загрузить предметы"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
 @app.post("/api/v1/admin/comment_giveaways/add_user")
 async def manual_add_giveaway_user(
     req: Request,
