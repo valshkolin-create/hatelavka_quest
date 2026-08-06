@@ -3130,14 +3130,18 @@ async def process_giveaway_comment(message: types.Message):
             
             logging.info(f"🎉 ЕСТЬ ПОБЕДИТЕЛЬ! Юзер: {winner_id}, Приз: {item_id}")
             
-            # --- 1. ДОСТАЕМ @USERNAME НАПРЯМУЮ ---
-            # Так как победил тот, кто только что написал этот комментарий, 
-            # берем его ник прямо из объекта message!
-            if message.from_user.username:
-                winner_mention = f"@{message.from_user.username}"
-            else:
-                # На случай, если у человека скрыт/не установлен username
-                winner_mention = f"<a href='tg://user?id={winner_id}'>{message.from_user.first_name}</a>"
+            # --- 1. ДОСТАЕМ @USERNAME НАСТОЯЩЕГО ПОБЕДИТЕЛЯ ---
+            # Запрашиваем информацию о пользователе, которого выбрала база (winner_id)
+            try:
+                member = await message.bot.get_chat_member(chat_id=message.chat.id, user_id=int(winner_id))
+                if member.user.username:
+                    winner_mention = f"@{member.user.username}"
+                else:
+                    winner_mention = f"<a href='tg://user?id={winner_id}'>{member.user.first_name}</a>"
+            except Exception as e:
+                logging.warning(f"Не удалось получить профиль победителя: {e}")
+                # Фолбэк, если юзер, например, успел выйти из чата
+                winner_mention = f"<a href='tg://user?id={winner_id}'>Счастливчик</a>"
 
             item_resp = await supabase.get("/cs_items", params={"id": f"eq.{item_id}"})
             item_data = item_resp.json()[0]
