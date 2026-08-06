@@ -553,39 +553,47 @@
         }
 
         async function loadGiveaways() {
-            const container = document.getElementById('list-container');
-            container.innerHTML = '<div style="text-align:center; padding: 40px; color: var(--text-sec);"><i class="fa-solid fa-spinner fa-spin"></i> Загрузка...</div>';
-            try {
-                const res = await fetch('/api/admin/comment_giveaways/list');
-                const result = await res.json();
-                if (result.status === 'success') {
-                    const activeList = result.data ? result.data.filter(item => item.is_active === true) : [];
-                    if(activeList.length === 0) {
-                        container.innerHTML = '<div style="text-align:center; opacity:0.5; padding:40px;">Нет активных розыгрышей</div>';
-                        return;
-                    }
-                    let html = '';
-                    activeList.forEach(item => {
-                        const usersCount = item.unique_user_ids ? item.unique_user_ids.length : 0;
-                        html += `
-                        <div class="giveaway-card">
-                            <div class="card-header">
-                                <div class="card-title">Пост #${item.post_id}</div>
-                                <div class="status-badge">Активен</div>
-                            </div>
-                            <div class="card-info">
-                                Награда: <span>Скин (ID: ${item.item_id || 'Авто'})</span><br>
-                                Нужно юзеров: <span>${item.target_users || item.target_message}</span><br>
-                                Собрано: <span>${usersCount} уникальных</span>
-                            </div>
-                            <button onclick="manualAddUser(${item.post_id})" class="btn-danger btn-add"><i class="fa-solid fa-user-plus"></i> Добавить</button>
-                            <button onclick="forceCloseGiveaway(${item.post_id})" class="btn-danger"><i class="fa-solid fa-flag-checkered"></i> Завершить</button>
-                        </div>`;
-                    });
-                    container.innerHTML = html;
-                }
-            } catch(e) { container.innerHTML = '<p style="text-align:center; color:#ff4d4d;">Ошибка</p>'; }
+    const container = document.getElementById('list-container');
+    container.innerHTML = '<div style="text-align:center; padding: 40px; color: var(--text-sec);"><i class="fa-solid fa-circle-notch fa-spin"></i> Загрузка...</div>';
+    
+    try {
+        const res = await fetch('/api/admin/comment_giveaways/list');
+        const result = await res.json();
+        
+        if (result.status === 'success') {
+            const activeList = result.data ? result.data.filter(item => item.is_active === true) : [];
+            if(activeList.length === 0) {
+                container.innerHTML = '<div style="text-align:center; opacity:0.5; padding:40px;">Нет активных розыгрышей</div>';
+                return;
+            }
+            
+            let html = '';
+            activeList.forEach(item => {
+                const usersCount = item.unique_user_ids ? item.unique_user_ids.length : 0;
+                html += `
+                <div class="giveaway-card">
+                    <div class="card-header">
+                        <div class="card-title">Пост #${item.post_id}</div>
+                        <div class="status-badge">Активен</div>
+                    </div>
+                    <div class="card-info">
+                        Награда: <span>Скин (ID: ${item.item_id || 'Авто'})</span><br>
+                        Нужно юзеров: <span>${item.target_users || item.target_message}</span><br>
+                        Собрано: <span>${usersCount} уникальных</span>
+                    </div>
+                    <button onclick="manualAddUser(${item.post_id})" class="btn-danger btn-add"><i class="fa-solid fa-user-plus"></i> Добавить</button>
+                    <button onclick="forceCloseGiveaway(${item.post_id})" class="btn-danger"><i class="fa-solid fa-flag-checkered"></i> Завершить</button>
+                </div>`;
+            });
+            container.innerHTML = html;
+        } else {
+            // 🔥 ВМЕСТО ВЕЧНОЙ ЗАГРУЗКИ ВЫВОДИМ ТЕКСТ ОШИБКИ ИЗ БАЗЫ
+            container.innerHTML = `<div style="text-align:center; padding:40px; color:var(--danger);"><b>Ошибка бэкенда:</b><br>${result.message}</div>`;
         }
+    } catch(e) { 
+        container.innerHTML = '<p style="text-align:center; color:#ff4d4d;">Ошибка соединения с сервером</p>'; 
+    }
+}
 
         async function manualAddUser(postId) {
             const identifier = window.prompt("Введите @username или цифровой ID участника:");
