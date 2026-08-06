@@ -2805,7 +2805,6 @@ async def cmd_start(message: types.Message):
         logging.error(f"/start error: {e}")
 
 # 1. ЛОВИМ НОВЫЙ ПОСТ В КАНАЛЕ
-# 1. ЛОВИМ НОВЫЙ ПОСТ В КАНАЛЕ
 @router.message(F.is_automatic_forward)
 async def auto_giveaway_on_new_post(message: types.Message):
     # 🔥 ЕСЛИ НА ПОСТЕ ЕСТЬ КНОПКИ — СКИПАЕМ
