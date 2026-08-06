@@ -2804,6 +2804,134 @@ async def cmd_start(message: types.Message):
     except Exception as e:
         logging.error(f"/start error: {e}")
 
+# 1. ЛОВИМ НОВЫЙ ПОСТ В КАНАЛЕ (через системный репост в чат)
+@router.message(F.is_automatic_forward)
+async def auto_giveaway_on_new_post(message: types.Message):
+    # message.message_id - это ID в чате комментариев (именно к нему идут реплаи)
+    # message.forward_from_message_id - это оригинальный ID в самом канале
+    group_post_id = message.message_id
+    channel_post_id = message.forward_from_message_id
+    channel_id = message.forward_from_chat.id 
+
+    try:
+        supabase = await get_supabase_client()
+        
+        # Получаем глобальные настройки
+        set_resp = await supabase.get("/settings", params={"key": "eq.admin_controls"})
+        if set_resp.status_code != 200 or not set_resp.json():
+            return
+        settings = set_resp.json()[0].get('value', {})
+        
+        # Если тумблер выключен - ничего не делаем
+        if not settings.get('is_auto_giveaway_enabled', False):
+            return
+
+        # Генерируем цель уникальных юзеров
+        min_u = int(settings.get('auto_gw_min_msg', 10))
+        max_u = int(settings.get('auto_gw_max_msg', 20))
+        target_users = random.randint(min_u, max_u)
+
+        # Выбираем случайный предмет из cs_items, который активен и есть в наличии
+        items_resp = await supabase.get("/cs_items", params={"is_active": "is.true", "quantity": "gt.0"})
+        items = items_resp.json() if items_resp.status_code == 200 else []
+        
+        if not items:
+            logging.warning("Нет активных предметов на складе для авто-розыгрыша!")
+            return
+            
+        selected_item = random.choice(items)
+
+        # 1. Записываем розыгрыш в БД
+        await supabase.post("/post_giveaways", json={
+            "post_id": group_post_id,
+            "channel_message_id": channel_post_id,
+            "target_users": target_users,
+            "item_id": selected_item["id"]
+        })
+
+        # 2. Бот пишет сообщение с правилами в комментариях
+        await message.reply(
+            f"🎁 <b>РОЗЫГРЫШ ЗАПУЩЕН!</b>\n\n"
+            f"Предмет: <b>{selected_item['name']}</b> ({selected_item.get('condition', 'FN')})\n"
+            f"Условия: просто оставь любой комментарий.\n\n"
+            f"<i>Победитель определится автоматически, когда наберется нужное число людей!</i>"
+        )
+
+        # 3. Бот редактирует оригинальный пост в канале!
+        old_text = message.text or message.caption or ""
+        promo_text = "\n\n🎁 <i>Под этим постом идет розыгрыш скина! Зайди в комментарии, чтобы участвовать.</i>"
+        new_text = old_text + promo_text
+        
+        if message.photo:
+            await bot.edit_message_caption(chat_id=channel_id, message_id=channel_post_id, caption=new_text, parse_mode="HTML")
+        else:
+            await bot.edit_message_text(chat_id=channel_id, message_id=channel_post_id, text=new_text, parse_mode="HTML")
+
+    except Exception as e:
+        logging.error(f"Ошибка запуска авто-розыгрыша: {e}", exc_info=True)
+
+
+# 2. ЛОВИМ КОММЕНТАРИИ ПОД ПОСТОМ
+@router.message(F.reply_to_message)
+async def process_giveaway_comment(message: types.Message):
+    # Игнорируем ботов
+    if message.from_user.is_bot:
+        return
+        
+    group_post_id = message.reply_to_message.message_id
+    user_id = message.from_user.id
+    
+    try:
+        supabase = await get_supabase_client()
+        
+        # Вызываем нашу SQL функцию
+        rpc_resp = await supabase.post("/rpc/process_cs_giveaway_comment", json={
+            "p_post_id": group_post_id,
+            "p_user_id": user_id
+        })
+        
+        if rpc_resp.status_code != 200:
+            return
+            
+        result = rpc_resp.json()
+        
+        # ЕСЛИ ПОБЕДИТЕЛЬ ВЫБРАН
+        if isinstance(result, dict) and result.get("status") == "winner":
+            winner_id = result.get("winner_id")
+            item_id = result.get("item_id")
+            
+            # Подтягиваем инфу о предмете
+            item_resp = await supabase.get("/cs_items", params={"id": f"eq.{item_id}"})
+            item_data = item_resp.json()[0]
+            
+            # ВАЖНО: Здесь вставь название своей таблицы истории выдачи (вместо drop_history)
+            history_payload = {
+                "user_id": winner_id,
+                "item_id": item_id,
+                "status": "received",
+                "source": "comments",
+                "case_name": "Авто-розыгрыш ТГ",
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }
+            await supabase.post("/drop_history", json=history_payload) # <-- ЗАМЕНИ drop_history на название таблицы
+            
+            # Уменьшаем количество на складе
+            current_qty = item_data.get("quantity", 1)
+            await supabase.patch("/cs_items", params={"id": f"eq.{item_id}"}, json={"quantity": current_qty - 1})
+
+            # Пишем о победе в чат
+            await message.reply(
+                f"🎉 <b>РОЗЫГРЫШ ЗАВЕРШЕН!</b>\n\n"
+                f"🏆 <b>Победитель:</b> <a href='tg://user?id={winner_id}'>Счастливчик</a>\n"
+                f"🎁 <b>Приз:</b> {item_data['name']}\n\n"
+                f"<i>Предмет уже отправлен в твой профиль! Можешь выводить.</i>",
+                reply_to_message_id=group_post_id,
+                parse_mode="HTML"
+            )
+
+    except Exception as e:
+        logging.error(f"Ошибка проверки комментария розыгрыша: {e}")
+
 async def check_active_and_reply(message: types.Message):
     """Вспомогательная функция для ответов в ЛС"""
     try:
@@ -4341,19 +4469,27 @@ async def update_auto_giveaway_settings(
     try:
         data = await req.json()
         
-        # 1. Сначала запрашиваем текущие настройки, чтобы ничего не затереть
+        # 1. Запрашиваем текущие настройки, чтобы обновить JSON, а не перезаписать его полностью
         resp = await supabase.get("/settings", params={"key": "eq.admin_controls"})
         if resp.status_code != 200 or not resp.json():
             raise HTTPException(status_code=404, detail="Настройки admin_controls не найдены")
             
         current_settings = resp.json()[0].get('value', {})
 
-        # 2. Обновляем только поля авто-розыгрышей
-        current_settings['auto_gw_min_msg'] = int(data.get('min_msg', 10))
-        current_settings['auto_gw_max_msg'] = int(data.get('max_msg', 25))
-        current_settings['auto_gw_reward_type'] = data.get('reward_type', 'tickets')
-        current_settings['auto_gw_reward_value'] = int(data.get('reward_value', 30))
-        current_settings['auto_gw_reply_text'] = data.get('reply_text', '🎉 Поздравляем! Твой комментарий оказался счастливым!')
+        # 2. Обновляем поля авто-розыгрышей
+        # Главный тумблер (вкл/выкл авто-розыгрыши на новые посты)
+        if 'is_enabled' in data:
+            current_settings['is_auto_giveaway_enabled'] = bool(data['is_enabled'])
+            
+        # Лимиты уникальных пользователей (с фолбеком на старые значения, если вдруг не передали)
+        current_settings['auto_gw_min_msg'] = int(data.get('min_msg', current_settings.get('auto_gw_min_msg', 10)))
+        current_settings['auto_gw_max_msg'] = int(data.get('max_msg', current_settings.get('auto_gw_max_msg', 25)))
+        
+        # Текст ответа бота (можно использовать {item_name} если будешь подставлять в коде бота)
+        current_settings['auto_gw_reply_text'] = data.get('reply_text', current_settings.get('auto_gw_reply_text', '🎉 Поздравляем! Твой комментарий оказался счастливым!'))
+
+        # ВАЖНО: Поля reward_type и reward_value удалены, 
+        # так как теперь предмет выбирается рандомно со склада (is_active = true)
 
         # 3. Сохраняем обновленный JSON обратно в базу
         patch_resp = await supabase.patch(
@@ -5671,7 +5807,8 @@ async def process_twitch_notification_background(data: dict, message_id: str):
         lower_title = reward_title.lower()
         
         # Триггерим выдачу, если это предмет И ЭТО НЕ РОЗЫГРЫШ (розыгрыши обрабатывает КРОН)
-        if reward_type != "raffle" and any(word in lower_title for word in ["наклейка", "ширп", "скин", "бокс", "кейс"]):
+        # 🔥 ИЗМЕНЕНИЕ ЛОГИКИ: Если включена новая автовыдача Steam, пропускаем старый блок!
+        if not reward_settings.get("auto_steam") and reward_type != "raffle" and any(word in lower_title for word in ["наклейка", "ширп", "скин", "бокс", "кейс"]):
             if trade_link:
                 try:
                     # --- ШАГ 1: СОЗДАЕМ ЗАПИСЬ В CS_HISTORY ---
@@ -5745,6 +5882,8 @@ async def process_twitch_notification_background(data: dict, message_id: str):
                     delivery_status_text = "\n⚠️ <b>ОШИБКА АВТОВЫДАЧИ:</b> Сбой скрипта"
             else:
                 delivery_status_text = "\n⚠️ <b>АВТОВЫДАЧА ОТМЕНЕНА:</b> Нет трейд-ссылки"
+        elif reward_settings.get("auto_steam"):
+            delivery_status_text = "\n⚙️ <b>АВТОВЫДАЧА:</b> Запущена фоновая отправка Steam..."
 
         # Лог покупки
         purchase_payload = {
@@ -5764,12 +5903,25 @@ async def process_twitch_notification_background(data: dict, message_id: str):
             "snapshot_monthly_uptime": user_record.get("monthly_uptime_minutes", 0) if user_record else 0
         }
 
-        # Закрываем заявку, если трейд улетел
+        # Закрываем заявку, если трейд улетел (для старой логики)
         if is_delivered_auto:
             from datetime import datetime, timezone
             purchase_payload["rewarded_at"] = datetime.now(timezone.utc).isoformat()
 
-        await supabase.post("/twitch_reward_purchases", json=purchase_payload)
+        # 🔥 ИЗМЕНЕНИЕ ЛОГИКИ: Добавляем Prefer: return=representation, чтобы получить ID покупки
+        p_res = await supabase.post(
+            "/twitch_reward_purchases", 
+            json=purchase_payload,
+            headers={"Prefer": "return=representation"}
+        )
+        
+        # 🔥 ИЗМЕНЕНИЕ ЛОГИКИ: Запускаем новую фоновую автовыдачу Steam
+        if p_res.status_code in [200, 201] and p_res.json():
+            purchase_id = p_res.json()[0].get("id")
+            if reward_settings.get("auto_steam"):
+                import asyncio
+                logging.info(f"🚀 Запускаем фоновую выдачу Steam для покупки #{purchase_id}")
+                asyncio.create_task(auto_process_steam_reward(purchase_id, supabase))
         
         # Триггер Забега
         if user_id: 
@@ -14965,6 +15117,145 @@ class TwitchMassSteamIssueReq(BaseModel):
     count: int
     reward_id: int
     initData: str
+
+async def auto_process_steam_reward(purchase_id: int, supabase: httpx.AsyncClient):
+    """
+    ФУНКЦИЯ ДЛЯ АВТО-ВЫДАЧИ STEAM НАГРАД
+    Вызывай её через asyncio.create_task() или await в твоем обработчике Twitch вебхуков
+    сразу после того, как покупка добавилась в таблицу twitch_reward_purchases.
+    """
+    # 1. Получаем инфу о покупке
+    p_resp = await supabase.get("/twitch_reward_purchases", params={"id": f"eq.{purchase_id}"})
+    if p_resp.status_code != 200 or not p_resp.json():
+        return
+    purchase = p_resp.json()[0]
+    
+    reward_id = purchase.get("reward_id")
+    if not reward_id:
+        return
+
+    # 2. Достаем настройки самой награды (чтобы знать ЧТО отправлять)
+    r_resp = await supabase.get("/twitch_rewards", params={"id": f"eq.{reward_id}"})
+    if r_resp.status_code != 200 or not r_resp.json():
+        return
+    reward = r_resp.json()[0]
+
+    # Если авто-выдача выключена или не указано название предмета — ничего не делаем
+    if not reward.get("auto_steam") or not reward.get("steam_item_name"):
+        return
+        
+    search_query = reward.get("steam_item_name")
+    count = reward.get("steam_item_count", 1)
+    
+    user_id = purchase.get("user_id")
+    twitch_login = purchase.get("twitch_login")
+
+    # === АНТИ-АБУЗ (ПРОВЕРКА НА ДУБЛИКАТ) ===
+    dup_params = {"reward_id": f"eq.{reward_id}", "status": "eq.Выдан", "limit": "1"}
+    if user_id: 
+        dup_params["user_id"] = f"eq.{user_id}"
+    else: 
+        dup_params["twitch_login"] = f"eq.{twitch_login}"
+        
+    dup_check = await supabase.get("/twitch_reward_purchases", params=dup_params)
+    if dup_check.status_code == 200 and dup_check.json():
+        await supabase.patch("/twitch_reward_purchases", params={"id": f"eq.{purchase_id}"}, json={
+            "status": "Отклонен (Дубликат)"
+        })
+        return
+
+    # === ФИЛЬТР "ОЛДОВ" (Для награды 29) ===
+    if reward_id == 29:
+        user_params = {"limit": "1"}
+        if user_id: 
+            user_params["telegram_id"] = f"eq.{user_id}"
+        elif twitch_login: 
+            user_params["twitch_login"] = f"eq.{twitch_login}"
+        else: 
+            user_params = None
+            
+        if user_params:
+            user_resp = await supabase.get("/users", params=user_params)
+            if user_resp.status_code == 200 and user_resp.json():
+                u_data = user_resp.json()[0]
+                if max(u_data.get("total_message_count", 0), u_data.get("monthly_message_count", 0)) > 100 and \
+                   max(u_data.get("total_uptime_minutes", 0), u_data.get("monthly_uptime_minutes", 0)) > 43200:
+                    await supabase.patch("/twitch_reward_purchases", params={"id": f"eq.{purchase_id}"}, json={
+                        "status": "Отклонен (Олд)"
+                    })
+                    return
+
+    # === ПРОВЕРКА ТРЕЙД-ССЫЛКИ ===
+    trade_link = purchase.get("trade_link") or extract_trade_link(purchase.get("user_input", ""))
+    if not trade_link:
+        await supabase.patch("/twitch_reward_purchases", params={"id": f"eq.{purchase_id}"}, json={
+            "status": "Ошибка (Нет трейд-ссылки)"
+        })
+        return
+
+    # === УМНЫЙ ЦИКЛ ПОИСКА В КЭШЕ (ЗАЩИТА ОТ ОШИБКИ 26) ===
+    MAX_RETRIES = 15
+    for attempt in range(1, MAX_RETRIES + 1):
+        inv_resp = await supabase.get("/steam_inventory_cache", params={
+            "is_reserved": "is.false",
+            "or": f"(market_hash_name.ilike.%{search_query}%,name_ru.ilike.%{search_query}%)",
+            "limit": "100", 
+            "select": "assetid, account_id"
+        })
+        
+        items = inv_resp.json() if inv_resp.status_code == 200 else []
+        if len(items) < count:
+            break # Предметов тупо нет на складе
+
+        bots = {}
+        for item in items:
+            bots.setdefault(item["account_id"], []).append(item["assetid"])
+
+        selected_bot, selected_assets = None, []
+        for acc_id, assets in bots.items():
+            if len(assets) >= count:
+                selected_bot, selected_assets = acc_id, assets[:count]
+                break
+                
+        if not selected_bot:
+            break # Предметы есть, но раскиданы по разным аккаунтам
+
+        # Бронируем
+        for asset in selected_assets:
+            await supabase.patch("/steam_inventory_cache", params={"assetid": f"eq.{asset}"}, json={"is_reserved": True})
+
+        try:
+            trade_res = await send_steam_trade_offer(account_id=selected_bot, assetids=selected_assets, trade_url=trade_link, supabase=supabase)
+            
+            if trade_res and isinstance(trade_res, dict) and trade_res.get("success"):
+                # УСПЕХ: Авто-отправка сработала
+                await supabase.patch("/twitch_reward_purchases", params={"id": f"eq.{purchase_id}"}, json={
+                    "status": "Выдан", 
+                    "rewarded_at": datetime.now(timezone.utc).isoformat()
+                })
+                return 
+            else:
+                err_msg = trade_res.get("error", "") if isinstance(trade_res, dict) else ""
+                
+                if "(26)" in err_msg:
+                    # Ошибка 26 (призрак): Удаляем из БД навсегда и пробуем следующий шмот
+                    for asset in selected_assets:
+                        await supabase.delete("/steam_inventory_cache", params={"assetid": f"eq.{asset}"})
+                    continue 
+                else:
+                    # Другая ошибка Steam: откатываем резерв и сдаемся
+                    for asset in selected_assets:
+                        await supabase.patch("/steam_inventory_cache", params={"assetid": f"eq.{asset}"}, json={"is_reserved": False})
+                    break 
+        except Exception:
+            for asset in selected_assets:
+                await supabase.patch("/steam_inventory_cache", params={"assetid": f"eq.{asset}"}, json={"is_reserved": False})
+            break
+
+    # Если цикл закончился и мы сюда дошли, значит трейд не удался
+    await supabase.patch("/twitch_reward_purchases", params={"id": f"eq.{purchase_id}"}, json={
+        "status": "Ошибка авто-выдачи"
+    })
 
 def extract_trade_link(text: str) -> str:
     """Ищет трейд-ссылку в тексте (сообщении твича)"""
