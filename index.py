@@ -2807,7 +2807,7 @@ async def cmd_start(message: types.Message):
         kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="📱 Открыть профиль", web_app=WebAppInfo(url=f"{WEB_APP_URL}/profile"))]])
         await message.answer("✅ <b>Бот активирован!</b>\nТеперь уведомления будут приходить.", reply_markup=kb)
     except Exception as e:
-        logging.error(f"/start error: {e}")
+        logging.error(f"/start error: {e}", exc_info=True)  # 🔥 Добавлено exc_info=True
 
 # 1. ЛОВИМ НОВЫЙ ПОСТ В КАНАЛЕ
 @router.message(F.is_automatic_forward)
