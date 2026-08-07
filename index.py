@@ -29078,32 +29078,34 @@ async def withdraw_inventory_item(
         supabase.get("/cs_history", params=history_params)
     )
 
-    # --- Обработка данных Юзера ---
-    user_list = user_res.json()
-    if not user_list or not isinstance(user_list, list):
-        raise HTTPException(status_code=400, detail="User error")
-    
-    user_info = user_list[0]
-    # 👇 ВСТАВИТЬ ВОТ СЮДА (Проверка актива перед выводом) 👇
-    await verify_activity_lock(user_info, supabase)
-    # 👆 КОНЕЦ ВСТАВКИ 👆
-    trade_link = user_info.get('trade_link')
-    if not trade_link:
-        raise HTTPException(status_code=400, detail="⚠️ Укажите Trade Link в профиле!")
-
-    # --- Обработка данных Предмета ---
+    # --- Обработка данных Предмета (Делаем первой) ---
     rows = check_resp.json()
     if isinstance(rows, dict) or not rows or not isinstance(rows, list):
         raise HTTPException(status_code=404, detail="Предмет не найден")
 
     history_record = rows[0]
     current_status = history_record.get('status')
+    item_source = history_record.get('source', 'shop') # Узнаем откуда предмет
+
+    # --- Обработка данных Юзера ---
+    user_list = user_res.json()
+    if not user_list or not isinstance(user_list, list):
+        raise HTTPException(status_code=400, detail="User error")
     
+    user_info = user_list[0]
+    
+    # 👇 Проверяем актив ТОЛЬКО если это не розыгрыш 👇
+    if item_source != "raffle":
+        await verify_activity_lock(user_info, supabase)
+        
+    trade_link = user_info.get('trade_link')
+    if not trade_link:
+        raise HTTPException(status_code=400, detail="⚠️ Укажите Trade Link в профиле!")
+
     # ==========================================
     # 🛡️ ЗАЩИТА: БЛОКИРУЕМ ВЫВОД СГОРЕВШИХ СКИНОВ
     # ==========================================
     upd_time = history_record.get('updated_at') or history_record.get('created_at')
-    item_source = history_record.get('source', 'shop')
     
     if is_item_expired(upd_time, item_source):
         raise HTTPException(
@@ -29130,7 +29132,7 @@ async def withdraw_inventory_item(
             status_code=400, 
             detail="Этот предмет нельзя вывести (уже продан или получен)."
         )
-
+        
     # ==========================================
     # 🔥 АТОМАРНАЯ ПЛОМБА В БД ДО ВЫСТРЕЛА 🔥
     # ==========================================
@@ -29413,6 +29415,7 @@ async def confirm_replacement(
         return {"success": False, "message": "❌ Заявка не найдена."}
         
     current_status = history_rows[0].get("status")
+    item_source = history_rows[0].get("source", "shop") # <--- Достаем source
     
     # Если статус НЕ 'pending', НЕ 'failed' и НЕ 'offer_replacement' - шлем лесом!
     allowed_statuses = ["pending", "failed", "offer_replacement", "available", "canceled"]
@@ -29430,7 +29433,10 @@ async def confirm_replacement(
     
     user_info = u_list[0]
 
-    await verify_activity_lock(user_info, supabase)
+    # 👇 Проверяем актив ТОЛЬКО если это не розыгрыш 👇
+    if item_source != "raffle":
+        await verify_activity_lock(user_info, supabase)
+    # 👆 КОНЕЦ ВСТАВКИ 👆
     
     trade_link = user_info.get('trade_link')
 
