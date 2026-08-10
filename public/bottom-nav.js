@@ -25,6 +25,19 @@ document.addEventListener("DOMContentLoaded", () => {
             font-family: 'Montserrat', sans-serif !important;
         }
 
+        /* --- ПЛАВНАЯ ТЕНЬ ПОД НИЖНИМ БАРОМ --- */
+        .bottom-fade-shadow {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: calc(110px + ${androidPadding}); /* Учитываем паддинг андроида */
+            /* Аккуратный градиент, чтобы не было "прям темени" */
+            background: linear-gradient(to top, rgba(5, 5, 5, 0.9) 0%, rgba(5, 5, 5, 0.5) 45%, rgba(5, 5, 5, 0) 100%);
+            pointer-events: none; /* КРИТИЧЕСКИ ВАЖНО: пропускает клики сквозь себя на карточки */
+            z-index: 998; /* Ставим прямо под навигационным баром */
+        }
+
         .floating-bottom-bar {
             /* 🔥 ЖЕЛЕЗОБЕТОННАЯ ШИРИНА И ЦЕНТРОВКА (Игнорирует скроллбар) 🔥 */
             position: fixed; 
@@ -136,8 +149,9 @@ document.addEventListener("DOMContentLoaded", () => {
     `;
     document.head.appendChild(style);
 
-    // 3. Вставляем HTML меню
+    // 3. Вставляем HTML меню (ВМЕСТЕ С ТЕНЬЮ)
     const navHTML = `
+        <div class="bottom-fade-shadow"></div>
         <nav class="floating-bottom-bar">
             <a href="/leaderboard" class="nav-item" data-path="leaderboard">
                 <i class="fa-solid fa-trophy"></i><span>Топ</span>
