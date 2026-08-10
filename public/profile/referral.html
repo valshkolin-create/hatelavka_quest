@@ -7,7 +7,7 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 8px;
+        margin-bottom: 8px; /* Уменьшено */
     }
 
     .glass-rank-banner {
@@ -16,18 +16,18 @@
         -webkit-backdrop-filter: var(--glass-blur, blur(15px));
         border: 1px solid rgba(255, 215, 0, 0.2);
         border-radius: 12px;
-        padding: 8px 12px;
+        padding: 8px 12px; /* Уменьшено */
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 10px;
+        margin-bottom: 10px; /* Уменьшено */
         box-shadow: inset 0 0 15px rgba(0,0,0,0.4), 0 4px 10px rgba(0,0,0,0.2);
     }
 
     .rank-icon-box {
         background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 140, 0, 0.05));
-        width: 28px;
-        height: 28px;
+        width: 28px; /* Уменьшено */
+        height: 28px; /* Уменьшено */
         border-radius: 8px;
         display: flex;
         align-items: center;
@@ -59,8 +59,8 @@
     .ref-nav-grid {
         display: grid;
         grid-template-columns: repeat(2, 1fr);
-        gap: 8px;
-        margin-bottom: 10px;
+        gap: 8px; /* Уменьшено */
+        margin-bottom: 10px; /* Уменьшено */
     }
 
     .ref-nav-btn {
@@ -70,7 +70,7 @@
         border: 1px solid rgba(255, 255, 255, 0.1);
         border-top: 1px solid rgba(255, 255, 255, 0.2);
         border-radius: 10px;
-        padding: 8px 10px;
+        padding: 8px 10px; /* Уменьшено */
         display: flex;
         align-items: center;
         justify-content: center;
@@ -191,6 +191,10 @@
     }
 </style>
 
+<!-- =========================================
+     HTML СТРУКТУРА
+     ========================================= -->
+
 <!-- 1. Шапка кабинета -->
 <div class="events-header-bar">
     <h3 style="margin: 0; font-size: 14px; font-weight: 900; color: #fff; text-transform: uppercase; letter-spacing: 0.5px;">Реферальный кабинет</h3>
@@ -232,11 +236,13 @@
 
 <!-- 4. Кнопки навигации (Магазин и Задания) -->
 <div class="ref-nav-grid">
-    <div class="ref-nav-btn btn-shop">
+    <!-- 🔥 ИЗМЕНЕНО: Добавлен вызов модалки магазина -->
+    <div class="ref-nav-btn btn-shop" onclick="document.getElementById('ref-shop-modal').classList.add('visible')">
         <i class="fa-solid fa-store"></i> Магазин
     </div>
     
-    <div class="ref-nav-btn btn-tasks">
+    <!-- 🔥 ИЗМЕНЕНО: Добавлен вызов модалки заданий -->
+    <div class="ref-nav-btn btn-tasks" onclick="document.getElementById('ref-tasks-modal').classList.add('visible')">
         <i class="fa-solid fa-list-check"></i> Задания
         <div class="task-counter" id="tasks-count-badge">3</div> 
     </div>
@@ -262,18 +268,57 @@
     </div>
 </div>
 
-<!-- 6. Визуальная сетка магазина -->
-<div class="shop-grid" id="shop-items-container">
-    <!-- Пустое состояние (наград пока нет), вшито прямо внутрь магазина -->
-    <div style="grid-column: 1 / -1; text-align: center; padding: 40px 10px; background: rgba(25, 25, 28, 0.3); border: 1px dashed rgba(255,255,255,0.1); border-radius: 16px; margin-top: 10px;">
-        <i class="fa-solid fa-store-slash" style="font-size: 32px; margin-bottom: 10px; opacity: 0.2; color: #fff;"></i>
-        <p style="font-size: 12px; color: var(--text-color-muted); font-weight: 600; margin: 0;">Наград пока нет</p>
+<!-- =========================================
+     ПОПАПЫ (МОДАЛЬНЫЕ ОКНА)
+     ========================================= -->
+
+<!-- 🔥 НОВОЕ: ПОПАП МАГАЗИНА 🔥 -->
+<div id="ref-shop-modal" class="modal-overlay" onclick="if(event.target===this) document.getElementById('ref-shop-modal').classList.remove('visible')">
+    <div class="custom-popup" style="background: rgba(18, 18, 20, 0.75); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 24px; padding: 24px; max-width: 360px; width: 90%; margin: auto; position: relative; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.9); text-align: left; max-height: 85vh; display: flex; flex-direction: column;">
+        
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-shrink: 0;">
+            <h3 style="margin: 0; font-size: 18px; font-weight: 900; color: #fff;">Магазин наград</h3>
+            <button onclick="document.getElementById('ref-shop-modal').classList.remove('visible')" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255, 255, 255, 0.08); color: #fff; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; padding: 0;">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        
+        <!-- Сетка магазина перенесена сюда. Добавлен скролл, если наград будет много -->
+        <div style="overflow-y: auto; padding-right: 5px;">
+            <div class="shop-grid" id="shop-items-container">
+                <!-- Пустое состояние (наград пока нет) -->
+                <div style="grid-column: 1 / -1; text-align: center; padding: 40px 10px; background: rgba(25, 25, 28, 0.3); border: 1px dashed rgba(255,255,255,0.1); border-radius: 16px; margin-top: 10px;">
+                    <i class="fa-solid fa-store-slash" style="font-size: 32px; margin-bottom: 10px; opacity: 0.2; color: #fff;"></i>
+                    <p style="font-size: 12px; color: var(--text-color-muted); font-weight: 600; margin: 0;">Наград пока нет</p>
+                </div>
+            </div>
+        </div>
+
     </div>
 </div>
 
-<!-- =========================================
-     ПОПАП ПРАВИЛ РЕФЕРАЛКИ
-     ========================================= -->
+<!-- 🔥 НОВОЕ: ПОПАП ЗАДАНИЙ 🔥 -->
+<div id="ref-tasks-modal" class="modal-overlay" onclick="if(event.target===this) document.getElementById('ref-tasks-modal').classList.remove('visible')">
+    <div class="custom-popup" style="background: rgba(18, 18, 20, 0.75); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 24px; padding: 24px; max-width: 360px; width: 90%; margin: auto; position: relative; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.9); text-align: left; max-height: 85vh; display: flex; flex-direction: column;">
+        
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-shrink: 0;">
+            <h3 style="margin: 0; font-size: 18px; font-weight: 900; color: #fff;">Задания</h3>
+            <button onclick="document.getElementById('ref-tasks-modal').classList.remove('visible')" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255, 255, 255, 0.08); color: #fff; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; padding: 0;">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        
+        <div style="overflow-y: auto; padding-right: 5px;">
+            <div style="text-align: center; padding: 40px 10px; background: rgba(25, 25, 28, 0.3); border: 1px dashed rgba(255,255,255,0.1); border-radius: 16px; margin-top: 10px;">
+                <i class="fa-solid fa-list-check" style="font-size: 32px; margin-bottom: 10px; opacity: 0.2; color: #fff;"></i>
+                <p style="font-size: 12px; color: var(--text-color-muted); font-weight: 600; margin: 0;">Заданий пока нет</p>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- ПОПАП ПРАВИЛ РЕФЕРАЛКИ -->
 <div id="ref-rules-modal" class="modal-overlay" onclick="if(event.target===this) document.getElementById('ref-rules-modal').classList.remove('visible')">
     <div class="custom-popup" style="background: rgba(18, 18, 20, 0.75); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 24px; padding: 24px; max-width: 360px; width: 90%; margin: auto; position: relative; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.9); text-align: left;">
         
@@ -286,7 +331,7 @@
         
         <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
             
-            <!-- Важное условие -->
+            <!-- Важное условие (Акцент) -->
             <div style="background: rgba(255, 59, 48, 0.05); border-radius: 12px; padding: 12px; border: 1px solid rgba(255, 59, 48, 0.2);">
                 <div style="font-size: 11px; font-weight: 800; color: #ff3b30; margin-bottom: 6px; text-transform: uppercase;">
                     <i class="fa-solid fa-circle-exclamation"></i> Важное условие:
