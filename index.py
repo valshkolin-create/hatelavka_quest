@@ -3534,6 +3534,44 @@ async def get_ticket_reward_amount_global(action_type: str) -> int:
 # ЭНДПОИНТ ДЛЯ ВНЕШНЕГО CRON-JOB (ОПТИМИЗИРОВАННЫЙ x30)
 # ==========================================
 
+# 🔥 1. ФУНКЦИЯ-ВОСКРЕСИТЕЛЬ ТОКЕНОВ 🔥
+async def refresh_user_twitch_token(telegram_id, refresh_token, client_id, client_secret, db_client):
+    """Стучится в Twitch, меняет refresh_token на новый access_token и сохраняет в БД"""
+    if not refresh_token:
+        return None
+        
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post("https://id.twitch.tv/oauth2/token", data={
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "grant_type": "refresh_token",
+                "refresh_token": refresh_token
+            })
+            
+            if resp.status_code == 200:
+                tokens = resp.json()
+                new_access = tokens["access_token"]
+                # Twitch может оставить старый рефреш, а может дать новый. Сохраняем актуальный.
+                new_refresh = tokens.get("refresh_token", refresh_token)
+                
+                # Обновляем токены в базе через быстрый фоновый клиент
+                await db_client.patch(
+                    "/users",
+                    params={"telegram_id": f"eq.{telegram_id}"},
+                    json={
+                        "twitch_access_token": new_access,
+                        "twitch_refresh_token": new_refresh
+                    }
+                )
+                return new_access
+    except Exception as e:
+        logging.error(f"❌ Ошибка при рефреше токена юзера {telegram_id}: {e}")
+        
+    return None
+
+# =======================================================
+
 async def run_mass_twitch_update():
     """Логика пакетной проверки: берем 30 юзеров и проверяем всех ОДНОВРЕМЕННО"""
     logging.info("⚡ Запуск РЕАКТИВНОГО пакетного обновления Twitch (30 юзеров)...")
@@ -3546,14 +3584,11 @@ async def run_mass_twitch_update():
             logging.error("❌ Отсутствуют ключи Twitch в переменных окружения!")
             return
 
-        # Разрезаем строку на список ID стримеров
         broadcaster_ids = [b.strip() for b in raw_broadcaster_ids.split(",") if b.strip()]
 
-        # 🔥 Прогоняем логику пакетного обновления для КАЖДОГО стримера из списка
         for broadcaster_id in broadcaster_ids:
             logging.info(f"🔄 Обработка базы для стримера: {broadcaster_id}")
             
-            # 1. Получаем токен стримера (Синхронный запрос, тут это нормально)
             br_resp = supabase.table("users").select("telegram_id, twitch_access_token, twitch_refresh_token").eq("twitch_id", broadcaster_id).execute()
             br_data = br_resp.data if hasattr(br_resp, 'data') else br_resp
             
@@ -3580,9 +3615,9 @@ async def run_mass_twitch_update():
 
                 br_headers = {"Authorization": f"Bearer {broadcaster_token}", "Client-Id": client_id} if broadcaster_token else None
 
-                # 2. Берем 30 самых "старых" юзеров из БД
+                # 🔥 2. ДОБАВИЛИ twitch_refresh_token В ВЫБОРКУ 🔥
                 resp = supabase.table("users").select(
-                    "telegram_id, twitch_id, twitch_status, twitch_access_token"
+                    "telegram_id, twitch_id, twitch_status, twitch_access_token, twitch_refresh_token"
                 ).not_.is_("twitch_id", "null").order("last_twitch_sync").limit(30).execute()
                 
                 users = resp.data if hasattr(resp, 'data') else resp
@@ -3590,49 +3625,86 @@ async def run_mass_twitch_update():
 
                 if not valid_users:
                     logging.info(f"✅ Нет пользователей для обновления (стример {broadcaster_id}).")
-                    continue # Переходим к следующему стримеру вместо return
+                    continue
 
-                # 🔥 МАССОВАЯ ПРОВЕРКА МОДЕРОВ И VIP (1 запрос вместо 60) 🔥
                 mods_set, vips_set = set(), set()
                 
                 if br_headers:
-                    # Склеиваем 30 ID в одну строку: &user_id=123&user_id=456...
                     query_string = "&".join([f"user_id={u['twitch_id']}" for u in valid_users])
                     
-                    # Запрашиваем модеров сразу пачкой
                     m_resp = await client.get(f"https://api.twitch.tv/helix/moderation/moderators?broadcaster_id={broadcaster_id}&{query_string}", headers=br_headers)
                     if m_resp.status_code == 200:
                         mods_set = {item['user_id'] for item in m_resp.json().get("data", [])}
 
-                    # Запрашиваем VIP сразу пачкой
                     v_resp = await client.get(f"https://api.twitch.tv/helix/channels/vips?broadcaster_id={broadcaster_id}&{query_string}", headers=br_headers)
                     if v_resp.status_code == 200:
                         vips_set = {item['user_id'] for item in v_resp.json().get("data", [])}
 
-                # 🔥 АСИНХРОННАЯ МЯСОРУБКА ДЛЯ ПОДПИСОК И БАЗЫ ДАННЫХ 🔥
-                db_client = await get_background_client() # Используем твой быстрый фоновый клиент
+                db_client = await get_background_client() 
 
+                # 🔥 3. АСИНХРОННАЯ МЯСОРУБКА С АВТООБНОВЛЕНИЕМ ТОКЕНОВ 🔥
                 async def process_single_user(user):
                     twitch_id = user.get("twitch_id")
+                    telegram_id = user.get("telegram_id")
                     user_token = user.get("twitch_access_token")
+                    refresh_token = user.get("twitch_refresh_token")
+                    
                     new_status = "none"
                     
-                    # 1. Проверяем Сабку (Нужен личный токен юзера, поэтому отдельный запрос)
+                    # 🔥 3. АСИНХРОННАЯ МЯСОРУБКА С АВТООБНОВЛЕНИЕМ ТОКЕНОВ 🔥
+                async def process_single_user(user):
+                    twitch_id = user.get("twitch_id")
+                    telegram_id = user.get("telegram_id")
+                    user_token = user.get("twitch_access_token")
+                    refresh_token = user.get("twitch_refresh_token")
+                    
+                    new_status = "none"
+                    
+                    # --- Проверяем Сабку и Фоллоу ---
                     if user_token:
                         try:
                             u_headers = {"Authorization": f"Bearer {user_token}", "Client-Id": client_id}
-                            sub_resp = await client.get(f"https://api.twitch.tv/helix/subscriptions?broadcaster_id={broadcaster_id}&user_id={twitch_id}", headers=u_headers)
-                            if sub_resp.status_code == 200 and len(sub_resp.json().get("data", [])) > 0:
-                                new_status = "subscriber"
-                        except: pass
+                            sub_url = f"https://api.twitch.tv/helix/subscriptions/user?broadcaster_id={broadcaster_id}&user_id={twitch_id}"
+                            
+                            sub_resp = await client.get(sub_url, headers=u_headers)
+                            
+                            # ♻️ ЕСЛИ ТОКЕН ПРОТУХ (401), ПЫТАЕМСЯ ЕГО ВОСКРЕСИТЬ ♻️
+                            if sub_resp.status_code == 401:
+                                logging.info(f"🔄 Токен протух у {telegram_id}. Обновляем в фоне...")
+                                new_access = await refresh_user_twitch_token(telegram_id, refresh_token, client_id, client_secret, db_client)
+                                
+                                if new_access:
+                                    # Токен спасен! Обновляем заголовки и делаем запрос ЕЩЕ РАЗ
+                                    u_headers = {"Authorization": f"Bearer {new_access}", "Client-Id": client_id}
+                                    sub_resp = await client.get(sub_url, headers=u_headers)
+                                else:
+                                    # Токен окончательно мертв
+                                    new_status = "error"
+                                    logging.warning(f"💀 Ошибка токена у {telegram_id}. Ставим статус error.")
+                            
+                            # Если токен живой (или мы его успешно обновили) — чекаем результаты
+                            if new_status != "error":
+                                if sub_resp.status_code == 200 and len(sub_resp.json().get("data", [])) > 0:
+                                    # Юзер - саб
+                                    new_status = "subscriber"
+                                else:
+                                    # 🔥 ВОТ ТУТ ПРОВЕРЯЕМ ФОЛЛОВЕРА, ЕСЛИ ОН НЕ САБ 🔥
+                                    f_url = f"https://api.twitch.tv/helix/channels/followed?user_id={twitch_id}&broadcaster_id={broadcaster_id}"
+                                    f_resp = await client.get(f_url, headers=u_headers)
+                                    if f_resp.status_code == 200 and len(f_resp.json().get("data", [])) > 0:
+                                        new_status = "follower"
+                                        
+                        except Exception as e:
+                            logging.error(f"Ошибка проверки сабки/фолловера у {telegram_id}: {e}")
 
-                    # 2. Накатываем статусы Модера/VIP из наших массовых сетов (Они важнее сабки)
-                    if twitch_id in mods_set:
-                        new_status = "moderator"
-                    if twitch_id in vips_set:
-                        new_status = "vip"
+                    # --- Накатываем статусы Модера/VIP (Если нет фатальной ошибки) ---
+                    if new_status != "error":
+                        if twitch_id in mods_set:
+                            new_status = "moderator"
+                        if twitch_id in vips_set:
+                            new_status = "vip"
                     
-                    # 3. Обновляем статус в БД (Асинхронно!)
+                    # --- Обновляем статус в БД ---
                     update_payload = {"last_twitch_sync": datetime.now(timezone.utc).isoformat()}
                     if new_status != user.get("twitch_status"):
                         update_payload["twitch_status"] = new_status
@@ -3640,7 +3712,7 @@ async def run_mass_twitch_update():
                         
                     await db_client.patch(
                         "/users",
-                        params={"telegram_id": f"eq.{user.get('telegram_id')}"},
+                        params={"telegram_id": f"eq.{telegram_id}"},
                         json=update_payload
                     )
 
@@ -9674,22 +9746,20 @@ async def twitch_oauth_callback(
                         new_status = db_status
             except: pass
 
-            # 5. Сохранение в базу
+           # 5. Сохранение в базу
             update_payload = {
                 "twitch_id": twitch_id, 
                 "twitch_login": twitch_login,
-                "twitch_status": new_status
+                "twitch_status": new_status,
+                # 🔥 ТЕПЕРЬ СОХРАНЯЕМ ТОКЕНЫ АБСОЛЮТНО ВСЕМ ЮЗЕРАМ 🔥
+                "twitch_access_token": user_access_token,
+                "twitch_refresh_token": t_data.get("refresh_token")
             }
 
-            # 🔥 ФИКС РАССИНХРОНА 🔥
-            # Записываем токены только обычным юзерам. 
-            # Токены стримера с полными правами берем из админки, не затирая их тут.
-            if str(twitch_id) != BROADCASTER_ID:
-                update_payload["twitch_access_token"] = user_access_token
-                update_payload["twitch_refresh_token"] = t_data.get("refresh_token")
-            else:
+            # Если это стример - жестко ставим ему статус broadcaster
+            if str(twitch_id) == BROADCASTER_ID:
                 update_payload["twitch_status"] = "broadcaster"
-                logging.info("👑 Стример привязал ТГ. Токены не перезаписываем, чтобы сохранить admin scopes.")
+                logging.info("👑 Стример привязал ТГ. Админские токены УСПЕШНО обновлены в базе!")
 
             patch_resp = await supabase.patch(
                 "/users",
