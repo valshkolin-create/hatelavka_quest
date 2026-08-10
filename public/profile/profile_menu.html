@@ -902,11 +902,11 @@ html body nav.floating-bottom-bar .comic-badge {
         </div>
 
         <!-- ИНДИКАТОР PULL-TO-REFRESH -->
-        <div id="ptr-indicator" style="position: absolute; top: calc(var(--safe-top-gap) + 130px); left: 0; width: 100%; text-align: center; color: var(--text-color-muted); font-size: 10px; font-weight: 800; text-transform: uppercase; opacity: 0; pointer-events: none; z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;">
-            <div style="background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); width: 28px; height: 28px; border-radius: 50%; display: flex; justify-content: center; align-items: center; box-shadow: var(--glass-shadow);">
-                <i id="ptr-icon" class="fa-solid fa-arrow-down" style="font-size: 12px; color: var(--text-color-muted);"></i>
+        <div id="ptr-indicator" style="position: fixed; top: calc(var(--safe-top-gap) + 115px); left: 0; width: 100%; text-align: center; color: var(--text-color-muted); font-size: 11px; font-weight: 800; text-transform: uppercase; opacity: 0; pointer-events: none; z-index: 900; display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 8px;">
+            <div style="background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); width: 24px; height: 24px; border-radius: 50%; display: flex; justify-content: center; align-items: center; box-shadow: var(--glass-shadow); backdrop-filter: blur(5px);">
+                <i id="ptr-icon" class="fa-solid fa-arrow-down" style="font-size: 10px; color: var(--text-color-muted);"></i>
             </div>
-            <span id="ptr-text" style="letter-spacing: 0.5px;">Потяните вниз</span>
+            <span id="ptr-text" style="letter-spacing: 0.5px; text-shadow: 0 1px 3px rgba(0,0,0,0.8);">Потяните вниз</span>
         </div>
 
         <!-- DYNAMIC CONTENT AREA -->
@@ -3817,7 +3817,8 @@ if (swipeZone) {
             swipeZone.style.transform = `translateY(${pullDist}px)`;
             
             if (ptrIndicator) {
-                ptrIndicator.style.transform = `translateY(${pullDist * 0.4}px)`; // Иконка выезжает чуть медленнее (параллакс)
+                // Иконка выезжает ровно наполовину от сдвига контента — так она будет висеть ровно посередине пустоты!
+                ptrIndicator.style.transform = `translateY(${pullDist * 0.5}px)`; 
                 ptrIndicator.style.opacity = Math.min(pullDist / ptrThreshold, 1);
                 
                 // Меняем текст и иконку, когда прошли порог
@@ -3864,10 +3865,12 @@ if (swipeZone) {
                     ptrIcon.style.color = '#ff3b30';
                     ptrText.innerText = 'Обновление...';
                     ptrIndicator.style.opacity = '1';
-                    ptrIndicator.style.transform = `translateY(15px)`;
+                    // Замираем посередине между шапкой и сдвинутым контентом
+                    ptrIndicator.style.transform = `translateY(30px)`;
                 }
                 
-                swipeZone.style.transform = `translateY(40px)`; // Держим контент чуть опущенным во время загрузки
+                // Контент опускаем на 60px
+                swipeZone.style.transform = `translateY(60px)`; 
                 
                 // ВЫЗЫВАЕМ ТИХОЕ ОБНОВЛЕНИЕ
                 await window.refreshCurrentSpaTab();
