@@ -31,35 +31,45 @@
             --safe-top-gap: calc(env(safe-area-inset-top, 15px) + 40px);
         }
 
-        /* --- ПЛАВАЮЩИЙ БАННЕР ОШИБКИ (ВЕРХ ЭКРАНА) --- */
+       /* --- ПЛАВАЮЩИЙ БАННЕР ОШИБКИ (СУПЕР МИНИ) --- */
         .system-top-banner {
             position: fixed;
-            /* Сажаем ровно в пустое пространство над аватаром */
-            top: calc(env(safe-area-inset-top, 10px) + 5px);
+            /* Сажаем строго под край экрана (челку), оставляя место для системных кнопок */
+            top: calc(env(safe-area-inset-top, 8px) + 6px);
             left: 50%;
             transform: translateX(-50%);
-            width: 90%;
-            max-width: 320px;
+            width: fit-content; 
+            max-width: 80%; /* Не даст наехать на крестик Телеграма справа */
             background: rgba(255, 59, 48, 0.15);
-            border: 1px solid rgba(255, 59, 48, 0.4);
-            backdrop-filter: blur(15px);
-            -webkit-backdrop-filter: blur(15px);
-            border-radius: 10px;
-            padding: 6px 12px;
-            display: none; /* Скрыт по умолчанию */
+            border: 1px solid rgba(255, 59, 48, 0.3);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 4px 10px; /* Минимальные отступы */
+            display: none; /* Скрыто, пока скрипт не добавит .active */
             align-items: center;
-            gap: 10px;
+            justify-content: center;
+            gap: 6px; 
             z-index: 9999;
-            box-shadow: 0 4px 15px rgba(255, 59, 48, 0.2);
             cursor: pointer;
-            animation: slideDownBanner 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+            animation: slideDownBanner 0.3s ease-out;
         }
         .system-top-banner.active {
             display: flex;
         }
         .system-top-banner i {
             color: #ff3b30;
-            font-size: 16px;
+            font-size: 10px; /* Крошечная иконка */
+            flex-shrink: 0;
+        }
+        .system-top-banner-text {
+            color: #fff;
+            font-size: 8px; /* В два раза меньше! */
+            line-height: 1;
+            font-weight: 600;
+            white-space: nowrap; /* Строго в ОДНУ линию */
+            overflow: hidden;
+            text-overflow: ellipsis; /* Если экран совсем узкий, обрежется точками */
         }
         .system-top-banner-text {
             color: #fff;
@@ -705,13 +715,12 @@ html body nav.floating-bottom-bar .comic-badge {
 <body>
 
     <div id="global-loader"><i class="fa-solid fa-circle-notch fa-spin" style="font-size: 40px; color: #fff;"></i></div>
-
+    
     <!-- ПЛАВАЮЩИЙ БАННЕР ОШИБКИ TWITCH -->
     <div id="top-twitch-banner" class="system-top-banner" onclick="openSettings()">
         <i class="fa-solid fa-triangle-exclamation"></i>
         <div class="system-top-banner-text">
-            <b style="color:#ffcccb; font-size: 10px;">Синхронизация нарушена!</b><br>
-            Нажми сюда, чтобы отвязать и привязать Twitch заново.
+            <b style="color:#ffcccb; margin-right: 3px;">Синхронизация нарушена!</b> Отвяжите и привяжите Twitch.
         </div>
     </div>
 
