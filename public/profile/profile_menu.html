@@ -1182,7 +1182,12 @@ window.renderRewards = function(rewards, isSorting = false) {
     if(clearBtn) clearBtn.style.display = 'inline-flex';
     
     const sortSelect = document.getElementById('promocodes-sort-select');
-    if(sortSelect) sortSelect.style.display = 'inline-block';
+    // 🔥 ВОЗВРАЩАЕМ СОРТИРОВКУ ПРОМОКОДОВ
+    if (sortSelect && sortSelect.parentElement) {
+        sortSelect.parentElement.style.transition = 'opacity 0.3s ease';
+        sortSelect.parentElement.style.opacity = itemsToRender.length > 0 ? '1' : '0';
+        sortSelect.parentElement.style.pointerEvents = itemsToRender.length > 0 ? 'auto' : 'none';
+    }
     
     // --- ЛОГИКА СОРТИРОВКИ ---
     const sortType = sortSelect ? sortSelect.value : 'date_desc';
@@ -1406,6 +1411,11 @@ window.clearAllRewards = function() {
         
         tg.ready();
         tg.expand();
+
+        // 🔥 ЖЕСТКО БЛОКИРУЕМ ВЕРТИКАЛЬНЫЙ СВАЙП ТЕЛЕГРАМА (решает проблему наложения)
+        if (tg.disableVerticalSwipes) {
+            tg.disableVerticalSwipes();
+        }
 
         let currentUserData = null; 
         let isUpdating = false; 
@@ -2103,11 +2113,21 @@ contentArea.classList.add('fade-in-content');
 
                 if (tabName === 'inventory') {
                     const sortSelect = document.getElementById('inventory-sort-select');
-                    if (sortSelect) sortSelect.style.opacity = '0';
+                    // 🔥 Прячем ЦЕЛИКОМ блок сортировки (вместе с надписью)
+                    if (sortSelect && sortSelect.parentElement) {
+                        sortSelect.parentElement.style.opacity = '0';
+                        sortSelect.parentElement.style.pointerEvents = 'none';
+                    }
                     
                     const invContainer = document.getElementById('inventory-list-container');
                     if (invContainer) {
-                        invContainer.innerHTML = '<div style="height: 50vh; display: flex; flex-direction: column; justify-content: center; align-items: center; color: var(--text-color-muted);"><i class="fa-solid fa-circle-notch fa-spin" style="margin-bottom: 15px; font-size: 32px; color: #fff;"></i><br>Связь с базой данных...</div>';
+                        // 🔥 БРУТАЛЬНЫЙ ЛОАДЕР ДЛЯ ИНВЕНТАРЯ
+                        invContainer.innerHTML = `
+                            <div style="height: 50vh; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
+                                <i class="fa-solid fa-server fa-pulse" style="font-size: 40px; color: #ff3b30; filter: drop-shadow(0 0 15px rgba(255, 59, 48, 0.4)); margin-bottom: 20px;"></i>
+                                <div style="font-family: monospace; font-size: 16px; font-weight: 900; color: #fff; letter-spacing: 2px; text-transform: uppercase;">Установка связи</div>
+                                <div style="font-family: monospace; font-size: 10px; color: #ff3b30; margin-top: 6px; text-transform: uppercase; letter-spacing: 1px;">Синхронизация инвентаря...</div>
+                            </div>`;
                     }
                     
                     try {
@@ -2115,29 +2135,41 @@ contentArea.classList.add('fade-in-content');
                         renderInventory(inventoryData);
                     } catch (err) {
                         if (invContainer && err.message !== 'Activity Lock') {
-                            invContainer.innerHTML = `<div style="text-align:center; color:var(--text-color-muted); margin-top:50px;">Ошибка загрузки предметов:<br>${err.message}</div>`;
+                            invContainer.innerHTML = `<div style="text-align:center; color:#ff3b30; font-family: monospace; font-weight: 800; margin-top:50px;">ОШИБКА ДОСТУПА:<br>${err.message}</div>`;
                         }
                     }
                 }
                 else if (tabName === 'events') {
                     await window.loadEvents();
                 }
-                // 👇🔥 ДОБАВЛЯЕМ ЛОГИКУ ДЛЯ ПРОМОКОДОВ 🔥👇
-        else if (tabName === 'promocodes') {
-            const promoContainer = document.getElementById('promocodes-list-container');
-            if (promoContainer) {
-                promoContainer.innerHTML = '<div style="height: 50vh; display: flex; flex-direction: column; justify-content: center; align-items: center; color: var(--text-color-muted);"><i class="fa-solid fa-circle-notch fa-spin" style="margin-bottom: 15px; font-size: 32px; color: #fff;"></i><br>Загрузка промокодов...</div>';
-            }
-            try {
-                // Запрашиваем данные промокодов (убедись, что endpoint правильный)
-                const rewardsData = await apiRequest("/api/v1/user/rewards", "POST", null, true);
-                window.renderRewards(rewardsData);
-            } catch (err) {
-                if (promoContainer && err.message !== 'Activity Lock') {
-                    promoContainer.innerHTML = `<div style="text-align:center; color:var(--text-color-muted); margin-top:50px;">Ошибка загрузки:<br>${err.message}</div>`;
+                else if (tabName === 'promocodes') {
+                    const promoContainer = document.getElementById('promocodes-list-container');
+                    const sortSelect = document.getElementById('promocodes-sort-select');
+                    
+                    // 🔥 Прячем сортировку промокодов
+                    if (sortSelect && sortSelect.parentElement) {
+                        sortSelect.parentElement.style.opacity = '0';
+                        sortSelect.parentElement.style.pointerEvents = 'none';
+                    }
+
+                    if (promoContainer) {
+                        // 🔥 БРУТАЛЬНЫЙ ЛОАДЕР ДЛЯ ПРОМОКОДОВ
+                        promoContainer.innerHTML = `
+                            <div style="height: 50vh; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
+                                <i class="fa-solid fa-barcode fa-pulse" style="font-size: 40px; color: #ff3b30; filter: drop-shadow(0 0 15px rgba(255, 59, 48, 0.4)); margin-bottom: 20px;"></i>
+                                <div style="font-family: monospace; font-size: 16px; font-weight: 900; color: #fff; letter-spacing: 2px; text-transform: uppercase;">Дешифровка</div>
+                                <div style="font-family: monospace; font-size: 10px; color: #ff3b30; margin-top: 6px; text-transform: uppercase; letter-spacing: 1px;">Загрузка купонов...</div>
+                            </div>`;
+                    }
+                    try {
+                        const rewardsData = await apiRequest("/api/v1/user/rewards", "POST", null, true);
+                        window.renderRewards(rewardsData);
+                    } catch (err) {
+                        if (promoContainer && err.message !== 'Activity Lock') {
+                            promoContainer.innerHTML = `<div style="text-align:center; color:#ff3b30; font-family: monospace; font-weight: 800; margin-top:50px;">ОШИБКА ДЕШИФРОВКИ:<br>${err.message}</div>`;
+                        }
+                    }
                 }
-            }
-        }
         // 👇🔥 ВЫЗОВ РЕФЕРАЛЬНОГО МАГАЗИНА 🔥👇
         else if (tabName === 'referral') {
             await window.initProfileShop();
@@ -2190,6 +2222,14 @@ contentArea.classList.add('fade-in-content');
             const container = document.getElementById('events-list');
             if(!container) return;
             
+            // 🔥 БРУТАЛЬНЫЙ ЛОАДЕР ДЛЯ СОБЫТИЙ (Сортировка тут и так перерисовывается, прятать не нужно)
+            container.innerHTML = `
+                <div style="height: 50vh; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
+                    <i class="fa-solid fa-satellite-dish fa-pulse" style="font-size: 40px; color: #ff3b30; filter: drop-shadow(0 0 15px rgba(255, 59, 48, 0.4)); margin-bottom: 20px;"></i>
+                    <div style="font-family: monospace; font-size: 16px; font-weight: 900; color: #fff; letter-spacing: 2px; text-transform: uppercase;">Сканирование</div>
+                    <div style="font-family: monospace; font-size: 10px; color: #ff3b30; margin-top: 6px; text-transform: uppercase; letter-spacing: 1px;">Поиск истории событий...</div>
+                </div>`;
+                
             try {
                 const res = await apiRequest('/api/v1/user/events', 'POST', null, true);
                 
@@ -2817,9 +2857,11 @@ contentArea.classList.add('fade-in-content');
                 sortSelect.style.border = '1px solid var(--glass-border)';
                 sortSelect.style.color = '#fff';
             }
-            if (sortSelect) {
-                sortSelect.style.transition = 'opacity 0.3s ease';
-                sortSelect.style.opacity = itemsToRender.length > 0 ? '1' : '0';
+            // 🔥 ПОКАЗЫВАЕМ БЛОК СОРТИРОВКИ ОБРАТНО (ТОЛЬКО ЕСЛИ ЕСТЬ ПРЕДМЕТЫ)
+            if (sortSelect && sortSelect.parentElement) {
+                sortSelect.parentElement.style.transition = 'opacity 0.3s ease';
+                sortSelect.parentElement.style.opacity = itemsToRender.length > 0 ? '1' : '0';
+                sortSelect.parentElement.style.pointerEvents = itemsToRender.length > 0 ? 'auto' : 'none';
             }
 
             container.innerHTML = '';
