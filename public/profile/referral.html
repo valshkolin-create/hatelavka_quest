@@ -7,7 +7,7 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 8px; /* Уменьшено */
+        margin-bottom: 8px;
     }
 
     .glass-rank-banner {
@@ -16,18 +16,18 @@
         -webkit-backdrop-filter: var(--glass-blur, blur(15px));
         border: 1px solid rgba(255, 215, 0, 0.2);
         border-radius: 12px;
-        padding: 8px 12px; /* Уменьшено */
+        padding: 8px 12px;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 10px; /* Уменьшено */
+        margin-bottom: 10px;
         box-shadow: inset 0 0 15px rgba(0,0,0,0.4), 0 4px 10px rgba(0,0,0,0.2);
     }
 
     .rank-icon-box {
         background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 140, 0, 0.05));
-        width: 28px; /* Уменьшено */
-        height: 28px; /* Уменьшено */
+        width: 28px;
+        height: 28px;
         border-radius: 8px;
         display: flex;
         align-items: center;
@@ -59,8 +59,8 @@
     .ref-nav-grid {
         display: grid;
         grid-template-columns: repeat(2, 1fr);
-        gap: 8px; /* Уменьшено */
-        margin-bottom: 10px; /* Уменьшено */
+        gap: 8px;
+        margin-bottom: 10px;
     }
 
     .ref-nav-btn {
@@ -70,7 +70,7 @@
         border: 1px solid rgba(255, 255, 255, 0.1);
         border-top: 1px solid rgba(255, 255, 255, 0.2);
         border-radius: 10px;
-        padding: 8px 10px; /* Уменьшено */
+        padding: 8px 10px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -191,10 +191,6 @@
     }
 </style>
 
-<!-- =========================================
-     HTML СТРУКТУРА
-     ========================================= -->
-
 <!-- 1. Шапка кабинета -->
 <div class="events-header-bar">
     <h3 style="margin: 0; font-size: 14px; font-weight: 900; color: #fff; text-transform: uppercase; letter-spacing: 0.5px;">Реферальный кабинет</h3>
@@ -220,7 +216,7 @@
     </div>
 </div>
 
-<!-- 3. ПОЛЕ С РЕФЕРАЛЬНОЙ ССЫЛКОЙ (ПОДЖАТОЕ) -->
+<!-- 3. ПОЛЕ С РЕФЕРАЛЬНОЙ ССЫЛКОЙ -->
 <div style="background: rgba(25, 25, 28, 0.4); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 6px 8px; margin-bottom: 10px; display: flex; gap: 6px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
     <input type="text" id="ref-link-input" readonly value="Генерация ссылки..." 
            style="flex-grow: 1; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; color: #fff; padding: 0 8px; font-size: 10px; letter-spacing: -0.2px; outline: none; font-weight: 700; text-overflow: ellipsis; white-space: nowrap;">
@@ -246,10 +242,10 @@
     </div>
 </div>
 
-<!-- 5. ИНФО-ПАНЕЛЬ КЛИКАБЕЛЬНАЯ (Без стрелочки, с понятным призывом) -->
-<div onclick="document.getElementById('ref-rules-modal').classList.add('visible')" style="background: rgba(25, 25, 28, 0.4); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; padding: 10px 12px; margin-bottom: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.2); cursor: pointer; transition: 0.2s; display: flex; flex-direction: column;" onmousedown="this.style.transform='scale(0.98)'" onmouseup="this.style.transform='scale(1)'">
-    
-    <div style="text-align: center; margin-bottom: 8px;">
+<!-- 5. ИНФО-ПАНЕЛЬ КЛИКАБЕЛЬНАЯ -->
+<div onclick="document.getElementById('ref-rules-modal').classList.add('visible')" style="background: rgba(25, 25, 28, 0.4); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; padding: 10px 12px; margin-bottom: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.2); cursor: pointer; transition: 0.2s; display: flex; flex-direction: column; position: relative;" onmousedown="this.style.transform='scale(0.98)'" onmouseup="this.style.transform='scale(1)'">
+
+    <div style="text-align: center; margin-bottom: 8px; padding-right: 15px;">
         <div style="font-size: 13px; font-weight: 900; color: #fff; text-transform: uppercase;">Система бонусов</div>
         <div style="font-size: 9px; color: var(--text-color-muted); margin-top: 2px;">Нажми в любую область панели, чтобы открыть все правила</div>
     </div>
@@ -268,8 +264,10 @@
 
 <!-- 6. Визуальная сетка магазина -->
 <div class="shop-grid" id="shop-items-container">
-    <div id="shop-loader" style="display:flex; justify-content:center; padding: 40px; grid-column: 1 / -1;">
-        <i class="fa-solid fa-circle-notch fa-spin" style="font-size: 28px; color: var(--text-color-muted);"></i>
+    <!-- Пустое состояние (наград пока нет), вшито прямо внутрь магазина -->
+    <div style="grid-column: 1 / -1; text-align: center; padding: 40px 10px; background: rgba(25, 25, 28, 0.3); border: 1px dashed rgba(255,255,255,0.1); border-radius: 16px; margin-top: 10px;">
+        <i class="fa-solid fa-store-slash" style="font-size: 32px; margin-bottom: 10px; opacity: 0.2; color: #fff;"></i>
+        <p style="font-size: 12px; color: var(--text-color-muted); font-weight: 600; margin: 0;">Наград пока нет</p>
     </div>
 </div>
 
@@ -288,7 +286,7 @@
         
         <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
             
-            <!-- Важное условие (Акцент) -->
+            <!-- Важное условие -->
             <div style="background: rgba(255, 59, 48, 0.05); border-radius: 12px; padding: 12px; border: 1px solid rgba(255, 59, 48, 0.2);">
                 <div style="font-size: 11px; font-weight: 800; color: #ff3b30; margin-bottom: 6px; text-transform: uppercase;">
                     <i class="fa-solid fa-circle-exclamation"></i> Важное условие:
@@ -321,13 +319,13 @@
             </div>
         </div>
 
-        <!-- Перенаправление на события (прямой редирект на нужный файл) -->
+        <!-- Перенаправление на гринд -->
         <div style="background: rgba(10, 132, 255, 0.1); border-radius: 12px; padding: 12px; border: 1px solid rgba(10, 132, 255, 0.2); margin-bottom: 15px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px;">
             <div style="font-size: 11px; color: rgba(255,255,255,0.8); line-height: 1.4;">
-                Все начисленные реферальные бонусы отображаются в истории вашего аккаунта.
+                Все начисленные реферальные бонусы прибавляются в гринде вашего аккаунта.
             </div>
             <button onclick="document.getElementById('ref-rules-modal').classList.remove('visible'); window.location.href='/public/events.html';" style="background: rgba(10, 132, 255, 0.2); border: 1px solid rgba(10, 132, 255, 0.4); color: #fff; border-radius: 8px; font-size: 11px; font-weight: 800; padding: 8px 16px; cursor: pointer; transition: 0.2s;">
-                <i class="fa-solid fa-clock-rotate-left"></i> Перейти в События
+                <i class="fa-solid fa-fire"></i> Перейти в Гринд
             </button>
         </div>
         
