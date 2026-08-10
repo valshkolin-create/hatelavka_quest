@@ -22,7 +22,7 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 15px;
+        margin-bottom: 12px;
         box-shadow: inset 0 0 15px rgba(0,0,0,0.4), 0 4px 10px rgba(0,0,0,0.2);
     }
 
@@ -208,25 +208,7 @@
     </div>
 </div>
 
-<!-- ПОЛЕ С РЕФЕРАЛЬНОЙ ССЫЛКОЙ (Перенесено наверх) -->
-<div style="background: rgba(25, 25, 28, 0.4); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; padding: 10px; margin-bottom: 15px; display: flex; gap: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
-    
-    <!-- Инпут теперь меньше и визуально без https:// -->
-    <input type="text" id="ref-link-input" readonly value="Генерация ссылки..." 
-           style="flex-grow: 1; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); border-radius: 10px; color: var(--text-color-muted); padding: 0 10px; font-size: 11px; letter-spacing: -0.2px; outline: none; font-weight: 700; text-overflow: ellipsis; white-space: nowrap;">
-    
-    <!-- Кнопка Копировать -->
-    <button onclick="window.copyReferralLink()" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px; width: 38px; height: 38px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; flex-shrink: 0;" onmousedown="this.style.transform='scale(0.9)'" onmouseup="this.style.transform='scale(1)'">
-        <i class="fa-regular fa-copy"></i>
-    </button>
-    
-    <!-- Кнопка Поделиться -->
-    <button onclick="window.shareReferralLink()" style="background: rgba(52, 199, 89, 0.15); border: 1px solid rgba(52, 199, 89, 0.3); color: #34c759; border-radius: 10px; width: 38px; height: 38px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; flex-shrink: 0;" onmousedown="this.style.transform='scale(0.9)'" onmouseup="this.style.transform='scale(1)'">
-        <i class="fa-solid fa-share-nodes"></i>
-    </button>
-</div>
-
-<!-- 2. Компактный баннер ранга -->
+<!-- 2. Компактный баннер ранга (ВЫШЕ ССЫЛКИ) -->
 <div class="glass-rank-banner" id="rank-banner-container">
     <div style="display: flex; align-items: center; gap: 10px;">
         <div class="rank-icon-box">
@@ -243,7 +225,21 @@
     </div>
 </div>
 
-<!-- 3. Кнопки навигации (Магазин и Задания) -->
+<!-- 3. ПОЛЕ С РЕФЕРАЛЬНОЙ ССЫЛКОЙ (ПОД РАНГОМ, БЕЗ HTTPS) -->
+<div style="background: rgba(25, 25, 28, 0.4); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; padding: 10px; margin-bottom: 15px; display: flex; gap: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+    <input type="text" id="ref-link-input" readonly value="Генерация ссылки..." 
+           style="flex-grow: 1; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); border-radius: 10px; color: #fff; padding: 0 10px; font-size: 10px; letter-spacing: -0.2px; outline: none; font-weight: 700; text-overflow: ellipsis; white-space: nowrap;">
+    
+    <button onclick="window.copyReferralLink()" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px; width: 38px; height: 38px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; flex-shrink: 0;" onmousedown="this.style.transform='scale(0.9)'" onmouseup="this.style.transform='scale(1)'">
+        <i class="fa-regular fa-copy"></i>
+    </button>
+    
+    <button onclick="window.shareReferralLink()" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px; width: 38px; height: 38px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; flex-shrink: 0;" onmousedown="this.style.transform='scale(0.9)'" onmouseup="this.style.transform='scale(1)'">
+        <i class="fa-solid fa-share-nodes"></i>
+    </button>
+</div>
+
+<!-- 4. Кнопки навигации (Магазин и Задания) -->
 <div class="ref-nav-grid">
     <div class="ref-nav-btn btn-shop">
         <i class="fa-solid fa-store"></i> Магазин
@@ -251,38 +247,31 @@
     
     <div class="ref-nav-btn btn-tasks">
         <i class="fa-solid fa-list-check"></i> Задания
-        <!-- Бейдж счетчика (удали или скрой, если заданий 0) -->
         <div class="task-counter" id="tasks-count-badge">3</div> 
     </div>
 </div>
 
-<!-- ИНФО-ПАНЕЛЬ: СТАТИСТИКА И КНОПКА ПРАВИЛ -->
-<div style="background: rgba(25, 25, 28, 0.4); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 15px; margin-bottom: 20px; box-shadow: 0 8px 20px rgba(0,0,0,0.2);">
+<!-- 5. ИНФО-ПАНЕЛЬ КЛИКАБЕЛЬНАЯ (В серых оттенках) -->
+<div onclick="document.getElementById('ref-rules-modal').classList.add('visible')" style="background: rgba(25, 25, 28, 0.4); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 15px; margin-bottom: 20px; box-shadow: 0 8px 20px rgba(0,0,0,0.2); cursor: pointer; transition: 0.2s; display: flex; flex-direction: column;" onmousedown="this.style.transform='scale(0.98)'" onmouseup="this.style.transform='scale(1)'">
     
     <div style="text-align: center; margin-bottom: 12px;">
         <div style="font-size: 14px; font-weight: 900; color: #fff; text-transform: uppercase;">Система бонусов</div>
-        <div style="font-size: 9px; color: rgba(255,255,255,0.5); margin-top: 2px;">Учитываются только забравшие бонус</div>
+        <div style="font-size: 10px; color: var(--text-color-muted); margin-top: 2px;">Жми подробнее, чтобы узнать все правила</div>
     </div>
     
-    <!-- Динамическая статистика -->
-    <div style="display: flex; gap: 10px; margin-bottom: 12px;">
-        <div style="flex: 1; background: rgba(52, 199, 89, 0.05); border: 1px solid rgba(52, 199, 89, 0.2); border-radius: 12px; padding: 12px 5px; text-align: center;">
-            <div style="font-size: 20px; font-weight: 900; color: #34c759;" id="ref-count-display">0</div>
-            <div style="font-size: 9px; color: rgba(255,255,255,0.6); text-transform: uppercase; font-weight: 800; margin-top: 4px;">Активных</div>
+    <div style="display: flex; gap: 10px;">
+        <div style="flex: 1; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 12px 5px; text-align: center;">
+            <div style="font-size: 20px; font-weight: 900; color: #fff;" id="ref-count-display">0</div>
+            <div style="font-size: 9px; color: rgba(255,255,255,0.5); text-transform: uppercase; font-weight: 800; margin-top: 4px;">Активных</div>
         </div>
-        <div style="flex: 1; background: rgba(255, 215, 0, 0.05); border: 1px solid rgba(255, 215, 0, 0.2); border-radius: 12px; padding: 12px 5px; text-align: center;">
-            <div style="font-size: 20px; font-weight: 900; color: #ffd700;" id="ref-bonus-display">+0.0</div>
-            <div style="font-size: 9px; color: rgba(255,255,255,0.6); text-transform: uppercase; font-weight: 800; margin-top: 4px;">Буст (монет)</div>
+        <div style="flex: 1; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 12px 5px; text-align: center;">
+            <div style="font-size: 20px; font-weight: 900; color: #fff;" id="ref-bonus-display">+0.0</div>
+            <div style="font-size: 9px; color: rgba(255,255,255,0.5); text-transform: uppercase; font-weight: 800; margin-top: 4px;">Буст (монет)</div>
         </div>
     </div>
-
-    <!-- КНОПКА, ОТКРЫВАЮЩАЯ ПРАВИЛА (Заменила длинный текст) -->
-    <button onclick="document.getElementById('ref-rules-modal').classList.add('visible')" style="width: 100%; padding: 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; color: #fff; font-size: 11px; font-weight: 800; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px;">
-        <i class="fa-solid fa-circle-info" style="color: rgba(255,255,255,0.5);"></i> Подробнее о бонусах
-    </button>
 </div>
 
-<!-- 4. Визуальная сетка магазина -->
+<!-- 6. Визуальная сетка магазина -->
 <div class="shop-grid" id="shop-items-container">
     
     <!-- Пример карточки: Доступно для покупки -->
@@ -301,7 +290,7 @@
         <button class="shop-btn btn-claim"><i class="fa-solid fa-check"></i> Получено</button>
     </div>
 
-    <!-- Пример карточки: Заблокировано (не хватает ранга/тикетв) -->
+    <!-- Пример карточки: Заблокировано -->
     <div class="shop-card">
         <div style="font-size: 40px; margin-bottom: 15px; text-shadow: 0 5px 15px rgba(0,0,0,0.5);">🔫</div>
         <div class="shop-card-title">Тайный Скин</div>
@@ -311,38 +300,55 @@
 
 </div>
 
-<!-- ПОПАП ПРАВИЛ РЕФЕРАЛКИ (Модальное окно, скрыто по умолчанию) -->
+<!-- =========================================
+     ПОПАП ПРАВИЛ РЕФЕРАЛКИ (СКРЫТ ПО УМОЛЧАНИЮ)
+     ========================================= -->
 <div id="ref-rules-modal" class="modal-overlay" onclick="if(event.target===this) document.getElementById('ref-rules-modal').classList.remove('visible')">
     <div class="custom-popup" style="background: rgba(18, 18, 20, 0.75); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 24px; padding: 24px; max-width: 360px; width: 90%; margin: auto; position: relative; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.9); text-align: left;">
+        
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-            <h3 style="margin: 0; font-size: 18px; font-weight: 800; color: #fff;">Бонусы системы</h3>
+            <h3 style="margin: 0; font-size: 18px; font-weight: 900; color: #fff;">Бонусы системы</h3>
             <button onclick="document.getElementById('ref-rules-modal').classList.remove('visible')" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255, 255, 255, 0.08); color: #fff; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; padding: 0;">
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
         
-        <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px;">
-            <div style="background: rgba(0,0,0,0.3); border-radius: 12px; padding: 12px; border: 1px solid rgba(255,255,255,0.05);">
-                <div style="font-size: 12px; font-weight: 800; color: #fff; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
-                    <i class="fa-solid fa-gift" style="color: #af52de; font-size: 14px;"></i> Твои бонусы (за каждого):
+        <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
+            
+            <!-- Важное условие (Акцент) -->
+            <div style="background: rgba(255, 59, 48, 0.05); border-radius: 12px; padding: 12px; border: 1px solid rgba(255, 59, 48, 0.2);">
+                <div style="font-size: 11px; font-weight: 800; color: #ff3b30; margin-bottom: 6px; text-transform: uppercase;">
+                    <i class="fa-solid fa-circle-exclamation"></i> Важное условие:
                 </div>
-                <div style="font-size: 11px; color: rgba(255,255,255,0.7); line-height: 1.5; display: flex; flex-direction: column; gap: 6px;">
-                    <div><span style="color: #34c759; margin-right: 4px;">✅</span> <b style="color: #fff;">+0.1</b> гринд-монет (к ежд. награде)</div>
-                    <div><span style="color: #34c759; margin-right: 4px;">✅</span> <b style="color: #fff;">+1 Билет</b> ежедневно (на 30 дней)</div>
+                <div style="font-size: 11px; color: rgba(255,255,255,0.8); line-height: 1.4;">
+                    Просто перейти по ссылке — недостаточно. Бонус засчитается только после того, как друг <b>ОБЯЗАТЕЛЬНО привяжет свой Twitch аккаунт</b> в настройках кабинета.
+                </div>
+            </div>
+
+            <!-- Твои бонусы -->
+            <div style="background: rgba(255,255,255,0.03); border-radius: 12px; padding: 12px; border: 1px solid rgba(255,255,255,0.05);">
+                <div style="font-size: 12px; font-weight: 800; color: #fff; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-gift" style="color: #af52de;"></i> Твои награды (за каждого):
+                </div>
+                <div style="font-size: 11px; color: rgba(255,255,255,0.7); line-height: 1.5; display: flex; flex-direction: column; gap: 8px;">
+                    <div><span style="color: #34c759; margin-right: 4px;">✅</span> Накопитель к ежедневному фарму: <b style="color: #fff;">+0.1 монет</b>. <span style="color: #ffd700; font-weight: 800;">Остается НАВСЕГДА</span> и никогда не сгорает!</div>
+                    <div><span style="color: #34c759; margin-right: 4px;">✅</span> <b style="color: #fff;">+1 Билет</b> ежедневно (длится 30 дней)</div>
                 </div>
             </div>
             
-            <div style="background: rgba(0,0,0,0.3); border-radius: 12px; padding: 12px; border: 1px solid rgba(255,255,255,0.05);">
+            <!-- Бонусы друга -->
+            <div style="background: rgba(255,255,255,0.03); border-radius: 12px; padding: 12px; border: 1px solid rgba(255,255,255,0.05);">
                 <div style="font-size: 12px; font-weight: 800; color: #fff; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
-                    <i class="fa-solid fa-handshake" style="color: #0a84ff; font-size: 14px;"></i> Бонусы друга:
+                    <i class="fa-solid fa-handshake" style="color: #0a84ff;"></i> Что получит друг:
                 </div>
                 <div style="font-size: 11px; color: rgba(255,255,255,0.7); line-height: 1.5; display: flex; flex-direction: column; gap: 6px;">
-                    <div><span style="margin-right: 4px;">🎁</span> <b style="color: #ffd700;">10 гринд-монет</b> на старт</div>
-                    <div><span style="margin-right: 4px;">🚀</span> <b style="color: #ff3b30;">VIP статус</b> на 7 дней <span style="font-size:9px; color:rgba(255,255,255,0.5);">(+0.2 монет, +2 билета)</span></div>
+                    <div><span style="margin-right: 4px;">🎁</span> <b style="color: #fff;">10 монет</b> на старт</div>
+                    <div><span style="margin-right: 4px;">🚀</span> <b style="color: #fff;">VIP статус</b> на 7 дней <span style="font-size:10px; color:rgba(255,255,255,0.4);">(+0.2 монет, +2 билета)</span></div>
                 </div>
             </div>
+
         </div>
         
-        <button onclick="document.getElementById('ref-rules-modal').classList.remove('visible')" style="width: 100%; border: none; padding: 12px; border-radius: 12px; font-size: 14px; font-weight: 800; background-color: #fff; color: #000; cursor: pointer;">Понятно</button>
+        <button onclick="document.getElementById('ref-rules-modal').classList.remove('visible')" style="width: 100%; border: none; padding: 14px; border-radius: 12px; font-size: 14px; font-weight: 800; background-color: #fff; color: #000; cursor: pointer; transition: 0.2s;" onmousedown="this.style.transform='scale(0.96)'" onmouseup="this.style.transform='scale(1)'">Понятно</button>
     </div>
 </div>
