@@ -1,36 +1,34 @@
 <style>
     /* =========================================
-       LIQUID GLASS: РЕФЕРАЛЬНЫЙ КАБИНЕТ
+       LIQUID GLASS: РЕФЕРАЛЬНЫЙ КАБИНЕТ (КОМПАКТНЫЙ)
        ========================================= */
 
-    /* --- Шапка и базовые элементы --- */
     .events-header-bar {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 10px;
+        margin-bottom: 8px; /* Уменьшено */
     }
 
-    /* --- НОВЫЙ КОМПАКТНЫЙ БАННЕР РАНГА --- */
     .glass-rank-banner {
         background: rgba(25, 25, 28, 0.4);
         backdrop-filter: var(--glass-blur, blur(15px));
         -webkit-backdrop-filter: var(--glass-blur, blur(15px));
         border: 1px solid rgba(255, 215, 0, 0.2);
-        border-radius: 14px;
-        padding: 10px 14px;
+        border-radius: 12px;
+        padding: 8px 12px; /* Уменьшено */
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 12px;
+        margin-bottom: 10px; /* Уменьшено */
         box-shadow: inset 0 0 15px rgba(0,0,0,0.4), 0 4px 10px rgba(0,0,0,0.2);
     }
 
     .rank-icon-box {
         background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 140, 0, 0.05));
-        width: 36px;
-        height: 36px;
-        border-radius: 10px;
+        width: 28px; /* Уменьшено */
+        height: 28px; /* Уменьшено */
+        border-radius: 8px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -39,11 +37,11 @@
     }
 
     .rank-text-sm {
-        font-size: 10px;
+        font-size: 9px;
         color: rgba(255, 255, 255, 0.6);
         text-transform: uppercase;
         font-weight: 700;
-        margin-bottom: 2px;
+        margin-bottom: 1px;
     }
 
     .rank-text-lg {
@@ -58,12 +56,11 @@
         text-shadow: 0 0 8px rgba(255, 215, 0, 0.4);
     }
 
-    /* --- НАВИГАЦИЯ (Магазин / Задания) --- */
     .ref-nav-grid {
         display: grid;
         grid-template-columns: repeat(2, 1fr);
-        gap: 12px;
-        margin-bottom: 15px;
+        gap: 8px; /* Уменьшено */
+        margin-bottom: 10px; /* Уменьшено */
     }
 
     .ref-nav-btn {
@@ -72,14 +69,14 @@
         -webkit-backdrop-filter: blur(15px);
         border: 1px solid rgba(255, 255, 255, 0.1);
         border-top: 1px solid rgba(255, 255, 255, 0.2);
-        border-radius: 12px;
-        padding: 12px 10px;
+        border-radius: 10px;
+        padding: 8px 10px; /* Уменьшено */
         display: flex;
         align-items: center;
         justify-content: center;
         gap: 8px;
         color: #fff;
-        font-size: 12px;
+        font-size: 11px;
         font-weight: 800;
         text-transform: uppercase;
         cursor: pointer;
@@ -93,20 +90,19 @@
         background: rgba(255, 255, 255, 0.08);
     }
 
-    .btn-shop i { color: #0a84ff; font-size: 14px; }
-    .btn-tasks i { color: #af52de; font-size: 14px; }
+    .btn-shop i { color: #0a84ff; font-size: 13px; }
+    .btn-tasks i { color: #af52de; font-size: 13px; }
 
-    /* Счетчик заданий */
     .task-counter {
         background: rgba(255, 59, 48, 0.9);
         color: #fff;
         font-size: 9px;
         font-weight: 900;
-        padding: 2px 6px;
-        border-radius: 10px;
+        padding: 1px 5px;
+        border-radius: 8px;
         position: absolute;
-        top: -5px;
-        right: -5px;
+        top: -4px;
+        right: -4px;
         box-shadow: 0 2px 5px rgba(255, 59, 48, 0.5);
         border: 1px solid rgba(255,255,255,0.2);
     }
@@ -115,7 +111,7 @@
     .shop-grid {
         display: grid;
         grid-template-columns: repeat(2, 1fr);
-        gap: 12px;
+        gap: 10px;
         padding-bottom: 20px;
     }
 
@@ -125,8 +121,8 @@
         -webkit-backdrop-filter: var(--glass-blur, blur(15px));
         border: 1px solid rgba(255,255,255,0.1);
         border-top: 1px solid rgba(255,255,255,0.2);
-        border-radius: 16px;
-        padding: 12px;
+        border-radius: 14px;
+        padding: 10px;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -136,36 +132,35 @@
     }
 
     .shop-card-img {
-        width: 80px;
-        height: 80px;
+        width: 70px;
+        height: 70px;
         object-fit: contain;
-        margin-bottom: 10px;
+        margin-bottom: 8px;
         filter: drop-shadow(0 5px 15px rgba(0,0,0,0.5));
     }
 
     .shop-card-title {
-        font-size: 13px;
+        font-size: 12px;
         font-weight: 800;
         color: #fff;
         text-align: center;
-        margin-bottom: 4px;
+        margin-bottom: 2px;
         line-height: 1.2;
     }
 
     .shop-card-desc {
-        font-size: 10px;
+        font-size: 9px;
         color: rgba(255,255,255,0.5);
         text-align: center;
-        margin-bottom: 12px;
+        margin-bottom: 10px;
         flex-grow: 1;
     }
 
-    /* --- КНОПКИ В КАРТОЧКАХ --- */
     .shop-btn {
         width: 100%;
-        border-radius: 10px;
-        padding: 8px 4px;
-        font-size: 11px;
+        border-radius: 8px;
+        padding: 6px 4px;
+        font-size: 10px;
         font-weight: 900;
         cursor: pointer;
         transition: 0.2s;
@@ -196,45 +191,41 @@
     }
 </style>
 
-<!-- =========================================
-     HTML СТРУКТУРА
-     ========================================= -->
-
 <!-- 1. Шапка кабинета -->
 <div class="events-header-bar">
-    <h3 style="margin: 0; font-size: 18px; font-weight: 900; color: #fff; text-transform: uppercase; letter-spacing: 1px;">Кабинет</h3>
-    <div style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 4px 10px; font-size: 12px; font-weight: 800; color: #fff;">
-        <span id="user-ref-balance">1 250</span> <i class="fa-solid fa-ticket" style="color: #ffd700;"></i>
+    <h3 style="margin: 0; font-size: 16px; font-weight: 900; color: #fff; text-transform: uppercase; letter-spacing: 1px;">Кабинет</h3>
+    <div style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 4px 8px; font-size: 11px; font-weight: 800; color: #fff;">
+        <span id="user-ref-balance"><i class="fa-solid fa-circle-notch fa-spin"></i></span> <i class="fa-solid fa-ticket" style="color: #ffd700;"></i>
     </div>
 </div>
 
-<!-- 2. Компактный баннер ранга (ВЫШЕ ССЫЛКИ) -->
+<!-- 2. Компактный баннер ранга -->
 <div class="glass-rank-banner" id="rank-banner-container">
-    <div style="display: flex; align-items: center; gap: 10px;">
+    <div style="display: flex; align-items: center; gap: 8px;">
         <div class="rank-icon-box">
-            <i class="fa-solid fa-crown" style="color: #ffd700; font-size: 16px;"></i>
+            <i class="fa-solid fa-crown" style="color: #ffd700; font-size: 14px;"></i>
         </div>
         <div>
             <div class="rank-text-sm">Твой ранг</div>
-            <div class="rank-text-lg rank-highlight" id="rank-name">Амбассадор</div>
+            <div class="rank-text-lg rank-highlight" id="rank-name">Загрузка...</div>
         </div>
     </div>
     <div style="text-align: right;">
         <div class="rank-text-sm">Приглашено</div>
-        <div class="rank-text-lg"><span id="rank-count">42</span> <i class="fa-solid fa-user-group" style="color: rgba(255,255,255,0.3); font-size: 10px; margin-left: 2px;"></i></div>
+        <div class="rank-text-lg"><span id="rank-count">0</span> <i class="fa-solid fa-user-group" style="color: rgba(255,255,255,0.3); font-size: 10px; margin-left: 2px;"></i></div>
     </div>
 </div>
 
-<!-- 3. ПОЛЕ С РЕФЕРАЛЬНОЙ ССЫЛКОЙ (ПОД РАНГОМ, БЕЗ HTTPS) -->
-<div style="background: rgba(25, 25, 28, 0.4); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; padding: 10px; margin-bottom: 15px; display: flex; gap: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+<!-- 3. ПОЛЕ С РЕФЕРАЛЬНОЙ ССЫЛКОЙ (ПОДЖАТОЕ) -->
+<div style="background: rgba(25, 25, 28, 0.4); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 6px 8px; margin-bottom: 10px; display: flex; gap: 6px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
     <input type="text" id="ref-link-input" readonly value="Генерация ссылки..." 
-           style="flex-grow: 1; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); border-radius: 10px; color: #fff; padding: 0 10px; font-size: 10px; letter-spacing: -0.2px; outline: none; font-weight: 700; text-overflow: ellipsis; white-space: nowrap;">
+           style="flex-grow: 1; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; color: #fff; padding: 0 8px; font-size: 10px; letter-spacing: -0.2px; outline: none; font-weight: 700; text-overflow: ellipsis; white-space: nowrap;">
     
-    <button onclick="window.copyReferralLink()" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px; width: 38px; height: 38px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; flex-shrink: 0;" onmousedown="this.style.transform='scale(0.9)'" onmouseup="this.style.transform='scale(1)'">
+    <button onclick="window.copyReferralLink()" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 8px; width: 32px; height: 32px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; flex-shrink: 0;" onmousedown="this.style.transform='scale(0.9)'" onmouseup="this.style.transform='scale(1)'">
         <i class="fa-regular fa-copy"></i>
     </button>
     
-    <button onclick="window.shareReferralLink()" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 10px; width: 38px; height: 38px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; flex-shrink: 0;" onmousedown="this.style.transform='scale(0.9)'" onmouseup="this.style.transform='scale(1)'">
+    <button onclick="window.shareReferralLink()" style="background: rgba(52, 199, 89, 0.15); border: 1px solid rgba(52, 199, 89, 0.3); color: #34c759; border-radius: 8px; width: 32px; height: 32px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s; flex-shrink: 0;" onmousedown="this.style.transform='scale(0.9)'" onmouseup="this.style.transform='scale(1)'">
         <i class="fa-solid fa-share-nodes"></i>
     </button>
 </div>
@@ -251,57 +242,35 @@
     </div>
 </div>
 
-<!-- 5. ИНФО-ПАНЕЛЬ КЛИКАБЕЛЬНАЯ (В серых оттенках) -->
-<div onclick="document.getElementById('ref-rules-modal').classList.add('visible')" style="background: rgba(25, 25, 28, 0.4); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 15px; margin-bottom: 20px; box-shadow: 0 8px 20px rgba(0,0,0,0.2); cursor: pointer; transition: 0.2s; display: flex; flex-direction: column;" onmousedown="this.style.transform='scale(0.98)'" onmouseup="this.style.transform='scale(1)'">
+<!-- 5. ИНФО-ПАНЕЛЬ КЛИКАБЕЛЬНАЯ (ПОДЖАТАЯ) -->
+<div onclick="document.getElementById('ref-rules-modal').classList.add('visible')" style="background: rgba(25, 25, 28, 0.4); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; padding: 10px 12px; margin-bottom: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.2); cursor: pointer; transition: 0.2s; display: flex; flex-direction: column;" onmousedown="this.style.transform='scale(0.98)'" onmouseup="this.style.transform='scale(1)'">
     
-    <div style="text-align: center; margin-bottom: 12px;">
-        <div style="font-size: 14px; font-weight: 900; color: #fff; text-transform: uppercase;">Система бонусов</div>
-        <div style="font-size: 10px; color: var(--text-color-muted); margin-top: 2px;">Жми подробнее, чтобы узнать все правила</div>
+    <div style="text-align: center; margin-bottom: 8px;">
+        <div style="font-size: 13px; font-weight: 900; color: #fff; text-transform: uppercase;">Система бонусов</div>
+        <div style="font-size: 9px; color: var(--text-color-muted); margin-top: 2px;">Жми подробнее, чтобы узнать все правила</div>
     </div>
     
-    <div style="display: flex; gap: 10px;">
-        <div style="flex: 1; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 12px 5px; text-align: center;">
-            <div style="font-size: 20px; font-weight: 900; color: #fff;" id="ref-count-display">0</div>
-            <div style="font-size: 9px; color: rgba(255,255,255,0.5); text-transform: uppercase; font-weight: 800; margin-top: 4px;">Активных</div>
+    <div style="display: flex; gap: 8px;">
+        <div style="flex: 1; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 10px; padding: 8px 5px; text-align: center;">
+            <div style="font-size: 16px; font-weight: 900; color: #fff;" id="ref-count-display">0</div>
+            <div style="font-size: 8px; color: rgba(255,255,255,0.5); text-transform: uppercase; font-weight: 800; margin-top: 2px;">Активных</div>
         </div>
-        <div style="flex: 1; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 12px 5px; text-align: center;">
-            <div style="font-size: 20px; font-weight: 900; color: #fff;" id="ref-bonus-display">+0.0</div>
-            <div style="font-size: 9px; color: rgba(255,255,255,0.5); text-transform: uppercase; font-weight: 800; margin-top: 4px;">Буст (монет)</div>
+        <div style="flex: 1; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 10px; padding: 8px 5px; text-align: center;">
+            <div style="font-size: 16px; font-weight: 900; color: #fff;" id="ref-bonus-display">+0.0</div>
+            <div style="font-size: 8px; color: rgba(255,255,255,0.5); text-transform: uppercase; font-weight: 800; margin-top: 2px;">Буст (монет)</div>
         </div>
     </div>
 </div>
 
 <!-- 6. Визуальная сетка магазина -->
 <div class="shop-grid" id="shop-items-container">
-    
-    <!-- Пример карточки: Доступно для покупки -->
-    <div class="shop-card">
-        <div style="font-size: 40px; margin-bottom: 15px; text-shadow: 0 5px 15px rgba(0,0,0,0.5);">🎟️</div>
-        <div class="shop-card-title">VIP Билет</div>
-        <div class="shop-card-desc">Уникальный пропуск на закрытые ивенты</div>
-        <button class="shop-btn btn-buy">500 <i class="fa-solid fa-ticket"></i></button>
+    <div id="shop-loader" style="display:flex; justify-content:center; padding: 40px; grid-column: 1 / -1;">
+        <i class="fa-solid fa-circle-notch fa-spin" style="font-size: 28px; color: var(--text-color-muted);"></i>
     </div>
-
-    <!-- Пример карточки: Забрано / Выполнено -->
-    <div class="shop-card">
-        <div style="font-size: 40px; margin-bottom: 15px; text-shadow: 0 5px 15px rgba(0,0,0,0.5);">💎</div>
-        <div class="shop-card-title">Премиум Роль</div>
-        <div class="shop-card-desc">Особый цвет ника в чате Twitch</div>
-        <button class="shop-btn btn-claim"><i class="fa-solid fa-check"></i> Получено</button>
-    </div>
-
-    <!-- Пример карточки: Заблокировано -->
-    <div class="shop-card">
-        <div style="font-size: 40px; margin-bottom: 15px; text-shadow: 0 5px 15px rgba(0,0,0,0.5);">🔫</div>
-        <div class="shop-card-title">Тайный Скин</div>
-        <div class="shop-card-desc">Доступно только с ранга "Легенда"</div>
-        <button class="shop-btn btn-locked"><i class="fa-solid fa-lock"></i> Закрыто</button>
-    </div>
-
 </div>
 
 <!-- =========================================
-     ПОПАП ПРАВИЛ РЕФЕРАЛКИ (СКРЫТ ПО УМОЛЧАНИЮ)
+     ПОПАП ПРАВИЛ РЕФЕРАЛКИ
      ========================================= -->
 <div id="ref-rules-modal" class="modal-overlay" onclick="if(event.target===this) document.getElementById('ref-rules-modal').classList.remove('visible')">
     <div class="custom-popup" style="background: rgba(18, 18, 20, 0.75); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 24px; padding: 24px; max-width: 360px; width: 90%; margin: auto; position: relative; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.9); text-align: left;">
