@@ -3216,7 +3216,7 @@ window.initProfileShop = async function() {
         if (nameEl) nameEl.innerText = window.getRankInfo(res.referrals_count || 0);
         if (bannerEl) bannerEl.style.display = 'flex';
 
-        // 👇 ВСТАВИТЬ ГЕНЕРАЦИЮ ССЫЛКИ 👇
+       // 👇 ГЕНЕРАЦИЯ ССЫЛКИ И ОЖИВЛЕНИЕ СТАТИСТИКИ 👇
         if (currentUserData) {
             let refPayload = currentUserData.telegram_id;
             if (currentUserData.bott_ref_id) refPayload = `r_${currentUserData.bott_ref_id}`;
@@ -3225,9 +3225,15 @@ window.initProfileShop = async function() {
             const refInput = document.getElementById('ref-link-input');
             if (refInput) {
                 refInput.value = `https://t.me/HATElavka_bot/app?startapp=${refPayload}`;
-                refInput.style.color = '#fff'; // Загорается белым, когда загрузилась
+                refInput.style.color = '#fff';
             }
         }
+        
+        const infoCountEl = document.getElementById('ref-count-display');
+        const infoBonusEl = document.getElementById('ref-bonus-display');
+        
+        if (infoCountEl) infoCountEl.innerText = res.referrals_count || 0;
+        if (infoBonusEl) infoBonusEl.innerText = '+' + ((res.referrals_count || 0) * 0.1).toFixed(1);
         // 👆 КОНЕЦ ВСТАВКИ 👆
         
         if (loader) loader.style.display = 'none';
