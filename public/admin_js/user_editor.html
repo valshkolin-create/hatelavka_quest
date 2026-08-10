@@ -472,7 +472,6 @@
             </div>
 
             <!-- Блок для кнопок управления статусами -->
-<!-- Блок для кнопок управления статусами -->
 <div id="itemDetailsAdminWrapper" style="padding-bottom: 30px;">
 </div>
         </div>
@@ -569,7 +568,6 @@
         let searchTimeout = null;
 
         // Словарь для красивых русских статусов
-        // Словарь для красивых русских статусов
         const statusTranslations = {
             'available': 'В инвентаре (Доступен)',
             'pending': 'В процессе вывода',
@@ -586,8 +584,6 @@
         function getStatusRu(status) {
             return statusTranslations[status] || status;
         }
-
-        // Глобальная функция для совместимости с внешними скриптами (top_nav.js и др.)
 
         // Глобальная функция для совместимости с внешними скриптами (top_nav.js и др.)
 window.makeApiRequest = async function(endpoint, arg2 = 'GET', arg3 = null) {
@@ -1208,7 +1204,7 @@ async function submitCoins() {
                             </div>
                             <div style="display:flex; flex-direction:column; gap:5px;">
                                 <button class="inv-btn" onclick='showItemDetails(${JSON.stringify(item).replace(/'/g, "&apos;")})'>Инфо</button>
-                                ${item.status === 'pending' ? `<button class="inv-btn swap" onclick="openSwapLibrary(${item.id})">Заменить</button>` : ''}
+                                ${['pending', 'available', 'failed'].includes(item.status) ? `<button class="inv-btn swap" onclick="openSwapLibrary(${item.id})">Заменить</button>` : ''}
                             </div>
                         </div>
                     `;
@@ -1342,6 +1338,12 @@ async function submitCoins() {
                 <div style="font-weight: 800; margin-bottom: 10px; color: var(--danger);"><i class="fa-solid fa-wand-magic-sparkles"></i> Админ-управление</div>
                 
                 ${extendButtonHtml}
+
+                ${['pending', 'available', 'failed'].includes(item.status) ? `
+                <button onclick="openSwapLibrary(${item.id}); closeModal('itemDetailsModal');" class="admin-action-btn" style="background: rgba(255, 215, 0, 0.15); color: var(--primary); border: 1px solid rgba(255,215,0,0.3); margin-top: 5px; margin-bottom: 10px; padding: 12px;">
+                    <i class="fa-solid fa-rotate"></i> Заменить предмет (Swap)
+                </button>
+                ` : ''}
                 
                 <div class="admin-form" style="display: flex; gap: 8px; margin-bottom: 10px;">
                     <select id="newStatusSelect_${item.id}" style="flex: 1; padding: 10px; font-size: 13px;">
@@ -1557,7 +1559,9 @@ async function submitCoins() {
             console.log('[LOG] Клик: Вызван submitSwap');
             const targetItem = JSON.parse(decodeURIComponent(jsonStr).replace(/&apos;/g, "'"));
             
-            if(!confirm(`Заменить предмет на "${targetItem.market_hash_name}"?`)) return;
+            // Используем новый customConfirm
+            const isConfirmed = await customConfirm(`Заменить предмет на "${targetItem.market_hash_name}"?`, "Внимание");
+            if(!isConfirmed) return;
 
             closeModal('modal-library');
             tg.MainButton.showProgress();
