@@ -901,6 +901,14 @@ html body nav.floating-bottom-bar .comic-badge {
             </nav>
         </div>
 
+        <!-- ИНДИКАТОР PULL-TO-REFRESH -->
+        <div id="ptr-indicator" style="position: absolute; top: calc(var(--safe-top-gap) + 130px); left: 0; width: 100%; text-align: center; color: var(--text-color-muted); font-size: 10px; font-weight: 800; text-transform: uppercase; opacity: 0; pointer-events: none; z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;">
+            <div style="background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); width: 28px; height: 28px; border-radius: 50%; display: flex; justify-content: center; align-items: center; box-shadow: var(--glass-shadow);">
+                <i id="ptr-icon" class="fa-solid fa-arrow-down" style="font-size: 12px; color: var(--text-color-muted);"></i>
+            </div>
+            <span id="ptr-text" style="letter-spacing: 0.5px;">Потяните вниз</span>
+        </div>
+
         <!-- DYNAMIC CONTENT AREA -->
         <main id="content-area">
         </main>
@@ -3762,44 +3770,151 @@ window.shareReferralLink = function() {
     tg.openTelegramLink(url);
 };
 
-        // ==========================================
-// 🔥 ЛОГИКА СВАЙПОВ ДЛЯ ВКЛАДОК 🔥
+// ==========================================
+// 🔥 ЛОГИКА СВАЙПОВ (ВКЛАДКИ + PULL-TO-REFRESH) 🔥
 // ==========================================
 
-// Массив с порядком твоих вкладок
 const tabsOrder = ['inventory', 'events', 'promocodes', 'referral'];
-
 let touchstartX = 0;
 let touchstartY = 0;
+let currentTouchY = 0;
+let isPullingDown = false;
+const ptrThreshold = 65; // Порог в пикселях для срабатывания обновления
 
-// Вешаем слушатели на зону контента, чтобы свайпы работали именно в ней
 const swipeZone = document.getElementById('content-area');
+const ptrIndicator = document.getElementById('ptr-indicator');
+const ptrIcon = document.getElementById('ptr-icon');
+const ptrText = document.getElementById('ptr-text');
 
 if (swipeZone) {
     swipeZone.addEventListener('touchstart', function(event) {
-        // Игнорируем свайп, если открыта любая модалка (настройки, история и т.д.)
         if (document.querySelector('.modal-overlay.visible')) return;
         
-        touchstartX = event.changedTouches[0].screenX;
-        touchstartY = event.changedTouches[0].screenY;
+        touchstartX = event.touches[0].screenX;
+        touchstartY = event.touches[0].screenY;
+
+        // Включаем режим Pull-To-Refresh только если скролл в самом верху списка
+        if (swipeZone.scrollTop <= 0) {
+            isPullingDown = true;
+            swipeZone.style.transition = 'none'; // Убираем плавность, чтобы интерфейс прилип к пальцу
+            if (ptrIndicator) ptrIndicator.style.transition = 'none';
+        }
     }, { passive: true });
 
-    swipeZone.addEventListener('touchend', function(event) {
+    swipeZone.addEventListener('touchmove', function(event) {
+        if (document.querySelector('.modal-overlay.visible') || !isPullingDown) return;
+        
+        currentTouchY = event.touches[0].screenY;
+        let currentTouchX = event.touches[0].screenX;
+        let dy = currentTouchY - touchstartY;
+        let dx = currentTouchX - touchstartX;
+
+        // Если движение вертикальное, тянем вниз и мы находимся наверху страницы
+        if (Math.abs(dy) > Math.abs(dx) && dy > 0 && swipeZone.scrollTop <= 0) {
+            let pullDist = dy * 0.35; // Эффект сопротивления (резинка)
+            if (pullDist > 100) pullDist = 100 + (pullDist - 100) * 0.2; // Максимальное натяжение
+
+            swipeZone.style.transform = `translateY(${pullDist}px)`;
+            
+            if (ptrIndicator) {
+                ptrIndicator.style.transform = `translateY(${pullDist * 0.4}px)`; // Иконка выезжает чуть медленнее (параллакс)
+                ptrIndicator.style.opacity = Math.min(pullDist / ptrThreshold, 1);
+                
+                // Меняем текст и иконку, когда прошли порог
+                if (pullDist >= ptrThreshold) {
+                    ptrIcon.className = 'fa-solid fa-arrow-up';
+                    ptrIcon.style.color = '#ff3b30'; // Становится красным
+                    ptrText.innerText = 'Отпустите';
+                } else {
+                    ptrIcon.className = 'fa-solid fa-arrow-down';
+                    ptrIcon.style.color = 'var(--text-color-muted)';
+                    ptrText.innerText = 'Потяните вниз';
+                }
+            }
+        } else {
+            // Если юзер начал листать список вниз — отменяем натяжение
+            isPullingDown = false;
+        }
+    }, { passive: true });
+
+    swipeZone.addEventListener('touchend', async function(event) {
         if (document.querySelector('.modal-overlay.visible')) return;
         
         const touchendX = event.changedTouches[0].screenX;
         const touchendY = event.changedTouches[0].screenY;
         
-        handleSwipe(touchstartX, touchstartY, touchendX, touchendY);
+        // 1. Сначала обрабатываем горизонтальный свайп по вкладкам (старая логика)
+        handleHorizontalSwipe(touchstartX, touchstartY, touchendX, touchendY);
+
+        // 2. Отработка Pull-to-Refresh
+        if (isPullingDown) {
+            isPullingDown = false;
+            let dy = touchendY - touchstartY;
+            let pullDist = dy * 0.35;
+
+            swipeZone.style.transition = 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)';
+            if (ptrIndicator) ptrIndicator.style.transition = 'transform 0.3s, opacity 0.3s';
+
+            if (pullDist >= ptrThreshold && swipeZone.scrollTop <= 0) {
+                // 🔥 ПОРОГ ПРОЙДЕН -> ОБНОВЛЯЕМ!
+                if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+                
+                if (ptrIndicator) {
+                    ptrIcon.className = 'fa-solid fa-circle-notch fa-spin';
+                    ptrIcon.style.color = '#ff3b30';
+                    ptrText.innerText = 'Обновление...';
+                    ptrIndicator.style.opacity = '1';
+                    ptrIndicator.style.transform = `translateY(15px)`;
+                }
+                
+                swipeZone.style.transform = `translateY(40px)`; // Держим контент чуть опущенным во время загрузки
+                
+                // ВЫЗЫВАЕМ ТИХОЕ ОБНОВЛЕНИЕ
+                await window.refreshCurrentSpaTab();
+
+                if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+                if (ptrIndicator) {
+                    ptrIcon.className = 'fa-solid fa-check';
+                    ptrIcon.style.color = '#34c759';
+                    ptrText.innerText = 'Обновлено';
+                }
+
+                setTimeout(() => {
+                    swipeZone.style.transform = 'translateY(0)';
+                    if (ptrIndicator) {
+                        ptrIndicator.style.transform = 'translateY(0)';
+                        ptrIndicator.style.opacity = '0';
+                    }
+                }, 600);
+
+            } else {
+                // ОТМЕНА -> Не дотянули, возвращаем обратно
+                swipeZone.style.transform = 'translateY(0)';
+                if (ptrIndicator) {
+                    ptrIndicator.style.transform = 'translateY(0)';
+                    ptrIndicator.style.opacity = '0';
+                }
+            }
+
+            // Чистим стили анимации
+            setTimeout(() => {
+                swipeZone.style.transition = 'none';
+                if (ptrIndicator) ptrIndicator.style.transition = 'none';
+            }, 300);
+        }
     }, { passive: true });
 }
 
-function handleSwipe(startX, startY, endX, endY) {
+// Горизонтальная логика (защищена от срабатывания при вертикальном свайпе)
+function handleHorizontalSwipe(startX, startY, endX, endY) {
     const deltaX = endX - startX;
     const deltaY = endY - startY;
     const minSwipeDistance = 50; 
 
-    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > minSwipeDistance) {
+    // Игнорируем, если свайп был в основном вертикальным
+    if (Math.abs(deltaY) > Math.abs(deltaX)) return;
+
+    if (Math.abs(deltaX) > minSwipeDistance) {
         const activeNav = document.querySelector('.nav-item.active');
         if (!activeNav) return;
 
@@ -3807,28 +3922,38 @@ function handleSwipe(startX, startY, endX, endY) {
         const currentIndex = tabsOrder.indexOf(currentTarget);
 
         if (deltaX < 0) {
-            // Свайп ВЛЕВО <- Переходим на вкладку СПРАВА
             if (currentIndex < tabsOrder.length - 1) {
-                // 🔥 Добавляем легкую "щелкающую" вибрацию интерфейса
                 if (tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
-                
-                const nextTabName = tabsOrder[currentIndex + 1];
-                const nextTab = document.querySelector(`.nav-item[data-target="${nextTabName}"]`);
-                if (nextTab) nextTab.click(); 
+                document.querySelector(`.nav-item[data-target="${tabsOrder[currentIndex + 1]}"]`)?.click(); 
             }
         } else {
-            // Свайп ВПРАВО -> Переходим на вкладку СЛЕВА
             if (currentIndex > 0) {
-                // 🔥 Добавляем легкую "щелкающую" вибрацию интерфейса
                 if (tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
-                
-                const prevTabName = tabsOrder[currentIndex - 1];
-                const prevTab = document.querySelector(`.nav-item[data-target="${prevTabName}"]`);
-                if (prevTab) prevTab.click(); 
+                document.querySelector(`.nav-item[data-target="${tabsOrder[currentIndex - 1]}"]`)?.click(); 
             }
         }
     }
 }
+
+// Универсальная функция ТИХОГО обновления без стирания шапки
+window.refreshCurrentSpaTab = async function() {
+    const currentTab = sessionStorage.getItem('current_spa_tab') || 'inventory';
+    try {
+        if (currentTab === 'inventory') {
+            await window.refreshInventoryList(); // Тихо перерисует инвентарь
+        } else if (currentTab === 'events') {
+            await window.loadEvents(); // Перерисует историю событий
+        } else if (currentTab === 'promocodes') {
+            // Тихий запрос промокодов
+            const rewardsData = await apiRequest("/api/v1/user/rewards", "POST", null, true);
+            window.renderRewards(rewardsData, true); // true = без сброса сортировки
+        } else if (currentTab === 'referral') {
+            await window.initProfileShop(); // Обновит магаз и стату
+        }
+    } catch (err) {
+        console.error("Silent refresh failed:", err);
+    }
+};
 
     </script>
 </body>
