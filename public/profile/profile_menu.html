@@ -3215,6 +3215,20 @@ window.initProfileShop = async function() {
         if (countEl) countEl.innerText = res.referrals_count || 0;
         if (nameEl) nameEl.innerText = window.getRankInfo(res.referrals_count || 0);
         if (bannerEl) bannerEl.style.display = 'flex';
+
+        // 👇 ВСТАВИТЬ ГЕНЕРАЦИЮ ССЫЛКИ 👇
+        if (currentUserData) {
+            let refPayload = currentUserData.telegram_id;
+            if (currentUserData.bott_ref_id) refPayload = `r_${currentUserData.bott_ref_id}`;
+            else if (currentUserData.bott_internal_id) refPayload = `r_${currentUserData.bott_internal_id}`;
+            
+            const refInput = document.getElementById('ref-link-input');
+            if (refInput) {
+                refInput.value = `https://t.me/HATElavka_bot/app?startapp=${refPayload}`;
+                refInput.style.color = '#fff'; // Загорается белым, когда загрузилась
+            }
+        }
+        // 👆 КОНЕЦ ВСТАВКИ 👆
         
         if (loader) loader.style.display = 'none';
         if (container) container.style.display = 'grid';
@@ -3305,6 +3319,43 @@ window.buyProfileShopItem = function(itemId, itemName, price) {
             document.getElementById('global-loader').classList.remove('active');
         }
     }, price === 0 ? "ЗАБРАТЬ" : "ПОЛУЧИТЬ", price === 0 ? "rgba(52, 199, 89, 0.15)" : "rgba(255, 215, 0, 0.15)", price === 0 ? "#34c759" : "#ffd700");
+};
+
+        // ==========================================
+// 🔥 ЛОГИКА КОПИРОВАНИЯ И ШАРИНГА РЕФ ССЫЛКИ 🔥
+// ==========================================
+window.copyReferralLink = function() {
+    const input = document.getElementById('ref-link-input');
+    if (!input || !input.value || input.value.includes("Генерация")) return;
+    
+    const refLink = input.value;
+    
+    navigator.clipboard.writeText(refLink).then(() => {
+        if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+        window.customAlert("Ссылка успешно скопирована!", "Супер");
+    }).catch(() => {
+        // Фоллбэк для старых устройств
+        const ta = document.createElement('textarea');
+        ta.value = refLink;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+        window.customAlert("Ссылка успешно скопирована!", "Супер");
+    });
+};
+
+window.shareReferralLink = function() {
+    const input = document.getElementById('ref-link-input');
+    if (!input || !input.value || input.value.includes("Генерация")) return;
+    
+    const refLink = input.value;
+    const shareText = "Залетай в HATElavka! 🚀\nЛутай халяву и выполняй задания.";
+    const url = `https://t.me/share/url?url=${encodeURIComponent(refLink)}&text=${encodeURIComponent(shareText)}`;
+    
+    if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+    tg.openTelegramLink(url);
 };
 
     </script>
