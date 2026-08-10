@@ -472,8 +472,8 @@
             </div>
 
             <!-- Блок для кнопок управления статусами -->
-<div id="itemDetailsAdminWrapper" style="padding-bottom: 30px;">
-</div>
+            <div id="itemDetailsAdminWrapper" style="padding-bottom: 30px;">
+            </div>
         </div>
     </div>
     
@@ -694,7 +694,7 @@ window.makeApiRequest = async function(endpoint, arg2 = 'GET', arg3 = null) {
             document.getElementById('searchInput').value = '';
             document.getElementById('searchResults').style.display = 'none';
             currentUser = null;
-            renderSearchHistory(); // <--- ВОТ ЭТА СТРОКА ДОСТАЕТ ИСТОРИЮ ИЗ КЭША ПРИ СТАРТЕ
+            renderSearchHistory(); 
             loadBannedUsers(); 
         }
 
@@ -793,7 +793,7 @@ window.makeApiRequest = async function(endpoint, arg2 = 'GET', arg3 = null) {
 
             try {
                 currentUser = await fetchApi(`/api/v1/admin/users/${id}/full_profile`, null, 'GET');
-                saveToSearchHistory(currentUser); // <--- ДОБАВИТЬ ЭТУ СТРОКУ
+                saveToSearchHistory(currentUser); 
                 
                 document.getElementById('userAvatar').src = currentUser.photo_url || defaultAvatar;
                 document.getElementById('userName').textContent = currentUser.full_name || 'Без имени';
@@ -1027,7 +1027,7 @@ async function submitCoins() {
             try {
                 await fetchApi('/api/v1/admin/users/manage-cp', { 
                     user_id: currentUser.telegram_id, 
-                    action_type: 'set', // Отправляем как заглушку для Pydantic модели
+                    action_type: 'set', 
                     amount: amount,
                     target: targetType 
                 });
@@ -1044,6 +1044,7 @@ async function submitCoins() {
                 tg.MainButton.hideProgress(); 
             }
         }
+        
         async function submitGrind() {
             const streak = parseInt(document.getElementById('streakDays').value);
             const coins = parseFloat(document.getElementById('grindCoins').value);
@@ -1333,7 +1334,7 @@ async function submitCoins() {
             
             content.innerHTML = infoHtml;
 
-            // 2. Формируем админские кнопки
+            // 2. Формируем админские кнопки с возможностью смены источника
             let adminHtml = `
                 <div style="font-weight: 800; margin-bottom: 10px; color: var(--danger);"><i class="fa-solid fa-wand-magic-sparkles"></i> Админ-управление</div>
                 
@@ -1345,7 +1346,8 @@ async function submitCoins() {
                 </button>
                 ` : ''}
                 
-                <div class="admin-form" style="display: flex; gap: 8px; margin-bottom: 10px;">
+                <div style="font-size: 11px; color: var(--text-sec); margin-top: 15px; margin-bottom: 5px; text-transform: uppercase; font-weight: 700;">Статус предмета</div>
+                <div class="admin-form" style="display: flex; gap: 8px; margin-bottom: 5px;">
                     <select id="newStatusSelect_${item.id}" style="flex: 1; padding: 10px; font-size: 13px;">
                         <option value="available" ${item.status === 'available' ? 'selected' : ''}>В инвентаре (available)</option>
                         <option value="failed" ${item.status === 'failed' ? 'selected' : ''}>Заморозить/Ошибка (failed)</option>
@@ -1355,7 +1357,21 @@ async function submitCoins() {
                         <option value="exchanged" ${item.status === 'exchanged' ? 'selected' : ''}>Продан за баланс (exchanged)</option>
                     </select>
                 </div>
-                <button onclick="changeItemStatus(${item.id})" class="admin-action-btn" style="background: var(--danger); margin-top: 5px; margin-bottom: 20px; padding: 12px;">Изменить статус</button>
+                <button onclick="changeItemStatus(${item.id})" class="admin-action-btn" style="background: var(--danger); margin-top: 0px; margin-bottom: 15px; padding: 12px;">Изменить статус</button>
+
+                <div style="font-size: 11px; color: var(--text-sec); margin-top: 10px; margin-bottom: 5px; text-transform: uppercase; font-weight: 700;">Источник (Снимает лимиты)</div>
+                <div class="admin-form" style="display: flex; gap: 8px; margin-bottom: 5px;">
+                    <select id="newSourceSelect_${item.id}" style="flex: 1; padding: 10px; font-size: 13px;">
+                        <option value="shop" ${item.source === 'shop' ? 'selected' : ''}>Магазин (shop)</option>
+                        <option value="raffle" ${item.source === 'raffle' ? 'selected' : ''}>Розыгрыш (raffle)</option>
+                        <option value="auction" ${item.source === 'auction' ? 'selected' : ''}>Аукцион (auction)</option>
+                        <option value="twitch" ${item.source === 'twitch' ? 'selected' : ''}>Twitch Drops (twitch)</option>
+                        <option value="battlepass" ${item.source === 'battlepass' ? 'selected' : ''}>Battle Pass (battlepass)</option>
+                        <option value="upgrade" ${item.source === 'upgrade' ? 'selected' : ''}>Апгрейд (upgrade)</option>
+                        <option value="case" ${item.source === 'case' ? 'selected' : ''}>Кейс (case)</option>
+                    </select>
+                </div>
+                <button onclick="changeItemSource(${item.id})" class="admin-action-btn" style="background: #ff9500; color: #fff; margin-top: 0px; margin-bottom: 10px; padding: 12px;">Изменить источник</button>
             `;
 
             adminWrapper.innerHTML = adminHtml;
@@ -1363,78 +1379,113 @@ async function submitCoins() {
         }
 
         async function extendItemTime(historyId, source) {
-    const input = await customPrompt(
-        "Сколько часов дать пользователю на вывод этого предмета?\n\n(Оставь поле пустым, чтобы выдать полный стандартный срок)", 
-        "2", 
-        "Изменение таймера"
-    );
-    
-    if (input === null) return;
-    
-    let hours = parseFloat(input);
-    if (isNaN(hours) && input.trim() !== "") {
-        return tg.showAlert("Пожалуйста, введи число (например: 2 или 1.5).");
-    }
+            const input = await customPrompt(
+                "Сколько часов дать пользователю на вывод этого предмета?\n\n(Оставь поле пустым, чтобы выдать полный стандартный срок)", 
+                "2", 
+                "Изменение таймера"
+            );
+            
+            if (input === null) return;
+            
+            let hours = parseFloat(input);
+            if (isNaN(hours) && input.trim() !== "") {
+                return tg.showAlert("Пожалуйста, введи число (например: 2 или 1.5).");
+            }
 
-    tg.MainButton.showProgress();
-    try {
-        await fetchApi('/api/v1/admin/users/inventory/extend-time', { 
-            history_id: historyId,
-            source: source || 'shop',
-            hours_to_add: isNaN(hours) ? null : hours 
-        });
-        
-        if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-        tg.showPopup({message: 'Таймер успешно изменен!'});
-        
-        // ПОЛУЧАЕМ СВЕЖИЕ ДАННЫЕ И ПЕРЕРИСОВЫВАЕМ ОКНО (без закрытия)
-        const items = await fetchApi(`/api/v1/admin/users/${currentUser.telegram_id}/inventory`, null, 'GET');
-        const updatedItem = items.find(i => i.id === historyId);
-        
-        if (updatedItem) {
-            showItemDetails(updatedItem); // Обновляем инфу прям в текущем окне
+            tg.MainButton.showProgress();
+            try {
+                await fetchApi('/api/v1/admin/users/inventory/extend-time', { 
+                    history_id: historyId,
+                    source: source || 'shop',
+                    hours_to_add: isNaN(hours) ? null : hours 
+                });
+                
+                if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                tg.showPopup({message: 'Таймер успешно изменен!'});
+                
+                // ПОЛУЧАЕМ СВЕЖИЕ ДАННЫЕ И ПЕРЕРИСОВЫВАЕМ ОКНО (без закрытия)
+                const items = await fetchApi(`/api/v1/admin/users/${currentUser.telegram_id}/inventory`, null, 'GET');
+                const updatedItem = items.find(i => i.id === historyId);
+                
+                if (updatedItem) {
+                    showItemDetails(updatedItem); // Обновляем инфу прям в текущем окне
+                }
+                
+                openInventory(); // Фоном обновляем список предметов сзади
+            } catch (err) {
+                tg.showAlert(`Ошибка: ${err.message}`);
+            } finally {
+                tg.MainButton.hideProgress();
+            }
         }
-        
-        openInventory(); // Фоном обновляем список предметов сзади
-    } catch (err) {
-        tg.showAlert(`Ошибка: ${err.message}`);
-    } finally {
-        tg.MainButton.hideProgress();
-    }
-}
-        // НОВАЯ ФУНКЦИЯ ДЛЯ ОТПРАВКИ СТАТУСА НА БЕКЕНД
+
+        // ОТПРАВКА СТАТУСА НА БЕКЕНД
         async function changeItemStatus(historyId) {
-    const select = document.getElementById(`newStatusSelect_${historyId}`);
-    const newStatus = select.value;
-    
-    const isConfirmed = await customConfirm(`Точно изменить статус на "${newStatus}"?`, "Внимание");
-    if (!isConfirmed) return;
+            const select = document.getElementById(`newStatusSelect_${historyId}`);
+            const newStatus = select.value;
+            
+            const isConfirmed = await customConfirm(`Точно изменить статус на "${newStatus}"?`, "Внимание");
+            if (!isConfirmed) return;
 
-    tg.MainButton.showProgress();
-    try {
-        await fetchApi('/api/v1/admin/users/inventory/status', {
-            history_id: historyId,
-            new_status: newStatus
-        });
-        
-        if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-        tg.showPopup({message: 'Статус предмета успешно изменен!'});
-        
-        // ПОЛУЧАЕМ СВЕЖИЕ ДАННЫЕ И ПЕРЕРИСОВЫВАЕМ ОКНО (без закрытия)
-        const items = await fetchApi(`/api/v1/admin/users/${currentUser.telegram_id}/inventory`, null, 'GET');
-        const updatedItem = items.find(i => i.id === historyId);
-        
-        if (updatedItem) {
-            showItemDetails(updatedItem); // Обновляем инфу прям в текущем окне
+            tg.MainButton.showProgress();
+            try {
+                await fetchApi('/api/v1/admin/users/inventory/status', {
+                    history_id: historyId,
+                    new_status: newStatus
+                });
+                
+                if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                tg.showPopup({message: 'Статус предмета успешно изменен!'});
+                
+                // ПОЛУЧАЕМ СВЕЖИЕ ДАННЫЕ И ПЕРЕРИСОВЫВАЕМ ОКНО
+                const items = await fetchApi(`/api/v1/admin/users/${currentUser.telegram_id}/inventory`, null, 'GET');
+                const updatedItem = items.find(i => i.id === historyId);
+                
+                if (updatedItem) {
+                    showItemDetails(updatedItem);
+                }
+                
+                openInventory(); 
+            } catch (err) {
+                tg.showAlert(`Ошибка: ${err.message}`);
+            } finally {
+                tg.MainButton.hideProgress();
+            }
         }
-        
-        openInventory(); // Фоном обновляем список предметов сзади
-    } catch (err) {
-        tg.showAlert(`Ошибка: ${err.message}`);
-    } finally {
-        tg.MainButton.hideProgress();
-    }
-}
+
+        // НОВАЯ ФУНКЦИЯ ОТПРАВКИ ИСТОЧНИКА НА БЕКЕНД
+        async function changeItemSource(historyId) {
+            const select = document.getElementById(`newSourceSelect_${historyId}`);
+            const newSource = select.value;
+            
+            const isConfirmed = await customConfirm(`Точно изменить источник на "${newSource}"?`, "Внимание");
+            if (!isConfirmed) return;
+
+            tg.MainButton.showProgress();
+            try {
+                await fetchApi('/api/v1/admin/users/inventory/source', {
+                    history_id: historyId,
+                    new_source: newSource
+                });
+                
+                if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                tg.showPopup({message: 'Источник предмета успешно изменен!'});
+                
+                // ПОЛУЧАЕМ СВЕЖИЕ ДАННЫЕ И ПЕРЕРИСОВЫВАЕМ ОКНО
+                const items = await fetchApi(`/api/v1/admin/users/${currentUser.telegram_id}/inventory`, null, 'GET');
+                const updatedItem = items.find(i => i.id === historyId);
+                
+                if (updatedItem) {
+                    showItemDetails(updatedItem);
+                }
+                
+                openInventory(); 
+            } catch (err) {
+                tg.showAlert(`Ошибка: ${err.message}`);
+            } finally {
+                tg.MainButton.hideProgress();
+            }
+        }
 
         // --- ЛОГИКА СКЛАДА (КОПИЯ ИЗ РОЗЫГРЫШЕЙ) ---
         let currentSwapTargetId = null;
@@ -1567,7 +1618,7 @@ async function submitCoins() {
             tg.MainButton.showProgress();
 
             try {
-                // Вызов нового эндпоинта для свапа (мы напишем его на Python)
+                // Вызов эндпоинта для свапа
                 await fetchApi('/api/v1/admin/users/inventory/swap', {
                     history_id: currentSwapTargetId,
                     new_market_hash_name: targetItem.market_hash_name,
@@ -1591,7 +1642,7 @@ async function submitCoins() {
         }
 
         loadBannedUsers();
-        renderSearchHistory(); // <-- Добавь эту строку
+        renderSearchHistory();
     </script>
     <script src="/top_nav.js" defer></script>
     <script src="/bottom-nav.js" defer></script>
