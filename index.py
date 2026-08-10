@@ -15456,6 +15456,8 @@ async def admin_change_item_status(
 
     return {"success": True, "message": "Статус успешно изменен"}
 
+        
+
 # --- НОВЫЙ ЭНДПОИНТ: Поиск пользователей для админки ---
 @app.post("/api/v1/admin/users/search")
 async def admin_search_users(
@@ -30981,6 +30983,47 @@ async def admin_save_case_item(request: Request):
     except Exception as e:
         print(f"Save Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+# ==========================================
+# МОДЕЛЬ ЗАПРОСА ДЛЯ СМЕНЫ ИСТОЧНИКА
+# ==========================================
+class ChangeItemSourceRequest(BaseModel):
+    initData: str = None
+    history_id: int
+    new_source: str
+
+# ==========================================
+# 🔥 ИЗМЕНЕНИЕ ИСТОЧНИКА ПРЕДМЕТА (СНЯТИЕ ЛИМИТОВ)
+# ==========================================
+@app.post("/api/v1/admin/users/inventory/source")
+async def admin_change_inventory_source(
+    req: ChangeItemSourceRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    # 1. Строгая проверка на администратора
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+
+    try:
+        # 2. Обновляем поле source в таблице истории (инвентаря)
+        # Учитываем, что таблица с инвентарем юзеров у тебя скорее всего называется cs_history
+        res = await supabase.patch(
+            "/cs_history", 
+            params={"id": f"eq.{req.history_id}"}, 
+            json={"source": req.new_source}
+        )
+
+        if res.status_code >= 400:
+            raise Exception(f"Ошибка БД: {res.text}")
+
+        logging.info(f"Админ {user_info.get('id')} изменил источник предмета {req.history_id} на '{req.new_source}'")
+        
+        return {"status": "ok", "message": "Источник успешно изменен"}
+
+    except Exception as e:
+        logging.error(f"Ошибка смены источника предмета: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Не удалось изменить источник предмета")
 
 # 4. Удалить (Разрываем связь, скин остается в базе)
 @app.post("/api/v1/admin/cases/delete_item")
