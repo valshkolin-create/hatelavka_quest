@@ -304,7 +304,7 @@
             border: 1px solid rgba(255, 255, 255, 0.05);
         }
 
-        /* --- АНИМИРОВАННАЯ ПОДСКАЗКА ДЛЯ TWITCH --- */
+        /* --- СТАТИЧНАЯ ПОДСКАЗКА ДЛЯ TWITCH --- */
         .twitch-onboarding-hint {
             position: absolute;
             left: 55px; /* Сдвигаем правее иконок Стим и Твич */
@@ -316,18 +316,17 @@
             pointer-events: none; /* Чтобы клики проходили сквозь нее на иконку */
             opacity: 0; /* Скрыто по умолчанию */
             transition: opacity 0.5s ease;
-            animation: bounceHint 1.5s ease-in-out infinite;
         }
         .twitch-onboarding-hint.visible {
             opacity: 1;
         }
         .twitch-onboarding-hint-text {
             color: #ffd700;
-            font-size: 9px;
+            font-size: 10px; /* Было 9px, сделали 10px */
             font-weight: 800;
-            line-height: 1.1;
+            line-height: 1.2; /* Чуть увеличил интервал между строками, чтобы текст не слипался */
             text-shadow: 0 2px 5px rgba(0,0,0,0.8);
-            font-style: italic; /* Легкий наклон для эффекта ручной подписи */
+            font-style: italic; 
             text-transform: uppercase;
         }
         @keyframes bounceHint {
@@ -816,14 +815,14 @@ html body nav.floating-bottom-bar .comic-badge {
                             <i id="icon-steam" class="fa-brands fa-steam" style="color: rgba(255,255,255,0.2);" onclick="openSettings()"></i>
                             <i id="icon-twitch" class="fa-brands fa-twitch" style="color: rgba(255,255,255,0.2);" onclick="openSettings()"></i>
                             
-                            <!-- 🔥 АНИМИРОВАННАЯ ПОДСКАЗКА 🔥 -->
+                            <!-- 🔥 СТАТИЧНАЯ ПОДСКАЗКА 🔥 -->
                             <div id="twitch-onboarding-hint" class="twitch-onboarding-hint">
                                 <!-- Кастомная нарисованная SVG стрелочка -->
                                 <svg width="25" height="20" viewBox="0 0 40 30" fill="none" xmlns="http://www.w3.org/2000/svg">
                                     <path d="M35 5 Q 20 5 5 25" stroke="#ffd700" stroke-width="2" stroke-linecap="round"/>
                                     <path d="M5 25 L 15 25 M 5 25 L 5 15" stroke="#ffd700" stroke-width="2" stroke-linecap="round"/>
                                 </svg>
-                                <div class="twitch-onboarding-hint-text">Привяжи<br>Twitch</div>
+                                <div class="twitch-onboarding-hint-text">Чтобы привязать<br>Twitch,<br>жми сюда!</div>
                             </div>
                         </div>
                         <div class="nickname" id="user-nickname">Загрузка...</div>
