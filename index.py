@@ -10355,11 +10355,17 @@ async def unlink_twitch_account(request_data: InitDataRequest, supabase: httpx.A
     
     telegram_id = user_info["id"]
     
-    # Сохраняем ответ в переменную
+    # Сохраняем ответ в переменную и полностью затираем все следы Twitch
     response = await supabase.patch(
         "/users", 
         params={"telegram_id": f"eq.{telegram_id}"}, 
-        json={"twitch_id": None, "twitch_login": None}
+        json={
+            "twitch_id": None, 
+            "twitch_login": None,
+            "twitch_status": None,
+            "twitch_access_token": None,
+            "twitch_refresh_token": None
+        }
     )
     
     # Проверяем, успешен ли запрос к БД
@@ -10368,8 +10374,8 @@ async def unlink_twitch_account(request_data: InitDataRequest, supabase: httpx.A
         print(f"Supabase error: {response.text}") 
         raise HTTPException(status_code=500, detail="Ошибка при обновлении базы данных")
 
-    return {"message": "Аккаунт Twitch успешно отвязан."}
-
+    return {"message": "Аккаунт Twitch полностью отвязан."}
+    
 async def get_admin_settings_async_global() -> AdminSettings: # Убрали аргумент supabase
     """Вспомогательная функция для получения настроек админки (с кэшированием), использующая ГЛОБАЛЬНЫЙ клиент."""
     now = time.time()
