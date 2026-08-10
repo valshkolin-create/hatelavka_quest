@@ -3217,6 +3217,7 @@ window.initProfileShop = async function() {
         if (bannerEl) bannerEl.style.display = 'flex';
 
        // 👇 ГЕНЕРАЦИЯ ССЫЛКИ И ОЖИВЛЕНИЕ СТАТИСТИКИ 👇
+        // 👇 ВСТАВИТЬ ГЕНЕРАЦИЮ ССЫЛКИ В window.initProfileShop 👇
         if (currentUserData) {
             let refPayload = currentUserData.telegram_id;
             if (currentUserData.bott_ref_id) refPayload = `r_${currentUserData.bott_ref_id}`;
@@ -3224,7 +3225,10 @@ window.initProfileShop = async function() {
             
             const refInput = document.getElementById('ref-link-input');
             if (refInput) {
-                refInput.value = `https://t.me/HATElavka_bot/app?startapp=${refPayload}`;
+                // Визуально выводим БЕЗ https://
+                refInput.value = `t.me/HATElavka_bot/app?startapp=${refPayload}`;
+                // Но сохраняем ПОЛНУЮ ссылку для копирования
+                refInput.dataset.fullLink = `https://t.me/HATElavka_bot/app?startapp=${refPayload}`;
                 refInput.style.color = '#fff';
             }
         }
@@ -3327,20 +3331,20 @@ window.buyProfileShopItem = function(itemId, itemName, price) {
     }, price === 0 ? "ЗАБРАТЬ" : "ПОЛУЧИТЬ", price === 0 ? "rgba(52, 199, 89, 0.15)" : "rgba(255, 215, 0, 0.15)", price === 0 ? "#34c759" : "#ffd700");
 };
 
-        // ==========================================
+// ==========================================
 // 🔥 ЛОГИКА КОПИРОВАНИЯ И ШАРИНГА РЕФ ССЫЛКИ 🔥
 // ==========================================
 window.copyReferralLink = function() {
     const input = document.getElementById('ref-link-input');
     if (!input || !input.value || input.value.includes("Генерация")) return;
     
-    const refLink = input.value;
+    // Берем полную ссылку с https://
+    const refLink = input.dataset.fullLink || `https://${input.value}`;
     
     navigator.clipboard.writeText(refLink).then(() => {
         if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
         window.customAlert("Ссылка успешно скопирована!", "Супер");
     }).catch(() => {
-        // Фоллбэк для старых устройств
         const ta = document.createElement('textarea');
         ta.value = refLink;
         document.body.appendChild(ta);
@@ -3350,6 +3354,19 @@ window.copyReferralLink = function() {
         if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
         window.customAlert("Ссылка успешно скопирована!", "Супер");
     });
+};
+
+window.shareReferralLink = function() {
+    const input = document.getElementById('ref-link-input');
+    if (!input || !input.value || input.value.includes("Генерация")) return;
+    
+    // Берем полную ссылку с https://
+    const refLink = input.dataset.fullLink || `https://${input.value}`;
+    const shareText = "Залетай в HATElavka! 🚀\nЛутай халяву и выполняй задания.";
+    const url = `https://t.me/share/url?url=${encodeURIComponent(refLink)}&text=${encodeURIComponent(shareText)}`;
+    
+    if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+    tg.openTelegramLink(url);
 };
 
 window.shareReferralLink = function() {
