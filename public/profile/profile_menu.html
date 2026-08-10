@@ -323,12 +323,12 @@
         }
         
         .twitch-onboarding-hint-text {
-            color: #ffd700;
-            font-size: 8px; /* 🔥 Сделали шрифт маленьким и аккуратным */
+            color: #ffffff; /* Основной текст теперь белый */
+            font-size: 8px; 
             font-weight: 800;
-            line-height: 1.1; /* Строки теперь ближе друг к другу */
+            line-height: 1.1; 
             text-shadow: 0 2px 5px rgba(0,0,0,0.8);
-            font-style: italic; 
+            font-style: italic;  
             text-transform: uppercase;
         }
         @keyframes bounceHint {
@@ -824,7 +824,7 @@ html body nav.floating-bottom-bar .comic-badge {
                                     <path d="M35 5 Q 20 5 5 25" stroke="#ffd700" stroke-width="2" stroke-linecap="round"/>
                                     <path d="M5 25 L 15 25 M 5 25 L 5 15" stroke="#ffd700" stroke-width="2" stroke-linecap="round"/>
                                 </svg>
-                                <div class="twitch-onboarding-hint-text">Чтобы привязать<br>Twitch,<br>жми сюда!</div>
+                                <div class="twitch-onboarding-hint-text">Чтобы привязать<br><span style="color: #ffd700; text-shadow: 0 0 8px rgba(255, 215, 0, 0.6);">Twitch</span>,<br>жми сюда!</div>
                             </div>
                         </div>
                         <div class="nickname" id="user-nickname">Загрузка...</div>
@@ -1752,13 +1752,21 @@ window.clearAllRewards = function() {
 
                 // 👇 ДОБАВИТЬ ЭТО 👇
                 // 🔥 ЛОГИКА ПОДСКАЗКИ TWITCH 🔥
+                // 🔥 ЛОГИКА ПОДСКАЗКИ TWITCH 🔥
                 const hintEl = document.getElementById('twitch-onboarding-hint');
                 if (hintEl) {
                     // Если нет Твича, нет ошибки и флаг в localStorage еще не стоит -> показываем
                     if (!hasTwitch && !isTwitchError && !localStorage.getItem('twitch_hint_shown')) {
                         hintEl.classList.add('visible');
+                        
+                        // Заставляем саму иконку светиться желтым и стать чуть больше!
+                        twitchIcon.style.color = '#ffd700';
+                        twitchIcon.style.textShadow = '0 0 15px rgba(255, 215, 0, 0.8)';
+                        twitchIcon.style.transform = 'scale(1.1)';
                     } else {
                         hintEl.classList.remove('visible');
+                        // Возвращаем масштаб на место, если подсказки нет
+                        twitchIcon.style.transform = 'scale(1)';
                     }
                 }
                 // 👆 КОНЕЦ ВСТАВКИ 👆
