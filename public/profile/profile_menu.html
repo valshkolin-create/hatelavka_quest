@@ -742,6 +742,11 @@ html body nav.floating-bottom-bar .comic-badge {
             font-size: 12px; cursor: pointer; transition: 0.2s;
         }
         .reward-delete-btn:active { color: #ff453a; transform: scale(0.9); }
+
+        /* --- ПРИЖИМАЕМ БАННЕР К ВЕРХУ НА ПК (любая ширина окна) --- */
+        body.is-desktop .system-top-banner {
+    top: 10px !important; 
+        }
         
     </style>
 </head>
@@ -2341,52 +2346,66 @@ window.clearAllRewards = function() {
             if (sourceText === 'auction') sourceText = 'Аукцион';
             if (sourceText === 'twitch') sourceText = 'Twitch Дроп';
             if (sourceText === 'checkpoint') sourceText = 'Баттл пасс';
-            if (item.case_name) sourceText += ` (${item.case_name})`;
+
+            // 🔥 Новая логика: Прячем последние 3 символа кода, если он есть
+            let displayCode = '';
+            if (item.code_used) {
+                let codeStr = String(item.code_used);
+                displayCode = codeStr.length > 3 ? codeStr.slice(0, -3) + '***' : '***';
+            }
 
             let modalExpireText = '';
-if (['available', 'pending', 'canceled'].includes(rawStatus)) {
-    const updateTimeMs = parseSafeDate(item.updated_at || item.created_at);
-    const amnestyTimestamp = new Date('2026-07-15T00:00:00+03:00').getTime();
-    
-    let baseLifeTimeMs = updateTimeMs < amnestyTimestamp 
-        ? amnestyTimestamp + (14 * 24 * 60 * 60 * 1000) 
-        : updateTimeMs + ((['raffle', 'auction', 'twitch'].includes(item.source || 'shop') ? 3 : 14) * 24 * 60 * 60 * 1000);
-    
-    let finalDeleteTimeMs = baseLifeTimeMs + (7 * 24 * 60 * 60 * 1000);
-    
-    if (updateTimeMs > 0) {
-        if (Date.now() < baseLifeTimeMs) {
-            const timeLeftMs = baseLifeTimeMs - Date.now();
-            const days = Math.floor(timeLeftMs / (1000 * 60 * 60 * 24));
-            const hours = Math.floor((timeLeftMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-            const minutes = Math.floor((timeLeftMs % (1000 * 60 * 60)) / (1000 * 60));
-            let timeStr = days > 0 ? `${days}д ${hours}ч ${minutes}м` : `${hours}ч ${minutes}м`;
-            if (days === 0 && hours === 0) timeStr = `${minutes}м`;
-            modalExpireText = `
-            <div style="display:flex; justify-content:space-between; border-bottom: 1px solid var(--glass-border); padding-bottom: 8px;">
-                <span style="color: var(--text-color-muted); font-size: 12px;">Сгорание:</span>
-                <span style="font-weight: 900; font-size: 12px; color: #ff3b30;">Через ${timeStr}</span>
-            </div>`;
-        } else if (Date.now() >= baseLifeTimeMs && Date.now() < finalDeleteTimeMs) {
-            const graceLeftMs = finalDeleteTimeMs - Date.now();
-            const daysGrace = Math.floor(graceLeftMs / (1000 * 60 * 60 * 24));
-            modalExpireText = `
-            <div style="display:flex; justify-content:space-between; border-bottom: 1px solid var(--glass-border); padding-bottom: 8px;">
-                <span style="color: var(--text-color-muted); font-size: 12px;">Сгорание:</span>
-                <span style="font-weight: 900; font-size: 12px; color: #ffcc00;">Оспаривание (${daysGrace} дн.)</span>
-            </div>`;
-        } else {
-            modalExpireText = `
-            <div style="display:flex; justify-content:space-between; border-bottom: 1px solid var(--glass-border); padding-bottom: 8px;">
-                <span style="color: var(--text-color-muted); font-size: 12px;">Сгорание:</span>
-                <span style="font-weight: 900; font-size: 12px; color: #ff3b30;">СГОРЕЛ</span>
-            </div>`;
-        }
-    }
-}
+            if (['available', 'pending', 'canceled'].includes(rawStatus)) {
+                const updateTimeMs = parseSafeDate(item.updated_at || item.created_at);
+                const amnestyTimestamp = new Date('2026-07-15T00:00:00+03:00').getTime();
+                
+                let baseLifeTimeMs = updateTimeMs < amnestyTimestamp 
+                    ? amnestyTimestamp + (14 * 24 * 60 * 60 * 1000) 
+                    : updateTimeMs + ((['raffle', 'auction', 'twitch'].includes(item.source || 'shop') ? 3 : 14) * 24 * 60 * 60 * 1000);
+                
+                let finalDeleteTimeMs = baseLifeTimeMs + (7 * 24 * 60 * 60 * 1000);
+                
+                if (updateTimeMs > 0) {
+                    if (Date.now() < baseLifeTimeMs) {
+                        const timeLeftMs = baseLifeTimeMs - Date.now();
+                        const days = Math.floor(timeLeftMs / (1000 * 60 * 60 * 24));
+                        const hours = Math.floor((timeLeftMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                        const minutes = Math.floor((timeLeftMs % (1000 * 60 * 60)) / (1000 * 60));
+                        let timeStr = days > 0 ? `${days}д ${hours}ч ${minutes}м` : `${hours}ч ${minutes}м`;
+                        if (days === 0 && hours === 0) timeStr = `${minutes}м`;
+                        modalExpireText = `
+                        <div style="display:flex; justify-content:space-between; border-bottom: 1px solid var(--glass-border); padding-bottom: 8px;">
+                            <span style="color: var(--text-color-muted); font-size: 12px;">Сгорание:</span>
+                            <span style="font-weight: 900; font-size: 12px; color: #ff3b30;">Через ${timeStr}</span>
+                        </div>`;
+                    } else if (Date.now() >= baseLifeTimeMs && Date.now() < finalDeleteTimeMs) {
+                        const graceLeftMs = finalDeleteTimeMs - Date.now();
+                        const daysGrace = Math.floor(graceLeftMs / (1000 * 60 * 60 * 24));
+                        modalExpireText = `
+                        <div style="display:flex; justify-content:space-between; border-bottom: 1px solid var(--glass-border); padding-bottom: 8px;">
+                            <span style="color: var(--text-color-muted); font-size: 12px;">Сгорание:</span>
+                            <span style="font-weight: 900; font-size: 12px; color: #ffcc00;">Оспаривание (${daysGrace} дн.)</span>
+                        </div>`;
+                    } else {
+                        modalExpireText = `
+                        <div style="display:flex; justify-content:space-between; border-bottom: 1px solid var(--glass-border); padding-bottom: 8px;">
+                            <span style="color: var(--text-color-muted); font-size: 12px;">Сгорание:</span>
+                            <span style="font-weight: 900; font-size: 12px; color: #ff3b30;">СГОРЕЛ</span>
+                        </div>`;
+                    }
+                }
+            }
 
             const tgUser = (typeof tg !== 'undefined' && tg.initDataUnsafe?.user) ? tg.initDataUnsafe.user : {};
-            let supportText = `🚨 Запрос в поддержку (Инвентарь)\n\n👤 Пользователь: ${tgUser.username ? `@${tgUser.username}` : 'Без юзернейма'} (ID: ${tgUser.id || 'Неизвестен'})\n📦 Предмет: ${displayName}\n🧾 ID: #${historyId}\n📊 Статус: ${statusRu}\n${finalCondition ? `✨ Качество: ${finalCondition}\n` : ''}📅 Получен: ${dateFormatted}\n🛠 Источник: ${sourceText}\n${item.error_log ? `❌ Лог ошибки: ${item.error_log}\n` : ''}\nОпишите вашу проблему ниже:\n`;
+            
+            // 🔥 Обновляем текст для админа: добавляем ПОЛНЫЙ код и название кейса
+            let supportText = `🚨 Запрос в поддержку (Инвентарь)\n\n👤 Пользователь: ${tgUser.username ? `@${tgUser.username}` : 'Без юзернейма'} (ID: ${tgUser.id || 'Неизвестен'})\n📦 Предмет: ${displayName}\n🧾 ID: #${historyId}\n📊 Статус: ${statusRu}\n${finalCondition ? `✨ Качество: ${finalCondition}\n` : ''}📅 Получен: ${dateFormatted}\n🛠 Источник: ${sourceText}\n`;
+            
+            if (item.case_name) supportText += `🎁 Кейс: ${item.case_name}\n`;
+            if (item.code_used) supportText += `🔑 Код: ${item.code_used}\n`;
+            
+            if (item.error_log) supportText += `❌ Лог ошибки: ${item.error_log}\n`;
+            supportText += `\nОпишите вашу проблему ниже:\n`;
             
             const overlay = document.createElement('div'); 
             overlay.className = 'modal-overlay visible'; 
@@ -2401,7 +2420,6 @@ if (['available', 'pending', 'canceled'].includes(rawStatus)) {
             const box = document.createElement('div'); 
             box.style.cssText = `position: relative; background: var(--glass-bg); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); border-top: 1px solid var(--glass-border); border-radius: 24px 24px 0 0; padding: 30px 20px 35px 20px; width: 100%; box-sizing: border-box; color: white; box-shadow: 0 -10px 40px rgba(0,0,0,0.9); transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); display: flex; flex-direction: column; gap: 15px;`;
 
-            // 🔥 ФИКС ОШИБОК: Строгая проверка для показа красного окна внутри модалки
             const isErrorStatus = ['failed', 'canceled', 'available'].includes(rawStatus);
             const hasCustomError = isErrorStatus && item.details && item.details.includes('||');
             
@@ -2413,7 +2431,6 @@ if (['available', 'pending', 'canceled'].includes(rawStatus)) {
                     <img src="${imageUrl}" style="width: 60px; height: 60px; object-fit: contain; filter: drop-shadow(0 5px 10px rgba(0,0,0,0.5));">
                     <div style="display:flex; flex-direction:column; gap: 4px; overflow: hidden;">
                         <span style="font-size: 10px; color: ${rData.color}; text-transform: uppercase; font-weight: 800;">${rData.name}</span>
-                        <!-- 🔥 Заменили cleanName на displayName и разрешили тексту переноситься -->
                         <span style="font-size: 13px; font-weight: 900; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; line-height: 1.2;">${displayName}</span>
                         <span style="font-size: 12px; font-weight: 800; color: #fff;">${parsedBasePrice} ₽</span>
                     </div>
@@ -2431,6 +2448,18 @@ if (['available', 'pending', 'canceled'].includes(rawStatus)) {
                         <span style="color: var(--text-color-muted); font-size: 12px;">Источник:</span>
                         <span style="font-weight: 800; font-size: 12px;">${sourceText}</span>
                     </div>
+                    
+                    <!-- 🔥 НОВЫЕ БЛОКИ ДЛЯ UI: Название кейса и замаскированный код -->
+                    ${item.case_name ? `<div style="display:flex; justify-content:space-between; border-bottom: 1px solid var(--glass-border); padding-bottom: 8px;">
+                        <span style="color: var(--text-color-muted); font-size: 12px;">Кейс:</span>
+                        <span style="font-weight: 800; font-size: 12px; color: #fff; text-align: right;">${item.case_name}</span>
+                    </div>` : ''}
+                    
+                    ${displayCode ? `<div style="display:flex; justify-content:space-between; border-bottom: 1px solid var(--glass-border); padding-bottom: 8px;">
+                        <span style="color: var(--text-color-muted); font-size: 12px;">Код:</span>
+                        <span style="font-weight: 800; font-size: 12px; font-family: monospace; color: #ffcc00; text-align: right;">${displayCode}</span>
+                    </div>` : ''}
+
                     <div style="display:flex; justify-content:space-between; border-bottom: 1px solid var(--glass-border); padding-bottom: 8px;">
                         <span style="color: var(--text-color-muted); font-size: 12px;">Выбит:</span>
                         <span style="font-weight: 800; font-size: 12px;">${dateFormatted}</span>
@@ -2458,7 +2487,7 @@ if (['available', 'pending', 'canceled'].includes(rawStatus)) {
                     <i class="fa-solid fa-headset" style="margin-right: 5px;"></i> СООБЩИТЬ ПРОБЛЕМУ
                 </button>
             `;
-                
+            
             overlay.appendChild(box); 
             document.body.appendChild(overlay);
             
