@@ -31,6 +31,59 @@
             --safe-top-gap: calc(env(safe-area-inset-top, 15px) + 40px);
         }
 
+        /* --- ПЛАВАЮЩИЙ БАННЕР ОШИБКИ (ВЕРХ ЭКРАНА) --- */
+        .system-top-banner {
+            position: fixed;
+            /* Сажаем ровно в пустое пространство над аватаром */
+            top: calc(env(safe-area-inset-top, 10px) + 5px);
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 320px;
+            background: rgba(255, 59, 48, 0.15);
+            border: 1px solid rgba(255, 59, 48, 0.4);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border-radius: 10px;
+            padding: 6px 12px;
+            display: none; /* Скрыт по умолчанию */
+            align-items: center;
+            gap: 10px;
+            z-index: 9999;
+            box-shadow: 0 4px 15px rgba(255, 59, 48, 0.2);
+            cursor: pointer;
+            animation: slideDownBanner 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+        .system-top-banner.active {
+            display: flex;
+        }
+        .system-top-banner i {
+            color: #ff3b30;
+            font-size: 16px;
+        }
+        .system-top-banner-text {
+            color: #fff;
+            font-size: 9px;
+            line-height: 1.2;
+            font-weight: 600;
+        }
+        @keyframes slideDownBanner {
+            from { transform: translate(-50%, -20px); opacity: 0; }
+            to { transform: translate(-50%, 0); opacity: 1; }
+        }
+        
+        /* Мигающая красная иконка Twitch в шапке */
+        .twitch-icon-error {
+            color: #ff3b30 !important;
+            text-shadow: 0 0 10px rgba(255, 59, 48, 0.6) !important;
+            animation: pulse-red-icon 1.5s infinite;
+        }
+        @keyframes pulse-red-icon {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.15); opacity: 0.7; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
         /* --- АДАПТАЦИЯ ДЛЯ КОМПЬЮТЕРОВ (ПК) --- */
         @media (min-width: 768px) {
             :root {
@@ -142,11 +195,26 @@
             text-shadow: 0 2px 10px rgba(255,255,255,0.1);
         }
 
-        .user-id {
+        user-id {
             color: var(--text-color-muted);
-            font-size: 11px;
+            font-size: 9px; /* Сделали меньше (было 11px) */
             font-weight: 800;
             margin-bottom: 8px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            padding: 3px 8px;
+            background: rgba(255, 255, 255, 0.05); /* Легкий фон-кнопка */
+            border-radius: 6px;
+            border: 1px solid transparent;
+            width: fit-content;
+            transition: all 0.2s ease;
+        }
+        
+        .user-id:active {
+            transform: scale(0.95);
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--glass-border);
         }
 
         .settings-btn {
@@ -638,6 +706,15 @@ html body nav.floating-bottom-bar .comic-badge {
 
     <div id="global-loader"><i class="fa-solid fa-circle-notch fa-spin" style="font-size: 40px; color: #fff;"></i></div>
 
+    <!-- ПЛАВАЮЩИЙ БАННЕР ОШИБКИ TWITCH -->
+    <div id="top-twitch-banner" class="system-top-banner" onclick="openSettings()">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <div class="system-top-banner-text">
+            <b style="color:#ffcccb; font-size: 10px;">Синхронизация нарушена!</b><br>
+            Нажми сюда, чтобы отвязать и привязать Twitch заново.
+        </div>
+    </div>
+
     <!-- Модалка просмотра оружия на весь экран -->
     <div id="fullscreen-weapon-modal">
         <button id="fullscreen-weapon-close" onclick="closeFullscreenWeapon()"><i class="fa-solid fa-xmark"></i></button>
@@ -662,7 +739,7 @@ html body nav.floating-bottom-bar .comic-badge {
                             <i id="icon-twitch" class="fa-brands fa-twitch" style="color: rgba(255,255,255,0.2);" onclick="openSettings()"></i>
                         </div>
                         <div class="nickname" id="user-nickname">Загрузка...</div>
-                        <div class="user-id" id="user-id">ID -----</div>
+                        <div class="user-id" id="user-id" onclick="copyUserId()">ID ----- <i class="fa-regular fa-copy" style="margin-left: 4px;"></i></div>
                         <button class="settings-btn" onclick="openSettings()">настройки</button>
                     </div>
                 </div>
@@ -1120,6 +1197,27 @@ window.copyPromocode = async function(code, id) {
     }
 };
 
+// Функция копирования User ID
+window.copyUserId = function() {
+    const uidEl = document.getElementById('user-id');
+    const uid = uidEl.dataset.uid;
+    if (!uid) return;
+
+    navigator.clipboard.writeText(uid).then(() => {
+        if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+        
+        // Визуальная замена иконки на зеленую галочку
+        uidEl.innerHTML = `ID ${uid} <i class="fa-solid fa-check" style="margin-left: 4px; color: #34c759;"></i>`;
+        
+        // Возвращаем иконку копирования обратно через 1.5 секунды
+        setTimeout(() => {
+            uidEl.innerHTML = `ID ${uid} <i class="fa-regular fa-copy" style="margin-left: 4px;"></i>`;
+        }, 1500);
+    }).catch((err) => {
+        window.customAlert("Не удалось скопировать ID");
+    });
+};
+
 // Функция удаления одной награды
 window.deleteReward = function(idOrCode, type, btnElement) {
     showCustomConfirmHTML("Удалить награду из истории?", async (close) => {
@@ -1523,31 +1621,51 @@ window.clearAllRewards = function() {
 
                 document.getElementById('user-avatar').src = currentUserData.photo_url || "https://placehold.co/150x150/1c1c1e/ffffff?text=?";
                 document.getElementById('user-nickname').innerText = currentUserData.full_name || currentUserData.username || "Игрок";
-                document.getElementById('user-id').innerText = `ID ${currentUserData.telegram_id}`;
+                const userIdEl = document.getElementById('user-id');
+                userIdEl.innerHTML = `ID ${currentUserData.telegram_id} <i class="fa-regular fa-copy" style="margin-left: 4px;"></i>`;
+                userIdEl.dataset.uid = currentUserData.telegram_id; // Сохраняем чистый ID
 
                 const hasSteam = !!currentUserData.trade_link;
                 const hasTwitch = !!currentUserData.twitch_login;
+                const isTwitchError = currentUserData.twitch_status === 'error'; // 🔥 Проверяем ошибку
                 
+                // Steam
                 document.getElementById('icon-steam').style.color = hasSteam ? '#fff' : 'rgba(255,255,255,0.2)';
                 document.getElementById('icon-steam').style.textShadow = hasSteam ? '0 0 10px rgba(255,255,255,0.4)' : 'none';
-                document.getElementById('icon-twitch').style.color = hasTwitch ? '#fff' : 'rgba(255,255,255,0.2)';
-                document.getElementById('icon-twitch').style.textShadow = hasTwitch ? '0 0 10px rgba(255,255,255,0.4)' : 'none';
+                
+                // 🔥 Twitch Иконка и Плавающий баннер
+                const twitchIcon = document.getElementById('icon-twitch');
+                const twitchBanner = document.getElementById('top-twitch-banner');
+                
+                if (isTwitchError) {
+                    twitchIcon.className = "fa-brands fa-twitch twitch-icon-error";
+                    twitchIcon.style.color = ''; 
+                    twitchIcon.style.textShadow = '';
+                    if(twitchBanner) twitchBanner.classList.add('active');
+                } else {
+                    twitchIcon.className = "fa-brands fa-twitch";
+                    twitchIcon.style.color = hasTwitch ? '#fff' : 'rgba(255,255,255,0.2)';
+                    twitchIcon.style.textShadow = hasTwitch ? '0 0 10px rgba(255,255,255,0.4)' : 'none';
+                    if(twitchBanner) twitchBanner.classList.remove('active');
+                }
 
                 const tlDisplay = document.getElementById('trade-link-display');
                 if (tlDisplay) {
                     let dLink = currentUserData.trade_link;
                     if (dLink && dLink.includes('?partner=')) {
-                        // Отрезаем всё до ?partner= и добавляем / в начало
                         dLink = '/?partner=' + dLink.split('?partner=')[1];
                     }
                     tlDisplay.innerText = dLink || "Ссылка не привязана";
                 }
                 
-                // Рендер Twitch и Steam с кнопками доверия и помощи (Восстановлено из старого кода)
+                // 🔥 Рендер Twitch внутри настроек
                 const twitchText = document.getElementById('twitch-status-text');
                 const twitchBtnCont = document.getElementById('twitch-action-btn-container');
                 
-                if (hasTwitch) {
+                if (isTwitchError) {
+                    twitchText.innerHTML = `Привязан: <b style="color:#ff3b30;">${currentUserData.twitch_login}</b><br><span style="color:#ffcccb; font-size:9px; font-weight:800;">ОШИБКА СИНХРОНИЗАЦИИ</span>`;
+                    twitchBtnCont.innerHTML = `<button class="ios-btn btn-danger" onclick="unlinkTwitch()">Отвязать</button>`;
+                } else if (hasTwitch) {
                     twitchText.innerHTML = `Привязан: <b style="color:#fff;">${currentUserData.twitch_login}</b>`;
                     twitchBtnCont.innerHTML = `<button class="ios-btn btn-danger" onclick="unlinkTwitch()">Отвязать</button>`;
                 } else {
