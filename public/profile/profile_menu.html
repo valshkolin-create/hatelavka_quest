@@ -307,24 +307,26 @@
         /* --- СТАТИЧНАЯ ПОДСКАЗКА ДЛЯ TWITCH --- */
         .twitch-onboarding-hint {
             position: absolute;
-            left: 55px; /* Сдвигаем правее иконок Стим и Твич */
-            top: -12px; /* Поднимаем чуть выше */
+            left: 22px; /* 🔥 Сильно сдвинули влево: теперь кончик стрелки ровно над Твичем */
+            top: -16px; /* 🔥 Чуть приподняли, чтобы не перекрывать саму иконку */
             display: flex;
             align-items: center;
             gap: 4px;
             z-index: 100;
-            pointer-events: none; /* Чтобы клики проходили сквозь нее на иконку */
-            opacity: 0; /* Скрыто по умолчанию */
+            pointer-events: none;
+            opacity: 0;
             transition: opacity 0.5s ease;
         }
+        
         .twitch-onboarding-hint.visible {
             opacity: 1;
         }
+        
         .twitch-onboarding-hint-text {
             color: #ffd700;
-            font-size: 10px; /* Было 9px, сделали 10px */
+            font-size: 8px; /* 🔥 Сделали шрифт маленьким и аккуратным */
             font-weight: 800;
-            line-height: 1.2; /* Чуть увеличил интервал между строками, чтобы текст не слипался */
+            line-height: 1.1; /* Строки теперь ближе друг к другу */
             text-shadow: 0 2px 5px rgba(0,0,0,0.8);
             font-style: italic; 
             text-transform: uppercase;
