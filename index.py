@@ -13824,6 +13824,9 @@ async def process_reward_issuance(tg_id: int, r_type: str, r_value: str, config_
     # 🔥 Временная граница: 12 часов назад
     twelve_hours_ago = (datetime.now(timezone.utc) - timedelta(hours=12)).isoformat()
     
+    # 🔥 Определяем префикс: TWLB для Twitch, TGLB для Telegram (по ключу конфига)
+    prefix = "TWLB" if "twitch" in config_key else "TGLB"
+    
     try:
         # --- ВЫДАЧА МОНЕТ ---
         if r_type == "coins":
@@ -13841,7 +13844,8 @@ async def process_reward_issuance(tg_id: int, r_type: str, r_value: str, config_
                 logging.warning(f"🛡 Защита: Монеты за '{config_key}' уже выдавались {real_tg_id}.")
                 return f"ID {tg_id} -> Монеты '{config_key}' уже были выданы (защита от дубля)"
 
-            unique_promo_code = f"LB-COIN-{real_tg_id}-{uuid.uuid4().hex[:4].upper()}"
+            # Заменяем LB-COIN на динамический префикс
+            unique_promo_code = f"{prefix}-COIN-{real_tg_id}-{uuid.uuid4().hex[:4].upper()}"
             promo_insert = await supabase.post(
                 "/promocodes", 
                 json={
@@ -13916,7 +13920,8 @@ async def process_reward_issuance(tg_id: int, r_type: str, r_value: str, config_
                 logging.warning(f"🛡 Защита: Кейс за '{config_key}' уже выдавался {real_tg_id}.")
                 return f"ID {tg_id} -> Кейс '{r_value}' уже был выдан (защита от дубля)"
 
-            unique_code = f"LB-{real_tg_id}-{uuid.uuid4().hex[:4].upper()}"
+            # Заменяем LB- на динамический префикс
+            unique_code = f"{prefix}-{real_tg_id}-{uuid.uuid4().hex[:4].upper()}"
             coupon_res = await supabase.post(
                 "/cs_codes", 
                 json={
