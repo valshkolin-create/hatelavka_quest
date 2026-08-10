@@ -304,6 +304,37 @@
             border: 1px solid rgba(255, 255, 255, 0.05);
         }
 
+        /* --- АНИМИРОВАННАЯ ПОДСКАЗКА ДЛЯ TWITCH --- */
+        .twitch-onboarding-hint {
+            position: absolute;
+            left: 55px; /* Сдвигаем правее иконок Стим и Твич */
+            top: -12px; /* Поднимаем чуть выше */
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            z-index: 100;
+            pointer-events: none; /* Чтобы клики проходили сквозь нее на иконку */
+            opacity: 0; /* Скрыто по умолчанию */
+            transition: opacity 0.5s ease;
+            animation: bounceHint 1.5s ease-in-out infinite;
+        }
+        .twitch-onboarding-hint.visible {
+            opacity: 1;
+        }
+        .twitch-onboarding-hint-text {
+            color: #ffd700;
+            font-size: 9px;
+            font-weight: 800;
+            line-height: 1.1;
+            text-shadow: 0 2px 5px rgba(0,0,0,0.8);
+            font-style: italic; /* Легкий наклон для эффекта ручной подписи */
+            text-transform: uppercase;
+        }
+        @keyframes bounceHint {
+            0%, 100% { transform: translateX(0) translateY(0); }
+            50% { transform: translateX(4px) translateY(-2px); }
+        }
+
         /* --- NAV BAR --- */
         .nav-bar {
             display: flex;
@@ -781,9 +812,19 @@ html body nav.floating-bottom-bar .comic-badge {
                     </div>
                     
                     <div class="user-info">
-                        <div class="user-icons">
+                        <div class="user-icons" style="position: relative;">
                             <i id="icon-steam" class="fa-brands fa-steam" style="color: rgba(255,255,255,0.2);" onclick="openSettings()"></i>
                             <i id="icon-twitch" class="fa-brands fa-twitch" style="color: rgba(255,255,255,0.2);" onclick="openSettings()"></i>
+                            
+                            <!-- 🔥 АНИМИРОВАННАЯ ПОДСКАЗКА 🔥 -->
+                            <div id="twitch-onboarding-hint" class="twitch-onboarding-hint">
+                                <!-- Кастомная нарисованная SVG стрелочка -->
+                                <svg width="25" height="20" viewBox="0 0 40 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M35 5 Q 20 5 5 25" stroke="#ffd700" stroke-width="2" stroke-linecap="round"/>
+                                    <path d="M5 25 L 15 25 M 5 25 L 5 15" stroke="#ffd700" stroke-width="2" stroke-linecap="round"/>
+                                </svg>
+                                <div class="twitch-onboarding-hint-text">Привяжи<br>Twitch</div>
+                            </div>
                         </div>
                         <div class="nickname" id="user-nickname">Загрузка...</div>
                         <div class="user-id" id="user-id" onclick="copyUserId()">ID ----- <i class="fa-regular fa-copy" style="margin-left: 4px;"></i></div>
@@ -1707,6 +1748,19 @@ window.clearAllRewards = function() {
                     document.body.classList.remove('has-twitch-error');
                 }
 
+                // 👇 ДОБАВИТЬ ЭТО 👇
+                // 🔥 ЛОГИКА ПОДСКАЗКИ TWITCH 🔥
+                const hintEl = document.getElementById('twitch-onboarding-hint');
+                if (hintEl) {
+                    // Если нет Твича, нет ошибки и флаг в localStorage еще не стоит -> показываем
+                    if (!hasTwitch && !isTwitchError && !localStorage.getItem('twitch_hint_shown')) {
+                        hintEl.classList.add('visible');
+                    } else {
+                        hintEl.classList.remove('visible');
+                    }
+                }
+                // 👆 КОНЕЦ ВСТАВКИ 👆
+
                 const tlDisplay = document.getElementById('trade-link-display');
                 if (tlDisplay) {
                     let dLink = currentUserData.trade_link;
@@ -1792,6 +1846,13 @@ window.clearAllRewards = function() {
         function openSettings() {
             if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
             document.getElementById('settings-modal').classList.add('visible');
+            
+            // 🔥 Прячем подсказку навсегда при клике в профиле
+            const hintEl = document.getElementById('twitch-onboarding-hint');
+            if (hintEl && hintEl.classList.contains('visible')) {
+                hintEl.classList.remove('visible');
+                localStorage.setItem('twitch_hint_shown', 'true'); // Записываем в кэш, что юзер уже кликнул
+            }
         }
 
         function closeSettings() {
@@ -1923,8 +1984,19 @@ window.clearAllRewards = function() {
 
                     // Визуальное обновление UI
                     currentUserData.twitch_login = null;
-                    document.getElementById('icon-twitch').style.color = 'rgba(255,255,255,0.2)';
-                    document.getElementById('icon-twitch').style.textShadow = 'none';
+                    currentUserData.twitch_status = null; // Очищаем статус ошибки в памяти
+
+                    const twitchIcon = document.getElementById('icon-twitch');
+                    twitchIcon.className = "fa-brands fa-twitch"; // Убираем класс twitch-icon-error (мигание)
+                    twitchIcon.style.color = 'rgba(255,255,255,0.2)';
+                    twitchIcon.style.textShadow = 'none';
+
+                    // Убираем плавающий баннер сверху
+                    const twitchBanner = document.getElementById('top-twitch-banner');
+                    if (twitchBanner) twitchBanner.classList.remove('active');
+
+                    // Убираем сдвиг интерфейса (отступ), который делался под баннер
+                    document.body.classList.remove('has-twitch-error');
                     
                     // Возвращаем UI в непривязанное состояние со всеми ссылками
                     document.getElementById('twitch-status-text').innerHTML = `Аккаунт не привязан<br><span class="twitch-trust-link" id="twitch-trust-btn" style="font-size: 11px; color: var(--text-color-muted); text-decoration: underline; cursor: pointer; margin-top: 4px; display: inline-block;"><i class="fa-solid fa-shield-halved"></i> Безопасно ли это?</span>`;
