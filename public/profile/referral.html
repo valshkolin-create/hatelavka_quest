@@ -191,9 +191,14 @@
     }
 </style>
 
+<!-- =========================================
+     HTML СТРУКТУРА
+     ========================================= -->
+
 <!-- 1. Шапка кабинета -->
 <div class="events-header-bar">
-    <h3 style="margin: 0; font-size: 16px; font-weight: 900; color: #fff; text-transform: uppercase; letter-spacing: 1px;">Кабинет</h3>
+    <!-- 🔥 ИЗМЕНЕНО: Заголовок уменьшен и переименован -->
+    <h3 style="margin: 0; font-size: 14px; font-weight: 900; color: #fff; text-transform: uppercase; letter-spacing: 0.5px;">Реферальный кабинет</h3>
     <div style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 4px 8px; font-size: 11px; font-weight: 800; color: #fff;">
         <span id="user-ref-balance"><i class="fa-solid fa-circle-notch fa-spin"></i></span> <i class="fa-solid fa-ticket" style="color: #ffd700;"></i>
     </div>
@@ -243,17 +248,23 @@
 </div>
 
 <!-- 5. ИНФО-ПАНЕЛЬ КЛИКАБЕЛЬНАЯ (ПОДЖАТАЯ) -->
-<div onclick="document.getElementById('ref-rules-modal').classList.add('visible')" style="background: rgba(25, 25, 28, 0.4); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; padding: 10px 12px; margin-bottom: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.2); cursor: pointer; transition: 0.2s; display: flex; flex-direction: column;" onmousedown="this.style.transform='scale(0.98)'" onmouseup="this.style.transform='scale(1)'">
+<!-- 🔥 ИЗМЕНЕНО: Добавлен position: relative для стрелочки -->
+<div onclick="document.getElementById('ref-rules-modal').classList.add('visible')" style="background: rgba(25, 25, 28, 0.4); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; padding: 10px 12px; margin-bottom: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.2); cursor: pointer; transition: 0.2s; display: flex; flex-direction: column; position: relative;" onmousedown="this.style.transform='scale(0.98)'" onmouseup="this.style.transform='scale(1)'">
     
-    <div style="text-align: center; margin-bottom: 8px;">
+    <!-- 🔥 ИЗМЕНЕНО: Иконка-стрелочка, чтобы пользователь понял, что это кнопка -->
+    <i class="fa-solid fa-chevron-right" style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); color: rgba(255,255,255,0.2); font-size: 16px;"></i>
+
+    <div style="text-align: center; margin-bottom: 8px; padding-right: 15px;">
         <div style="font-size: 13px; font-weight: 900; color: #fff; text-transform: uppercase;">Система бонусов</div>
+        <!-- 🔥 ИЗМЕНЕНО: Понятный призыв к действию -->
         <div style="font-size: 9px; color: var(--text-color-muted); margin-top: 2px;">Жми подробнее, чтобы узнать все правила</div>
     </div>
     
-    <div style="display: flex; gap: 8px;">
+    <div style="display: flex; gap: 8px; padding-right: 15px;">
         <div style="flex: 1; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 10px; padding: 8px 5px; text-align: center;">
             <div style="font-size: 16px; font-weight: 900; color: #fff;" id="ref-count-display">0</div>
-            <div style="font-size: 8px; color: rgba(255,255,255,0.5); text-transform: uppercase; font-weight: 800; margin-top: 2px;">Активных</div>
+            <!-- 🔥 ИЗМЕНЕНО: Заменили Активных на Приглашённых -->
+            <div style="font-size: 8px; color: rgba(255,255,255,0.5); text-transform: uppercase; font-weight: 800; margin-top: 2px;">Приглашённых</div>
         </div>
         <div style="flex: 1; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 10px; padding: 8px 5px; text-align: center;">
             <div style="font-size: 16px; font-weight: 900; color: #fff;" id="ref-bonus-display">+0.0</div>
@@ -282,9 +293,9 @@
             </button>
         </div>
         
-        <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
+        <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;">
             
-            <!-- Важное условие (Акцент) -->
+            <!-- 🔥 ИЗМЕНЕНО: Важное условие (Про привязку Twitch) -->
             <div style="background: rgba(255, 59, 48, 0.05); border-radius: 12px; padding: 12px; border: 1px solid rgba(255, 59, 48, 0.2);">
                 <div style="font-size: 11px; font-weight: 800; color: #ff3b30; margin-bottom: 6px; text-transform: uppercase;">
                     <i class="fa-solid fa-circle-exclamation"></i> Важное условие:
@@ -294,13 +305,13 @@
                 </div>
             </div>
 
-            <!-- Твои бонусы -->
+            <!-- 🔥 ИЗМЕНЕНО: Твои бонусы (Про накопитель НАВСЕГДА) -->
             <div style="background: rgba(255,255,255,0.03); border-radius: 12px; padding: 12px; border: 1px solid rgba(255,255,255,0.05);">
                 <div style="font-size: 12px; font-weight: 800; color: #fff; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
                     <i class="fa-solid fa-gift" style="color: #af52de;"></i> Твои награды (за каждого):
                 </div>
                 <div style="font-size: 11px; color: rgba(255,255,255,0.7); line-height: 1.5; display: flex; flex-direction: column; gap: 8px;">
-                    <div><span style="color: #34c759; margin-right: 4px;">✅</span> Накопитель к ежедневному фарму: <b style="color: #fff;">+0.1 монет</b>. <span style="color: #ffd700; font-weight: 800;">Остается НАВСЕГДА</span> и никогда не сгорает!</div>
+                    <div><span style="color: #34c759; margin-right: 4px;">✅</span> Накопитель к фарму: <b style="color: #fff;">+0.1 монет</b>. <span style="color: #ffd700; font-weight: 800;">Остается НАВСЕГДА</span> и не сгорает!</div>
                     <div><span style="color: #34c759; margin-right: 4px;">✅</span> <b style="color: #fff;">+1 Билет</b> ежедневно (длится 30 дней)</div>
                 </div>
             </div>
@@ -315,9 +326,18 @@
                     <div><span style="margin-right: 4px;">🚀</span> <b style="color: #fff;">VIP статус</b> на 7 дней <span style="font-size:10px; color:rgba(255,255,255,0.4);">(+0.2 монет, +2 билета)</span></div>
                 </div>
             </div>
+        </div>
 
+        <!-- 🔥 ИЗМЕНЕНО: Блок перенаправления в события -->
+        <div style="background: rgba(10, 132, 255, 0.1); border-radius: 12px; padding: 12px; border: 1px solid rgba(10, 132, 255, 0.2); margin-bottom: 15px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px;">
+            <div style="font-size: 11px; color: rgba(255,255,255,0.8); line-height: 1.4;">
+                Все начисленные реферальные бонусы отображаются в истории вашего аккаунта.
+            </div>
+            <button onclick="document.getElementById('ref-rules-modal').classList.remove('visible'); window.loadTab('events');" style="background: rgba(10, 132, 255, 0.2); border: 1px solid rgba(10, 132, 255, 0.4); color: #fff; border-radius: 8px; font-size: 11px; font-weight: 800; padding: 8px 16px; cursor: pointer; transition: 0.2s;">
+                <i class="fa-solid fa-clock-rotate-left"></i> Перейти в События
+            </button>
         </div>
         
-        <button onclick="document.getElementById('ref-rules-modal').classList.remove('visible')" style="width: 100%; border: none; padding: 14px; border-radius: 12px; font-size: 14px; font-weight: 800; background-color: #fff; color: #000; cursor: pointer; transition: 0.2s;" onmousedown="this.style.transform='scale(0.96)'" onmouseup="this.style.transform='scale(1)'">Понятно</button>
+        <button onclick="document.getElementById('ref-rules-modal').classList.remove('visible')" style="width: 100%; border: none; padding: 14px; border-radius: 12px; font-size: 14px; font-weight: 800; background-color: #fff; color: #000; cursor: pointer; transition: 0.2s;" onmousedown="this.style.transform='scale(0.96)'" onmouseup="this.style.transform='scale(1)'">Закрыть</button>
     </div>
 </div>
