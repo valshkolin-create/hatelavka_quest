@@ -94,10 +94,29 @@
             100% { transform: scale(1); opacity: 1; }
         }
 
+        /* --- СДВИГ ПРИ ОШИБКЕ TWITCH (ТОЛЬКО ДЛЯ МОБИЛОК) --- */
+        body.has-twitch-error .header-nav-wrapper {
+            padding-top: calc(var(--safe-top-gap) + 35px);
+            transition: padding-top 0.3s ease;
+        }
+        body.has-twitch-error #content-area {
+            padding-top: calc(var(--safe-top-gap) + 210px);
+            transition: padding-top 0.3s ease;
+        }
+
         /* --- АДАПТАЦИЯ ДЛЯ КОМПЬЮТЕРОВ (ПК) --- */
         @media (min-width: 768px) {
+            @media (min-width: 768px) {
             :root {
                 --safe-top-gap: 20px;
+            }
+            
+            /* ЖЕСТКО БЛОКИРУЕМ СДВИГ НА ПК */
+            body.has-twitch-error .header-nav-wrapper {
+                padding-top: var(--safe-top-gap) !important;
+            }
+            body.has-twitch-error #content-area {
+                padding-top: calc(var(--safe-top-gap) + 175px) !important;
             }
             .profile-header {
                 padding-bottom: 15px !important;
@@ -205,20 +224,28 @@
             text-shadow: 0 2px 10px rgba(255,255,255,0.1);
         }
 
-        user-id {
+        /* Исправлена опечатка (добавлена точка) и блок уменьшен */
+        .user-id {
             color: var(--text-color-muted);
-            font-size: 9px; /* Сделали меньше (было 11px) */
+            font-size: 8px; /* Крошечный аккуратный шрифт */
             font-weight: 800;
             margin-bottom: 8px;
             cursor: pointer;
             display: inline-flex;
             align-items: center;
-            padding: 3px 8px;
-            background: rgba(255, 255, 255, 0.05); /* Легкий фон-кнопка */
-            border-radius: 6px;
+            padding: 2px 6px; /* Минимальные отступы */
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
             border: 1px solid transparent;
             width: fit-content;
             transition: all 0.2s ease;
+            line-height: 1.2;
+            letter-spacing: 0.3px;
+        }
+        
+        .user-id i {
+            font-size: 8px; /* Уменьшили иконку копирования */
+            margin-left: 4px;
         }
         
         .user-id:active {
@@ -1651,11 +1678,17 @@ window.clearAllRewards = function() {
                     twitchIcon.style.color = ''; 
                     twitchIcon.style.textShadow = '';
                     if(twitchBanner) twitchBanner.classList.add('active');
+                    
+                    // Добавляем класс для сдвига шапки на телефонах
+                    document.body.classList.add('has-twitch-error');
                 } else {
                     twitchIcon.className = "fa-brands fa-twitch";
                     twitchIcon.style.color = hasTwitch ? '#fff' : 'rgba(255,255,255,0.2)';
                     twitchIcon.style.textShadow = hasTwitch ? '0 0 10px rgba(255,255,255,0.4)' : 'none';
                     if(twitchBanner) twitchBanner.classList.remove('active');
+                    
+                    // Убираем класс сдвига шапки
+                    document.body.classList.remove('has-twitch-error');
                 }
 
                 const tlDisplay = document.getElementById('trade-link-display');
