@@ -2207,26 +2207,8 @@ contentArea.classList.add('fade-in-content');
             }
         }
 
+        // 1. Логика кликов по меню (с фичей Instagram)
         navItems.forEach(item => {
-            item.addEventListener('click', function() {
-                navItems.forEach(nav => nav.classList.remove('active'));
-                this.classList.add('active');
-                const targetTab = this.getAttribute('data-target');
-                
-                // 🔥 Сохраняем текущую вкладку в сессию
-                sessionStorage.setItem('current_spa_tab', targetTab);
-                
-                loadTab(targetTab);
-                if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
-            });
-        });
-
-        fetchAndApplyUserData().then(() => {
-            // 🔥 Читаем из сессии. Если ничего нет (новый заход) — ставим 'inventory'
-            const savedTab = sessionStorage.getItem('current_spa_tab') || 'inventory';
-            
-            // Визуально переключаем активную кнопку в навигации
-            navItems.forEach(item => {
             item.addEventListener('click', function() {
                 const targetTab = this.getAttribute('data-target');
                 
@@ -2246,6 +2228,24 @@ contentArea.classList.add('fade-in-content');
                 loadTab(targetTab);
                 if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
             });
+        });
+
+        // 2. Первичная загрузка пользователя и открытие нужной вкладки
+        fetchAndApplyUserData().then(() => {
+            // 🔥 Читаем из сессии. Если ничего нет (новый заход) — ставим 'inventory'
+            const savedTab = sessionStorage.getItem('current_spa_tab') || 'inventory';
+            
+            // Делаем активной нужную кнопку в меню
+            navItems.forEach(nav => {
+                if (nav.getAttribute('data-target') === savedTab) {
+                    nav.classList.add('active');
+                } else {
+                    nav.classList.remove('active');
+                }
+            });
+            
+            // Загружаем вкладку
+            loadTab(savedTab);
         });
 
         // --- УНИВЕРСАЛЬНАЯ ФУНКЦИЯ ТИХОГО ОБНОВЛЕНИЯ ИНВЕНТАРЯ ---
@@ -3793,17 +3793,6 @@ window.shareReferralLink = function() {
     tg.openTelegramLink(url);
 };
 
-window.shareReferralLink = function() {
-    const input = document.getElementById('ref-link-input');
-    if (!input || !input.value || input.value.includes("Генерация")) return;
-    
-    const refLink = input.value;
-    const shareText = "Залетай в HATElavka! 🚀\nЛутай халяву и выполняй задания.";
-    const url = `https://t.me/share/url?url=${encodeURIComponent(refLink)}&text=${encodeURIComponent(shareText)}`;
-    
-    if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
-    tg.openTelegramLink(url);
-};
 
 // ==========================================
 // 🔥 ЛОГИКА СВАЙПОВ (ВКЛАДКИ + PULL-TO-REFRESH) 🔥
