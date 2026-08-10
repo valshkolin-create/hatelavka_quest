@@ -97,12 +97,10 @@
         /* --- СДВИГ ПРИ ОШИБКЕ TWITCH (ТОЛЬКО ДЛЯ ТЕЛЕФОНОВ) --- */
         @media (max-width: 767px) {
             body.has-twitch-error .header-nav-wrapper {
-                padding-top: calc(var(--safe-top-gap) + 35px);
-                transition: padding-top 0.3s ease;
+                padding-top: calc(var(--safe-top-gap) + 35px) !important;
             }
             body.has-twitch-error #content-area {
-                padding-top: calc(var(--safe-top-gap) + 210px);
-                transition: padding-top 0.3s ease;
+                padding-top: calc(var(--safe-top-gap) + 210px) !important;
             }
         }
 
@@ -115,6 +113,14 @@
             /* Возвращаем баннер наверх на ПК */
             .system-top-banner {
                 top: 15px !important;
+            }
+
+            /* ЖЕСТКО БЛОКИРУЕМ СДВИГ НА ПК (даже если есть ошибка) */
+            body.has-twitch-error .header-nav-wrapper {
+                padding-top: var(--safe-top-gap) !important;
+            }
+            body.has-twitch-error #content-area {
+                padding-top: calc(var(--safe-top-gap) + 175px) !important;
             }
 
             .profile-header {
