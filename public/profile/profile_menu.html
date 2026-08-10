@@ -95,14 +95,15 @@
         }
 
         /* --- СДВИГ ПРИ ОШИБКЕ TWITCH (ТОЛЬКО ДЛЯ ТЕЛЕФОНОВ) --- */
-        @media (max-width: 767px) {
-            body.has-twitch-error .header-nav-wrapper {
-                padding-top: calc(var(--safe-top-gap) + 35px) !important;
-            }
-            body.has-twitch-error #content-area {
-                padding-top: calc(var(--safe-top-gap) + 210px) !important;
-            }
-        }
+        /* --- СДВИГ ПРИ ОШИБКЕ TWITCH (ТОЛЬКО ДЛЯ ТЕЛЕФОНОВ) --- */
+@media (max-width: 767px) {
+    body.has-twitch-error:not(.is-desktop) .header-nav-wrapper {
+        padding-top: calc(var(--safe-top-gap) + 35px) !important;
+    }
+    body.has-twitch-error:not(.is-desktop) #content-area {
+        padding-top: calc(var(--safe-top-gap) + 210px) !important;
+    }
+}
 
         /* --- АДАПТАЦИЯ ДЛЯ КОМПЬЮТЕРОВ (ПК) --- */
         @media (min-width: 768px) {
@@ -1040,6 +1041,11 @@ html body nav.floating-bottom-bar .comic-badge {
     <script>
         const tg = window.Telegram.WebApp;
 
+        / 🔥 ДОБАВЛЯЕМ ЭТОТ БЛОК: Жестко определяем ПК-версию Telegram
+        const desktopPlatforms = ['tdesktop', 'macos', 'web', 'weba'];
+        if (desktopPlatforms.includes(tg.platform)) {
+            document.body.classList.add('is-desktop');
+        }
 // ==========================================
 // 🔥 ЛОГИКА ПРОМОКОДОВ (LIQUID GLASS) 🔥
 // ==========================================
