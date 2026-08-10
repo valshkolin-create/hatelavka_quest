@@ -34,19 +34,19 @@
        /* --- ПЛАВАЮЩИЙ БАННЕР ОШИБКИ (СУПЕР МИНИ) --- */
         .system-top-banner {
             position: fixed;
-            /* Сажаем строго под край экрана (челку), оставляя место для системных кнопок */
-            top: calc(env(safe-area-inset-top, 8px) + 6px);
+            /* Опускаем баннер НИЖЕ системной кнопки "Назад" Телеграма */
+            top: calc(env(safe-area-inset-top, 15px) + 45px);
             left: 50%;
             transform: translateX(-50%);
             width: fit-content; 
-            max-width: 80%; /* Не даст наехать на крестик Телеграма справа */
+            max-width: 80%; 
             background: rgba(255, 59, 48, 0.15);
             border: 1px solid rgba(255, 59, 48, 0.3);
             backdrop-filter: blur(10px);
             -webkit-backdrop-filter: blur(10px);
             border-radius: 12px;
-            padding: 4px 10px; /* Минимальные отступы */
-            display: none; /* Скрыто, пока скрипт не добавит .active */
+            padding: 4px 10px;
+            display: none; 
             align-items: center;
             justify-content: center;
             gap: 6px; 
@@ -94,14 +94,16 @@
             100% { transform: scale(1); opacity: 1; }
         }
 
-        /* --- СДВИГ ПРИ ОШИБКЕ TWITCH (ТОЛЬКО ДЛЯ МОБИЛОК) --- */
-        body.has-twitch-error .header-nav-wrapper {
-            padding-top: calc(var(--safe-top-gap) + 35px);
-            transition: padding-top 0.3s ease;
-        }
-        body.has-twitch-error #content-area {
-            padding-top: calc(var(--safe-top-gap) + 210px);
-            transition: padding-top 0.3s ease;
+        /* --- СДВИГ ПРИ ОШИБКЕ TWITCH (ТОЛЬКО ДЛЯ ТЕЛЕФОНОВ) --- */
+        @media (max-width: 767px) {
+            body.has-twitch-error .header-nav-wrapper {
+                padding-top: calc(var(--safe-top-gap) + 35px);
+                transition: padding-top 0.3s ease;
+            }
+            body.has-twitch-error #content-area {
+                padding-top: calc(var(--safe-top-gap) + 210px);
+                transition: padding-top 0.3s ease;
+            }
         }
 
         /* --- АДАПТАЦИЯ ДЛЯ КОМПЬЮТЕРОВ (ПК) --- */
@@ -110,13 +112,11 @@
                 --safe-top-gap: 20px;
             }
             
-            /* ЖЕСТКО БЛОКИРУЕМ СДВИГ НА ПК */
-            body.has-twitch-error .header-nav-wrapper {
-                padding-top: var(--safe-top-gap) !important;
+            /* Возвращаем баннер наверх на ПК */
+            .system-top-banner {
+                top: 15px !important;
             }
-            body.has-twitch-error #content-area {
-                padding-top: calc(var(--safe-top-gap) + 175px) !important;
-            }
+
             .profile-header {
                 padding-bottom: 15px !important;
             }
