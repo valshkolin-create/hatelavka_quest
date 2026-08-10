@@ -596,6 +596,23 @@
         #fullscreen-weapon-name { color: #fff; font-size: 18px; font-weight: 800; margin-top: 20px; text-transform: uppercase; text-shadow: 0 2px 10px rgba(0,0,0,0.8); text-align: center; padding: 0 20px; }
         #fullscreen-weapon-close { position: absolute; top: max(env(safe-area-inset-top, 24px) + 50px, 80px); right: 20px; left: auto; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); color: #fff; width: 36px; height: 36px; border-radius: 50%; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10; }
 
+        /* --- Кнопка обновления для ПК --- */
+        #desktop-refresh-btn {
+            position: absolute; bottom: 79px; left: 20px; width: 38px; height: 38px;
+            background: var(--glass-bg); border: 1px solid var(--glass-border);
+            border-radius: 50%; color: #fff; display: none; align-items: center; justify-content: center;
+            font-size: 14px; cursor: pointer; z-index: 100;
+            backdrop-filter: blur(15px); transition: 0.3s all;
+            box-shadow: var(--glass-shadow);
+        }
+        #desktop-refresh-btn:hover { background: rgba(255,255,255,0.1); }
+        #desktop-refresh-btn:active { transform: scale(0.9); }
+        
+        /* Показываем её ТОЛЬКО если Telegram запущен на компьютере */
+        body.is-desktop #desktop-refresh-btn {
+            display: flex;
+        }
+        
         /* Кнопка скролла наверх */
         #scroll-to-top {
             position: absolute; bottom: 79px; right: 20px; width: 38px; height: 38px;
@@ -910,6 +927,11 @@ html body nav.floating-bottom-bar .comic-badge {
         <!-- DYNAMIC CONTENT AREA -->
         <main id="content-area">
         </main>
+
+        <!-- Кнопка ручного обновления (Только для ПК) -->
+        <div id="desktop-refresh-btn" onclick="triggerManualRefresh(this)">
+            <i class="fa-solid fa-rotate-right"></i>
+        </div>
 
         <!-- Кнопка скролла наверх -->
         <div id="scroll-to-top" onclick="document.getElementById('content-area').scrollTo({top:0, behavior:'smooth'})">
@@ -2204,11 +2226,26 @@ contentArea.classList.add('fade-in-content');
             const savedTab = sessionStorage.getItem('current_spa_tab') || 'inventory';
             
             // Визуально переключаем активную кнопку в навигации
-            navItems.forEach(nav => nav.classList.remove('active'));
-            const activeBtn = document.querySelector(`.nav-item[data-target="${savedTab}"]`);
-            if (activeBtn) activeBtn.classList.add('active');
-            
-            loadTab(savedTab);
+            navItems.forEach(item => {
+            item.addEventListener('click', function() {
+                const targetTab = this.getAttribute('data-target');
+                
+                // 🔥 ФИЧА ИЗ INSTAGRAM: Если кликнули на ту же самую активную вкладку - обновляем её!
+                if (this.classList.contains('active')) {
+                    if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+                    window.refreshCurrentSpaTab();
+                    return;
+                }
+
+                navItems.forEach(nav => nav.classList.remove('active'));
+                this.classList.add('active');
+                
+                // Сохраняем текущую вкладку в сессию
+                sessionStorage.setItem('current_spa_tab', targetTab);
+                
+                loadTab(targetTab);
+                if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+            });
         });
 
         // --- УНИВЕРСАЛЬНАЯ ФУНКЦИЯ ТИХОГО ОБНОВЛЕНИЯ ИНВЕНТАРЯ ---
@@ -3955,6 +3992,16 @@ window.refreshCurrentSpaTab = async function() {
         console.error("Silent refresh failed:", err);
     }
 };
+
+        // --- РУЧНОЕ ОБНОВЛЕНИЕ ДЛЯ ПК ---
+        window.triggerManualRefresh = async function(btn) {
+            const icon = btn.querySelector('i');
+            if (icon) icon.classList.add('fa-spin-fast'); // Начинаем крутить иконку
+            
+            await window.refreshCurrentSpaTab(); // Тихо обновляем контент
+            
+            if (icon) icon.classList.remove('fa-spin-fast'); // Останавливаем крутилку
+        };
 
     </script>
 </body>
