@@ -3663,6 +3663,70 @@ window.shareReferralLink = function() {
     tg.openTelegramLink(url);
 };
 
+        // ==========================================
+// 🔥 ЛОГИКА СВАЙПОВ ДЛЯ ВКЛАДОК 🔥
+// ==========================================
+
+// Массив с порядком твоих вкладок
+const tabsOrder = ['inventory', 'events', 'promocodes', 'referral'];
+
+let touchstartX = 0;
+let touchstartY = 0;
+
+// Вешаем слушатели на зону контента, чтобы свайпы работали именно в ней
+const swipeZone = document.getElementById('content-area');
+
+if (swipeZone) {
+    swipeZone.addEventListener('touchstart', function(event) {
+        // Игнорируем свайп, если открыта любая модалка (настройки, история и т.д.)
+        if (document.querySelector('.modal-overlay.visible')) return;
+        
+        touchstartX = event.changedTouches[0].screenX;
+        touchstartY = event.changedTouches[0].screenY;
+    }, { passive: true });
+
+    swipeZone.addEventListener('touchend', function(event) {
+        if (document.querySelector('.modal-overlay.visible')) return;
+        
+        const touchendX = event.changedTouches[0].screenX;
+        const touchendY = event.changedTouches[0].screenY;
+        
+        handleSwipe(touchstartX, touchstartY, touchendX, touchendY);
+    }, { passive: true });
+}
+
+function handleSwipe(startX, startY, endX, endY) {
+    const deltaX = endX - startX;
+    const deltaY = endY - startY;
+    const minSwipeDistance = 50; // Минимальное расстояние для свайпа в пикселях
+
+    // Проверяем: движение по горизонтали должно быть больше, чем по вертикали 
+    // (чтобы не переключать вкладки при обычном скролле вниз/вверх)
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > minSwipeDistance) {
+        const activeNav = document.querySelector('.nav-item.active');
+        if (!activeNav) return;
+
+        const currentTarget = activeNav.getAttribute('data-target');
+        const currentIndex = tabsOrder.indexOf(currentTarget);
+
+        if (deltaX < 0) {
+            // Свайп ВЛЕВО <- Переходим на вкладку СПРАВА
+            if (currentIndex < tabsOrder.length - 1) {
+                const nextTabName = tabsOrder[currentIndex + 1];
+                const nextTab = document.querySelector(`.nav-item[data-target="${nextTabName}"]`);
+                if (nextTab) nextTab.click(); // Имитируем клик, чтобы сработала твоя логика и анимации
+            }
+        } else {
+            // Свайп ВПРАВО -> Переходим на вкладку СЛЕВА
+            if (currentIndex > 0) {
+                const prevTabName = tabsOrder[currentIndex - 1];
+                const prevTab = document.querySelector(`.nav-item[data-target="${prevTabName}"]`);
+                if (prevTab) prevTab.click(); // Имитируем клик
+            }
+        }
+    }
+}
+
     </script>
 </body>
 </html>
