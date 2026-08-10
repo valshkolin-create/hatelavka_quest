@@ -780,6 +780,46 @@ html body nav.floating-bottom-bar .comic-badge {
         body.is-desktop .system-top-banner {
     top: 10px !important; 
         }
+
+/* ========================================== */
+/* 🔥 LIQUID GLASS: ПРЕМИАЛЬНЫЕ ЭФФЕКТЫ 🔥 */
+/* ========================================== */
+
+/* 1. Плавное появление контента (Fade-in) */
+@keyframes smoothAppear {
+    from { 
+        opacity: 0; 
+        transform: translateY(15px); 
+    }
+    to { 
+        opacity: 1; 
+        transform: translateY(0); 
+    }
+}
+.fade-in-content {
+    animation: smoothAppear 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+/* 2. Свечение (Glow) под активной вкладкой меню */
+.nav-item::after {
+    content: '';
+    position: absolute;
+    bottom: -2px; /* Прижимаем к самому низу блока шапки */
+    left: 50%;
+    transform: translateX(-50%) scaleX(0);
+    width: 35px; /* Ширина светящейся полоски */
+    height: 3px;
+    background: #ffffff;
+    border-radius: 4px 4px 0 0;
+    box-shadow: 0 -2px 12px rgba(255, 255, 255, 0.9);
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.nav-item.active::after {
+    transform: translateX(-50%) scaleX(1);
+    opacity: 1;
+}
         
     </style>
 </head>
@@ -2054,7 +2094,12 @@ window.clearAllRewards = function() {
                 
                 if (!response.ok) throw new Error("Файл не найден");
                 const html = await response.text();
-                contentArea.innerHTML = html;
+contentArea.innerHTML = html;
+
+// 🔥 Магия перезапуска CSS-анимации
+contentArea.classList.remove('fade-in-content');
+void contentArea.offsetWidth; // Вызываем reflow, чтобы браузер понял, что класс удалили
+contentArea.classList.add('fade-in-content');
 
                 if (tabName === 'inventory') {
                     const sortSelect = document.getElementById('inventory-sort-select');
@@ -2107,13 +2152,25 @@ window.clearAllRewards = function() {
                 navItems.forEach(nav => nav.classList.remove('active'));
                 this.classList.add('active');
                 const targetTab = this.getAttribute('data-target');
+                
+                // 🔥 Сохраняем текущую вкладку в сессию
+                sessionStorage.setItem('current_spa_tab', targetTab);
+                
                 loadTab(targetTab);
                 if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
             });
         });
 
         fetchAndApplyUserData().then(() => {
-            loadTab('inventory');
+            // 🔥 Читаем из сессии. Если ничего нет (новый заход) — ставим 'inventory'
+            const savedTab = sessionStorage.getItem('current_spa_tab') || 'inventory';
+            
+            // Визуально переключаем активную кнопку в навигации
+            navItems.forEach(nav => nav.classList.remove('active'));
+            const activeBtn = document.querySelector(`.nav-item[data-target="${savedTab}"]`);
+            if (activeBtn) activeBtn.classList.add('active');
+            
+            loadTab(savedTab);
         });
 
         // --- УНИВЕРСАЛЬНАЯ ФУНКЦИЯ ТИХОГО ОБНОВЛЕНИЯ ИНВЕНТАРЯ ---
@@ -3698,10 +3755,8 @@ if (swipeZone) {
 function handleSwipe(startX, startY, endX, endY) {
     const deltaX = endX - startX;
     const deltaY = endY - startY;
-    const minSwipeDistance = 50; // Минимальное расстояние для свайпа в пикселях
+    const minSwipeDistance = 50; 
 
-    // Проверяем: движение по горизонтали должно быть больше, чем по вертикали 
-    // (чтобы не переключать вкладки при обычном скролле вниз/вверх)
     if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > minSwipeDistance) {
         const activeNav = document.querySelector('.nav-item.active');
         if (!activeNav) return;
@@ -3712,16 +3767,22 @@ function handleSwipe(startX, startY, endX, endY) {
         if (deltaX < 0) {
             // Свайп ВЛЕВО <- Переходим на вкладку СПРАВА
             if (currentIndex < tabsOrder.length - 1) {
+                // 🔥 Добавляем легкую "щелкающую" вибрацию интерфейса
+                if (tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
+                
                 const nextTabName = tabsOrder[currentIndex + 1];
                 const nextTab = document.querySelector(`.nav-item[data-target="${nextTabName}"]`);
-                if (nextTab) nextTab.click(); // Имитируем клик, чтобы сработала твоя логика и анимации
+                if (nextTab) nextTab.click(); 
             }
         } else {
             // Свайп ВПРАВО -> Переходим на вкладку СЛЕВА
             if (currentIndex > 0) {
+                // 🔥 Добавляем легкую "щелкающую" вибрацию интерфейса
+                if (tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
+                
                 const prevTabName = tabsOrder[currentIndex - 1];
                 const prevTab = document.querySelector(`.nav-item[data-target="${prevTabName}"]`);
-                if (prevTab) prevTab.click(); // Имитируем клик
+                if (prevTab) prevTab.click(); 
             }
         }
     }
