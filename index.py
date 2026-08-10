@@ -26743,12 +26743,12 @@ async def get_user_inventory(
     
     user_id = user_data['id']
 
-    # 🔥 ИСПРАВЛЕНИЕ 1: Добавили source в select
+    # 🔥 ИСПРАВЛЕНИЕ 1: Добавили case_name и code_used в select
     resp = await supabase.get(
         "/cs_history",
         params={
             "user_id": f"eq.{user_id}",
-            "select": "id, status, created_at, updated_at, source, replaced_name, replaced_price, replaced_image_url, replaced_rarity, is_swapped, item:cs_items(id, name, image_url, rarity, condition, price, price_rub)",
+            "select": "id, status, created_at, updated_at, source, case_name, code_used, replaced_name, replaced_price, replaced_image_url, replaced_rarity, is_swapped, item:cs_items(id, name, image_url, rarity, condition, price, price_rub)",
             "order": "created_at.desc"
         }
     )
@@ -26783,7 +26783,9 @@ async def get_user_inventory(
             "status": row['status'],
             "received_at": row['created_at'],
             "updated_at": row.get('updated_at') or row['created_at'],
-            "source": row.get('source', 'shop'), # 🔥 ИСПРАВЛЕНИЕ 2: Передаем source на фронт
+            "source": row.get('source', 'shop'), 
+            "case_name": row.get('case_name'), # 🔥 ИСПРАВЛЕНИЕ 2: Передаем название кейса
+            "code_used": row.get('code_used'), # 🔥 ИСПРАВЛЕНИЕ 3: Передаем код
             "replaced_name": row.get('replaced_name'),
             "replaced_price": row.get('replaced_price'),
             "is_swapped": row.get('is_swapped', False) 
