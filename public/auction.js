@@ -345,8 +345,29 @@ document.addEventListener('DOMContentLoaded', () => {
             const rarityColor = RARITY_COLORS[rarityKey] || 'var(--text-primary)';
             const titleStyle = rarityKey ? `style="color: ${rarityColor}; text-shadow: 0 0 10px ${rarityColor}40;"` : '';
             
+            // --- УМНАЯ КОНВЕРТАЦИЯ КАЧЕСТВА В КОРОТКИЙ ФОРМАТ (FT, FN и т.д.) ---
+            const WEAR_SHORT = {
+                'Factory New': 'FN', 'Прямо с завода': 'FN', 'FN': 'FN',
+                'Minimal Wear': 'MW', 'Немного поношенное': 'MW', 'MW': 'MW',
+                'Field-Tested': 'FT', 'После полевых': 'FT', 'FT': 'FT',
+                'Well-Worn': 'WW', 'Поношенное': 'WW', 'WW': 'WW',
+                'Battle-Scarred': 'BS', 'Закаленное в боях': 'BS', 'BS': 'BS'
+            };
+            
             const wearKey = auction.wear;
-            const wearText = WEAR_NAMES[wearKey] || '';
+            const shortWear = WEAR_SHORT[wearKey] || wearKey || '';
+            // =====================
+            
+            // --- НОВЫЙ БЛОК ИНФОРМАЦИИ О СКИНЕ ---
+            let skinMetaHtml = '';
+            if (shortWear || auction.price_rub) {
+                skinMetaHtml = `
+                    <div style="display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: -4px; margin-bottom: 12px; font-size: 11px; font-weight: 600;">
+                        ${shortWear ? `<span style="background: rgba(255, 255, 255, 0.1); color: var(--text-secondary); padding: 3px 8px; border-radius: 6px; letter-spacing: 0.5px;">${shortWear}</span>` : ''}
+                        ${auction.price_rub ? `<span style="background: rgba(52, 199, 89, 0.15); color: #34c759; padding: 3px 8px; border-radius: 6px;">≈ ${auction.price_rub} ₽</span>` : ''}
+                    </div>
+                `;
+            }
             // =====================
             
             let leaderOrWinnerHtml = '';
@@ -446,7 +467,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="card-info-area">
                     <h3 class="event-title" ${titleStyle}>${escapeHTML(auction.title)}</h3>
                     
-                    ${wearText ? `<div class="auction-wear-text">${wearText}</div>` : ''}
+                    ${skinMetaHtml} <!-- 🔥 ВОТ НАШ НОВЫЙ БЛОК -->
                     
                     <div class="auction-stats">
                         <div class="stat-item">
