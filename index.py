@@ -31772,9 +31772,10 @@ async def admin_swap_inventory_item(
         if not record_data:
             raise HTTPException(status_code=404, detail="Предмет не найден в истории.")
         
-        if record_data[0].get("status") != "pending":
-            raise HTTPException(status_code=400, detail="Можно заменить только предметы со статусом 'pending' (в инвентаре).")
-
+        allowed_statuses = ["pending", "available", "failed"]
+if record_data[0].get("status") not in allowed_statuses:
+    raise HTTPException(status_code=400, detail="Можно заменить предметы только со статусом pending, available или failed.")
+    
         # Обновляем запись
         update_data = {
             "is_swapped": True,
@@ -31799,6 +31800,84 @@ async def admin_swap_inventory_item(
     except Exception as e:
         logging.error(f"Ошибка замены предмета {req.history_id}: {e}")
         raise HTTPException(status_code=500, detail="Ошибка базы данных при замене предмета.")
+
+# Схема запроса для выдачи предмета
+class AdminGrantItemRequest(BaseModel):
+    initData: str
+    user_id: int
+    market_hash_name: str
+    price_rub: float
+    image_url: str
+    rarity: str
+    source: str = "admin"
+
+@app.post("/api/v1/admin/users/inventory/grant")
+async def admin_grant_inventory_item(
+    req: AdminGrantItemRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    """(Админ) Выдает предмет пользователю напрямую в инвентарь."""
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен.")
+
+    try:
+        # 1. Ищем предмет в таблице cs_items по market_hash_name
+        item_resp = await supabase.get(
+            "/cs_items",
+            params={"market_hash_name": f"eq.{req.market_hash_name}", "select": "id"}
+        )
+        item_resp.raise_for_status()
+        items_data = item_resp.json()
+
+        # 2. Получаем item_id (существующий или создаем новый)
+        if items_data and len(items_data) > 0:
+            item_id = items_data[0]["id"]
+        else:
+            # Предмета еще нет в базе, создаем его
+            new_item_data = {
+                "name": req.market_hash_name,
+                "market_hash_name": req.market_hash_name,
+                "price_rub": req.price_rub,
+                "price": req.price_rub,  # Дублируем для обратной совместимости
+                "image_url": req.image_url,
+                "rarity": req.rarity,
+                "is_active": True,
+                "quantity": 1
+            }
+            # Передаем заголовок Prefer, чтобы Supabase вернул созданную строку с ID
+            insert_item_resp = await supabase.post(
+                "/cs_items",
+                json=new_item_data,
+                headers={"Prefer": "return=representation"}
+            )
+            insert_item_resp.raise_for_status()
+            item_id = insert_item_resp.json()[0]["id"]
+
+        # 3. Выдаем предмет пользователю в cs_history
+        insert_history_data = {
+            "user_id": req.user_id,
+            "item_id": item_id,
+            "status": "available",
+            "source": req.source,
+            "case_name": "Админ-выдача",
+            "is_swapped": False,
+            "details": f"Выдано администратором {user_info.get('id')}"
+        }
+
+        history_resp = await supabase.post(
+            "/cs_history",
+            json=insert_history_data
+        )
+        history_resp.raise_for_status()
+
+        return {"message": "Предмет успешно выдан!"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Ошибка выдачи предмета {req.market_hash_name} пользователю {req.user_id}: {e}")
+        raise HTTPException(status_code=500, detail="Ошибка базы данных при выдаче предмета.")
 
 # Схема для валидации данных, которые прилетают с фронтенда
 class AdminManageGrindRequest(BaseModel):
