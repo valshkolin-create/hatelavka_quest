@@ -418,14 +418,19 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!isEnded && !isUserBanned && auction.user_bid_amount > 0 && auction.user_bid_rank > 0) {
                 const myId = userData.telegram_id || (userData.profile && userData.profile.telegram_id);
                 const isLeader = myId && (auction.current_highest_bidder_id === myId);
-                
-                // Золотой цвет если лидер, зеленый — если кто-то перебил
-                const bannerBg = isLeader ? 'rgba(255, 215, 0, 0.15)' : 'rgba(52, 199, 89, 0.15)';
-                const bannerColor = isLeader ? '#FFD700' : '#34c759';
-
                 myBidHtml = `
-                    <div style="background: ${bannerBg}; color: ${bannerColor}; text-align: center; padding: 6px; font-size: 11px; font-weight: 700; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                        Ваша ставка: ${auction.user_bid_amount} 🎟️ &nbsp;|&nbsp; Место: ${isLeader ? '<i class="fa-solid fa-crown"></i> ' : ''}#${auction.user_bid_rank}
+                    <div class="my-bid-stats">
+                        <div class="stat-item">
+                            <div class="stat-item-label">Ваша ставка</div>
+                            <div class="stat-item-value">${auction.user_bid_amount} 🎟️</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-item-label">Ваше место</div>
+                            <div class="stat-item-value ${isLeader ? 'timer' : ''}">
+                                ${isLeader ? '<i class="fa-solid fa-crown" style="font-size: 0.8em; margin-right: 5px;"></i>' : ''}
+                                #${auction.user_bid_rank}
+                            </div>
+                        </div>
                     </div>
                 `;
             }
@@ -462,7 +467,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="card-info-area">
                     <h3 class="event-title" ${titleStyle}>${escapeHTML(auction.title)}</h3>
                     
-                    ${skinMetaHtml}
+                    ${skinMetaHtml} <!-- 🔥 ВОТ НАШ НОВЫЙ БЛОК -->
                     
                     <div class="auction-stats">
                         <div class="stat-item">
