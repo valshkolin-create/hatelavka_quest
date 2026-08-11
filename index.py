@@ -31626,14 +31626,6 @@ async def force_trust_sync(
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
-# --- Модели для новых запросов ---
-class AdminSwapItemRequest(BaseModel):
-    initData: str
-    history_id: int
-    new_market_hash_name: str
-    new_price: float
-    new_image_url: str
-    new_rarity: str
 
 # =========================================================================
 # УПРАВЛЕНИЕ ИНВЕНТАРЕМ ПОЛЬЗОВАТЕЛЯ
@@ -31750,6 +31742,32 @@ async def admin_get_user_inventory(
         logging.error(f"Неизвестная ошибка получения инвентаря для {user_id}: {e}")
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера.")
 
+# ==========================================
+# 1. СХЕМЫ ДАННЫХ (ОБЯЗАТЕЛЬНО ДОБАВЬ ИХ)
+# ==========================================
+
+class AdminSwapItemRequest(BaseModel):
+    initData: str
+    history_id: int
+    new_market_hash_name: str
+    new_price: float
+    new_image_url: str
+    new_rarity: str
+
+class AdminGrantItemRequest(BaseModel):
+    initData: str
+    user_id: int
+    market_hash_name: str
+    price_rub: float
+    image_url: str
+    rarity: str
+    source: str = "admin"
+
+
+# ==========================================
+# 2. ИСПРАВЛЕННЫЙ ЭНДПОИНТ ЗАМЕНЫ (SWAP)
+# ==========================================
+
 @app.post("/api/v1/admin/users/inventory/swap")
 async def admin_swap_inventory_item(
     req: AdminSwapItemRequest,
@@ -31761,7 +31779,7 @@ async def admin_swap_inventory_item(
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     try:
-        # Проверяем, существует ли запись и можно ли её заменить (статус должен быть pending)
+        # Проверяем, существует ли запись
         check_resp = await supabase.get(
             "/cs_history",
             params={"id": f"eq.{req.history_id}", "select": "status,is_swapped"}
@@ -31772,10 +31790,11 @@ async def admin_swap_inventory_item(
         if not record_data:
             raise HTTPException(status_code=404, detail="Предмет не найден в истории.")
         
+        # 🔥 ИСПРАВЛЕНИЕ: Теперь заменять можно pending, available и failed
         allowed_statuses = ["pending", "available", "failed"]
-if record_data[0].get("status") not in allowed_statuses:
-    raise HTTPException(status_code=400, detail="Можно заменить предметы только со статусом pending, available или failed.")
-    
+        if record_data[0].get("status") not in allowed_statuses:
+            raise HTTPException(status_code=400, detail="Можно заменить предметы только со статусом pending, available или failed.")
+
         # Обновляем запись
         update_data = {
             "is_swapped": True,
@@ -31801,15 +31820,10 @@ if record_data[0].get("status") not in allowed_statuses:
         logging.error(f"Ошибка замены предмета {req.history_id}: {e}")
         raise HTTPException(status_code=500, detail="Ошибка базы данных при замене предмета.")
 
-# Схема запроса для выдачи предмета
-class AdminGrantItemRequest(BaseModel):
-    initData: str
-    user_id: int
-    market_hash_name: str
-    price_rub: float
-    image_url: str
-    rarity: str
-    source: str = "admin"
+
+# ==========================================
+# 3. НОВЫЙ ЭНДПОИНТ ВЫДАЧИ ПРЕДМЕТОВ (GRANT)
+# ==========================================
 
 @app.post("/api/v1/admin/users/inventory/grant")
 async def admin_grant_inventory_item(
@@ -31822,7 +31836,7 @@ async def admin_grant_inventory_item(
         raise HTTPException(status_code=403, detail="Доступ запрещен.")
 
     try:
-        # 1. Ищем предмет в таблице cs_items по market_hash_name
+        # Шаг 1: Ищем, есть ли уже этот предмет в базе CS_ITEMS
         item_resp = await supabase.get(
             "/cs_items",
             params={"market_hash_name": f"eq.{req.market_hash_name}", "select": "id"}
@@ -31830,35 +31844,34 @@ async def admin_grant_inventory_item(
         item_resp.raise_for_status()
         items_data = item_resp.json()
 
-        # 2. Получаем item_id (существующий или создаем новый)
+        # Шаг 2: Достаем ID скина или создаем новый в CS_ITEMS
         if items_data and len(items_data) > 0:
             item_id = items_data[0]["id"]
         else:
-            # Предмета еще нет в базе, создаем его
+            # Скина нет, создаем
             new_item_data = {
                 "name": req.market_hash_name,
                 "market_hash_name": req.market_hash_name,
                 "price_rub": req.price_rub,
-                "price": req.price_rub,  # Дублируем для обратной совместимости
+                "price": req.price_rub,  # Для обратной совместимости
                 "image_url": req.image_url,
                 "rarity": req.rarity,
                 "is_active": True,
                 "quantity": 1
             }
-            # Передаем заголовок Prefer, чтобы Supabase вернул созданную строку с ID
             insert_item_resp = await supabase.post(
                 "/cs_items",
                 json=new_item_data,
-                headers={"Prefer": "return=representation"}
+                headers={"Prefer": "return=representation"} # Просим Supabase сразу вернуть созданный ID
             )
             insert_item_resp.raise_for_status()
             item_id = insert_item_resp.json()[0]["id"]
 
-        # 3. Выдаем предмет пользователю в cs_history
+        # Шаг 3: Выдаем этот предмет пользователю в историю (CS_HISTORY)
         insert_history_data = {
             "user_id": req.user_id,
             "item_id": item_id,
-            "status": "available",
+            "status": "available", # Выданный предмет сразу получает статус В инвентаре
             "source": req.source,
             "case_name": "Админ-выдача",
             "is_swapped": False,
