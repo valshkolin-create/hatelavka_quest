@@ -343,15 +343,15 @@ document.addEventListener('DOMContentLoaded', () => {
             // === ЛОГИКА ЦВЕТОВ ===
             const rarityKey = auction.rarity;
             const rarityColor = RARITY_COLORS[rarityKey] || 'var(--text-primary)';
-            const titleStyle = rarityKey ? `style="color: ${rarityColor}; text-shadow: 0 0 10px ${rarityColor}40;"` : '';
+            const titleStyle = `style="text-align: center; ${rarityKey ? `color: ${rarityColor}; text-shadow: 0 0 10px ${rarityColor}40;` : ''}"`;
             
-            // --- УМНАЯ КОНВЕРТАЦИЯ КАЧЕСТВА В КОРОТКИЙ ФОРМАТ (FT, FN и т.д.) ---
+            // --- УМНАЯ КОНВЕРТАЦИЯ КАЧЕСТВА В ПОЛНЫЙ РУССКИЙ ФОРМАТ ---
             const WEAR_SHORT = {
-                'Factory New': 'FN', 'Прямо с завода': 'FN', 'FN': 'FN',
-                'Minimal Wear': 'MW', 'Немного поношенное': 'MW', 'MW': 'MW',
-                'Field-Tested': 'FT', 'После полевых': 'FT', 'FT': 'FT',
-                'Well-Worn': 'WW', 'Поношенное': 'WW', 'WW': 'WW',
-                'Battle-Scarred': 'BS', 'Закаленное в боях': 'BS', 'BS': 'BS'
+                'Factory New': 'Прямо с завода', 'Прямо с завода': 'Прямо с завода', 'FN': 'Прямо с завода',
+                'Minimal Wear': 'Немного поношенное', 'Немного поношенное': 'Немного поношенное', 'MW': 'Немного поношенное',
+                'Field-Tested': 'После полевых испытаний', 'После полевых': 'После полевых испытаний', 'FT': 'После полевых испытаний',
+                'Well-Worn': 'Поношенное', 'Поношенное': 'Поношенное', 'WW': 'Поношенное',
+                'Battle-Scarred': 'Закаленное в боях', 'Закаленное в боях': 'Закаленное в боях', 'BS': 'Закаленное в боях'
             };
             
             const wearKey = auction.wear;
