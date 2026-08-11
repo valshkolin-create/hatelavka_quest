@@ -181,6 +181,8 @@
 
     <div id="tab-create" class="tab-content">
         <form id="create-form" class="admin-form">
+            <!-- 🔥 СКРЫТОЕ ПОЛЕ ДЛЯ ЦЕНЫ В РУБЛЯХ -->
+            <input type="hidden" name="price_rub" id="inp-price-rub" value="0">
             
             <div id="schedule-setup" class="section-box hidden" style="border-color: #64b5ef;">
                 <h3 class="sec-title" style="color: #64b5ef;"><i class="fa-regular fa-clock"></i> Время старта</h3>
@@ -558,6 +560,9 @@
             document.getElementById('inp-img').value = item.image_url || '';
             document.getElementById('inp-quality').value = qualityCode || ""; 
             
+            // 🔥 СОХРАНЯЕМ ЦЕНУ ИЗ СКЛАДА В СКРЫТОЕ ПОЛЕ
+            document.getElementById('inp-price-rub').value = item.price_rub || 0;
+            
             const rarityMap = {
                 'common': 'common', 'gray': 'common', 'industrial': 'uncommon', 
                 'light_blue': 'uncommon', 'milspec': 'rare', 'blue': 'rare', 
@@ -746,6 +751,7 @@
         image_url: fd.get('image'),
         rarity: fd.get('rarity'),
         wear: fd.get('quality'),
+        price_rub: parseFloat(fd.get('price_rub') || 0), // 🔥 ПЕРЕДАЕМ ЦЕНУ НА СЕРВЕР
         bid_cooldown_hours: parseInt(fd.get('bid_cooldown_hours') || 24),
         snipe_guard_minutes: parseInt(fd.get('snipe_guard_minutes') || 5),
         min_required_tickets: parseInt(fd.get('min_required_tickets') || 1),
@@ -839,7 +845,7 @@
                 
                 const safeJson = encodeURIComponent(JSON.stringify(a).replace(/'/g, "&apos;"));
 
-                // Формируем бейджики (Теперь с выводом минут для отложенных!)
+                // Формируем бейджики статусов
                 let statusBadge = '';
                 if(isDone) {
                     statusBadge = `<span class="status-badge st-done">Завершен</span>`;
@@ -852,13 +858,34 @@
                     statusBadge = `<span class="status-badge st-active">Активен</span>`;
                 }
 
+                // --- КРАСИВЫЕ БЕЙДЖИКИ КАЧЕСТВА И ЦЕНЫ В АДМИНКЕ ---
+                const WEAR_SHORT = {
+                    'Factory New': 'FN', 'Прямо с завода': 'FN', 'FN': 'FN',
+                    'Minimal Wear': 'MW', 'Немного поношенное': 'MW', 'MW': 'MW',
+                    'Field-Tested': 'FT', 'После полевых': 'FT', 'FT': 'FT',
+                    'Well-Worn': 'WW', 'Поношенное': 'WW', 'WW': 'WW',
+                    'Battle-Scarred': 'BS', 'Закаленное в боях': 'BS', 'BS': 'BS'
+                };
+                const shortWear = WEAR_SHORT[a.wear] || a.wear || '';
+                
+                let skinMetaHtml = '';
+                if (shortWear || a.price_rub) {
+                    skinMetaHtml = `
+                        <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 10px; font-weight: 600;">
+                            ${shortWear ? `<span style="background: rgba(255, 255, 255, 0.1); color: var(--text-sec); padding: 2px 6px; border-radius: 4px;">${shortWear}</span>` : ''}
+                            ${a.price_rub ? `<span style="background: rgba(52, 199, 89, 0.15); color: #34c759; padding: 2px 6px; border-radius: 4px;">≈ ${a.price_rub} ₽</span>` : ''}
+                        </div>
+                    `;
+                }
+
                 let html = `
                 <div class="raffle-card ${isDone ? 'completed' : ''} ${isSilent ? 'silent' : ''}">
                     <div class="card-header">
                         ${img}
                         <div class="card-meta">
                             <div class="card-title">${a.title}</div>
-                            ${statusBadge}
+                            ${skinMetaHtml}
+                            <div style="margin-top: 4px;">${statusBadge}</div>
                             ${!isDone && a.bid_cooldown_ends_at ? `<span style="font-size:10px; color:var(--primary); margin-left:5px;">⏳ ${new Date(a.bid_cooldown_ends_at).toLocaleString([], {hour:'2-digit', minute:'2-digit'})}</span>` : ''}
                         </div>
                     </div>
@@ -927,6 +954,9 @@
             document.getElementById('inp-img').value = a.image_url || '';
             document.getElementById('inp-rarity').value = a.rarity || 'rare'; 
             document.getElementById('inp-desc').value = a.description || '';
+            
+            // 🔥 ВОССТАНАВЛИВАЕМ ЦЕНУ ПРИ КЛОНИРОВАНИИ
+            document.getElementById('inp-price-rub').value = a.price_rub || 0;
             
             document.querySelector('input[name="bid_cooldown_hours"]').value = a.bid_cooldown_hours || 24;
             document.querySelector('input[name="snipe_guard_minutes"]').value = a.snipe_guard_minutes || 5;
