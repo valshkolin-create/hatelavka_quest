@@ -452,7 +452,12 @@
     <div id="inventoryModal" class="modal-overlay" onclick="closeOnDim(event)">
         <div class="bottom-sheet">
             <div class="modal-header">
-                <h3 style="margin:0; font-size: 16px; font-weight: 800; color: #32d74b;"><i class="fa-solid fa-box-open"></i> Инвентарь игрока</h3>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <h3 style="margin:0; font-size: 16px; font-weight: 800; color: #32d74b;"><i class="fa-solid fa-box-open"></i> Инвентарь игрока</h3>
+                    <button class="inner-back-btn" style="margin: 0; padding: 4px 10px; font-size: 11px; color: #32d74b; border-color: rgba(50, 215, 75, 0.3);" onclick="openGrantItemModal()">
+                        <i class="fa-solid fa-plus"></i> Выдать
+                    </button>
+                </div>
                 <button class="back-btn" onclick="closeModal('inventoryModal')"><i class="fa-solid fa-xmark" style="font-size: 20px;"></i></button>
             </div>
             <div id="inventoryLoader" style="text-align: center; padding: 20px; color: var(--text-sec);"><i class="fa-solid fa-spinner fa-spin"></i> Загрузка...</div>
@@ -566,6 +571,7 @@
 
         let currentUser = null;
         let searchTimeout = null;
+        let libraryMode = 'swap'; // Переменная для определения режима окна Склада (swap или grant)
 
         // Словарь для красивых русских статусов
         const statusTranslations = {
@@ -1493,8 +1499,25 @@ async function submitCoins() {
         let isFetching = false;
         let hasMoreItems = true;
 
+        // НОВАЯ ФУНКЦИЯ ДЛЯ ВЫДАЧИ ПРЕДМЕТА
+        function openGrantItemModal() {
+            console.log('[LOG] Клик: Вызван openGrantItemModal');
+            if (!currentUser) return;
+            
+            libraryMode = 'grant'; 
+            document.getElementById('modal-library').classList.add('modal-active');
+            document.getElementById('lib-search-inp').value = '';
+            document.getElementById('lib-price-min').value = '';
+            document.getElementById('lib-price-max').value = '';
+            document.getElementById('lib-results').innerHTML = '<div style="text-align:center; color:var(--text-sec); padding:20px;">Начните поиск для выдачи...</div>';
+            
+            currentOffset = 0;
+            hasMoreItems = true;
+        }
+
         function openSwapLibrary(historyId) {
             console.log('[LOG] Клик: Вызван openSwapLibrary для', historyId);
+            libraryMode = 'swap'; // Устанавливаем режим на замену
             currentSwapTargetId = historyId;
             document.getElementById('modal-library').classList.add('modal-active');
             document.getElementById('lib-search-inp').value = '';
@@ -1590,6 +1613,8 @@ async function submitCoins() {
                 items.forEach(item => {
                     const safeJson = encodeURIComponent(JSON.stringify(item).replace(/'/g, "&apos;"));
                     const rColor = mapRarityToColor(item.rarity);
+                    const btnText = libraryMode === 'grant' ? 'ВЫДАТЬ' : 'ЗАМЕНИТЬ';
+                    const btnAction = libraryMode === 'grant' ? `submitGrant('${safeJson}')` : `submitSwap('${safeJson}')`;
 
                     cont.innerHTML += `
                     <div class="search-item" style="border-left: 3px solid ${rColor};">
@@ -1598,7 +1623,7 @@ async function submitCoins() {
                             <div style="font-weight:700; font-size:12px; color:#fff;">${item.market_hash_name}</div>
                             <div style="font-size:11px; color:var(--primary); margin-top:2px;">💰 ${item.price_rub} руб.</div>
                         </div>
-                        <button class="search-btn" style="background:var(--primary); color:#000;" onclick="submitSwap('${safeJson}')">ЗАМЕНИТЬ</button>
+                        <button class="search-btn" style="background:var(--primary); color:#000;" onclick="${btnAction}">${btnText}</button>
                     </div>`;
                 });
             } catch(e) { 
@@ -1638,6 +1663,39 @@ async function submitCoins() {
             } finally {
                 tg.MainButton.hideProgress();
                 currentSwapTargetId = null;
+            }
+        }
+
+        async function submitGrant(jsonStr) {
+            console.log('[LOG] Клик: Вызван submitGrant');
+            const targetItem = JSON.parse(decodeURIComponent(jsonStr).replace(/&apos;/g, "'"));
+            
+            const isConfirmed = await customConfirm(`Выдать предмет "${targetItem.market_hash_name}" пользователю?`, "Внимание");
+            if(!isConfirmed) return;
+
+            closeModal('modal-library');
+            tg.MainButton.showProgress();
+
+            try {
+                await fetchApi('/api/v1/admin/users/inventory/grant', {
+                    user_id: currentUser.telegram_id,
+                    market_hash_name: targetItem.market_hash_name,
+                    price_rub: targetItem.price_rub,
+                    image_url: targetItem.image_url,
+                    rarity: targetItem.rarity,
+                    source: 'admin'
+                });
+                
+                if(window.Telegram?.WebApp?.HapticFeedback) Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                tg.showPopup({message: 'Предмет успешно выдан!'});
+                
+                // Перезагружаем инвентарь
+                openInventory(); 
+
+            } catch (err) {
+                tg.showAlert(`Ошибка выдачи: ${err.message}`);
+            } finally {
+                tg.MainButton.hideProgress();
             }
         }
 
