@@ -11809,6 +11809,7 @@ async def admin_create_auction(
         "max_allowed_tickets": request_data.max_allowed_tickets,
         "rarity": request_data.rarity,
         "wear": request_data.wear,
+        "price_rub": getattr(request_data, 'price_rub', 0), # 🔥 ВОТ ТУТ
         "description": request_data.description,
         "start_time": request_data.start_time if request_data.start_time else None,
         "is_active": is_active,
