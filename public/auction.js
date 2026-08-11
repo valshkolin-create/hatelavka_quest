@@ -422,7 +422,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         <span>Вход до ${auction.max_allowed_tickets} 🎟️</span>
                     </div>
                 `;
-            } else if (auction.min_required_tickets && auction.min_required_tickets > 1) {
+            } else if (auction.min_required_tickets && auction.min_required_tickets > 1 && (!auction.current_highest_bid || auction.current_highest_bid === 0)) {
+                // Плашка "ВХОД ОТ" показывается ТОЛЬКО если еще нет ни одной ставки
                 restrictionsHtml = `
                     <div class="auction-restriction-badge high-balance-restriction">
                         <i class="fa-solid fa-crown"></i>
@@ -904,14 +905,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     iconHtml = '<i class="fa-brands fa-twitch twitch-icon"></i>';
                     isTwitch = true;
                 } else {
-                    // 🔥 БЫЛО: displayName = auction.bidder.full_name || 'Аноним';
-                    // 🔥 СТАЛО:
                     displayName = cleanName(auction.bidder.full_name);
                     iconHtml = '<i class="fa-solid fa-user user-icon"></i>';
                 }
             } else if (auction.current_highest_bidder_name) {
-                // 🔥 БЫЛО: displayName = auction.current_highest_bidder_name;
-                // 🔥 СТАЛО:
                 displayName = cleanName(auction.current_highest_bidder_name);
                 iconHtml = '<i class="fa-solid fa-user user-icon"></i>';
             }
@@ -927,13 +924,22 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // Сравниваем старый HTML с новым (чтобы не моргать лишний раз)
-            // trim() убирает лишние пробелы для точности сравнения
             if (leaderEl.innerHTML.replace(/\s+/g, ' ').trim() !== newHtmlContent.replace(/\s+/g, ' ').trim()) {
                 leaderEl.innerHTML = newHtmlContent;
                 
                 // Анимация обновления лидера (белая вспышка текста)
                 leaderEl.style.opacity = '0.5';
                 setTimeout(() => { leaderEl.style.opacity = '1'; }, 300);
+            }
+        }
+
+        // 3. Скрываем плашку "ВХОД ОТ", если появилась первая ставка в фоне
+        if (auction.current_highest_bid > 0) {
+            const startPriceBadge = card.querySelector('.high-balance-restriction');
+            if (startPriceBadge) {
+                startPriceBadge.style.transition = 'opacity 0.3s';
+                startPriceBadge.style.opacity = '0';
+                setTimeout(() => startPriceBadge.remove(), 300);
             }
         }
     }
