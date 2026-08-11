@@ -449,8 +449,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             card.innerHTML = `
-                ${myBidHtml} <!-- 🔥 ПЛАШКА СТАВКИ ТЕПЕРЬ НА САМОМ ВЕРХУ -->
-                
                 <div class="card-display-area">
                     <div class="event-image-container">
                         ${restrictionsHtml} 
@@ -464,7 +462,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="card-info-area">
                     <h3 class="event-title" ${titleStyle}>${escapeHTML(auction.title)}</h3>
                     
-                    ${skinMetaHtml} <!-- 🔥 ВОТ НАШ НОВЫЙ БЛОК -->
+                    ${skinMetaHtml}
                     
                     <div class="auction-stats">
                         <div class="stat-item">
@@ -478,8 +476,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     
                     ${leaderOrWinnerHtml} 
-                    
-                    <!-- Здесь больше нет myBidHtml, мы его подняли выше -->
+                    ${myBidHtml}
 
                     <div class="event-button-container">
                         <button class="history-button" data-auction-id="${auction.id}">Топ по ставкам</button>
