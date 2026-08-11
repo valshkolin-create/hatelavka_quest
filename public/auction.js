@@ -717,14 +717,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         costToUser = finalBidAmount; 
 
-        const MAX_STEP = 3; 
-        const currentBid = auction.current_highest_bid || 0;
-
-        if ((finalBidAmount - currentBid) > MAX_STEP) {
-            tg.showAlert(`🚫 Не спешите!\n\nМаксимальный шаг повышения: ${MAX_STEP} 🎟️.`);
-            return; 
-        }
-
         if (costToUser > (userData.tickets || 0)) {
             tg.showAlert('У вас недостаточно билетов для этой ставки.'); 
             return;
