@@ -523,18 +523,13 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-       // --- НАЧАЛО ИЗМЕНЕНИЙ ---
-        // Надежное получение ID пользователя (учитываем разную структуру ответа API)
         const myId = userData.telegram_id || (userData.profile && userData.profile.telegram_id);
-        
-        // Проверяем, является ли текущий пользователь лидером
         const isLeader = myId && (auction.current_highest_bidder_id === myId);
         
         if (isLeader) {
              tg.showAlert("🏆 Вы уже лидируете в этом аукционе!\n\nНет смысла перебивать самого себя.");
              return;
         }
-        // --- КОНЕЦ ИЗМЕНЕНИЙ ---
 
         dom.bidModalTitle.textContent = `Ставка: ${escapeHTML(auction.title)}`;
         dom.userBalanceDisplay.textContent = userData.tickets || 0;
@@ -543,10 +538,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const label = dom.bidModal.querySelector('label');
         const currentBid = auction.current_highest_bid || 0;
         
-        // Так как лидер не может открыть окно, логика только для новой ставки
-        const minBid = currentBid + 1;
+        // Определяем стартовую цену лота (с фоллбеком на старое поле или 1)
+        const startPrice = auction.start_price || auction.min_required_tickets || 1; 
+        
+        // Если ставок нет, начинаем со стартовой цены. Если есть — перебиваем на +1.
+        const minBid = currentBid > 0 ? currentBid + 1 : startPrice;
+
         label.textContent = "Ваша ставка (билеты)";
-        dom.bidAmountInput.placeholder = `Больше ${currentBid} 🎟️`;
+        dom.bidAmountInput.placeholder = currentBid > 0 ? `Больше ${currentBid} 🎟️` : `От ${minBid} 🎟️`;
         dom.bidAmountInput.min = minBid;
         dom.bidCurrentMinInput.value = minBid; 
         
@@ -555,7 +554,7 @@ document.addEventListener('DOMContentLoaded', () => {
         showModal(dom.bidModal);
         dom.bidAmountInput.focus();
     }
-
+    
     async function showHistoryModal(auctionId) {
         const auction = currentAuctions.find(a => a.id == auctionId);
         if (!auction) return;
@@ -647,7 +646,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const userTickets = userData.tickets || 0;
                 
-                // Макс. лимит (для новичков)
+                // Макс. лимит (песочница для новичков)
                 if (auction.max_allowed_tickets && auction.max_allowed_tickets > 0) {
                     if (userTickets > auction.max_allowed_tickets) {
                         const hasBidBefore = auction.user_bid_amount > 0; 
@@ -657,14 +656,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     }
                 }
-                
-                // Мин. лимит (для богатых)
-                if (auction.min_required_tickets && userTickets < auction.min_required_tickets) {
-                     tg.showAlert(`🔒 Доступ закрыт!\n\nТребуется минимум ${auction.min_required_tickets} 🎟️.\n\nУ вас сейчас ${userTickets} 🎟️.`);
-                     return; 
-                }
 
-                // --- НАЧАЛО ИЗМЕНЕНИЙ ---
                 // 🔒 Блокировка клика для лидера
                 const myId = userData.telegram_id || (userData.profile && userData.profile.telegram_id);
                 const isLeader = myId && (auction.current_highest_bidder_id === myId);
@@ -673,7 +665,6 @@ document.addEventListener('DOMContentLoaded', () => {
                      tg.showAlert("🏆 Вы уже лидируете в этом аукционе!\n\nНет смысла перебивать самого себя.");
                      return;
                 }
-                // --- КОНЕЦ ИЗМЕНЕНИЙ ---
 
                 showBidModal(auctionId);
             }
