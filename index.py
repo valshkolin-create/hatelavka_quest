@@ -32289,6 +32289,100 @@ async def equip_achievement(
         logging.error(f"[ACHIEVEMENTS] Ошибка надевания: {e}")
         raise HTTPException(status_code=500, detail="Ошибка базы данных")
 
+class AdminAchCreateReq(BaseModel):
+    initData: str
+    title: str
+    description: Optional[str] = None
+    image_url: Optional[str] = None
+    glow_color: Optional[str] = "rgba(255, 255, 255, 0.5)"
+    condition_type: str
+    condition_value: int
+
+class AdminAchUpdateReq(AdminAchCreateReq):
+    id: int
+
+class AdminAchDeleteReq(BaseModel):
+    initData: str
+    id: int
+
+# ==========================================================
+# ПОЛУЧИТЬ ВСЕ ДОСТИЖЕНИЯ (АДМИН)
+# ==========================================================
+@app.get("/api/v1/admin/achievements")
+async def admin_get_achievements(
+    initData: str,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(initData, ALL_VALID_TOKENS)
+    if not user_info or user_info["id"] not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+    
+    res = await supabase.get("/achievements", params={"order": "condition_value.asc"})
+    return res.json()
+
+# ==========================================================
+# СОЗДАТЬ ДОСТИЖЕНИЕ
+# ==========================================================
+@app.post("/api/v1/admin/achievements/create")
+async def admin_create_achievement(
+    req: AdminAchCreateReq,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info["id"] not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+
+    payload = {
+        "title": req.title,
+        "description": req.description,
+        "image_url": req.image_url,
+        "glow_color": req.glow_color,
+        "condition_type": req.condition_type,
+        "condition_value": req.condition_value
+    }
+    
+    await supabase.post("/achievements", json=payload)
+    return {"success": True}
+
+# ==========================================================
+# РЕДАКТИРОВАТЬ ДОСТИЖЕНИЕ
+# ==========================================================
+@app.post("/api/v1/admin/achievements/update")
+async def admin_update_achievement(
+    req: AdminAchUpdateReq,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info["id"] not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+
+    payload = {
+        "title": req.title,
+        "description": req.description,
+        "image_url": req.image_url,
+        "glow_color": req.glow_color,
+        "condition_type": req.condition_type,
+        "condition_value": req.condition_value
+    }
+    
+    await supabase.patch("/achievements", params={"id": f"eq.{req.id}"}, json=payload)
+    return {"success": True}
+
+# ==========================================================
+# УДАЛИТЬ ДОСТИЖЕНИЕ
+# ==========================================================
+@app.post("/api/v1/admin/achievements/delete")
+async def admin_delete_achievement(
+    req: AdminAchDeleteReq,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(req.initData, ALL_VALID_TOKENS)
+    if not user_info or user_info["id"] not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+
+    await supabase.delete("/achievements", params={"id": f"eq.{req.id}"})
+    return {"success": True}
+
 # --- СХЕМЫ (УНИКАЛЬНЫЕ НАЗВАНИЯ) ---
 class ProfileShopItemsRequest(BaseModel):
     initData: str
