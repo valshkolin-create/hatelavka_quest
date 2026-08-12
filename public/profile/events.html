@@ -1,36 +1,61 @@
 <style>
     /* =========================================
-       LIQUID GLASS: КОМПАКТНЫЙ ПЕРЕКЛЮЧАТЕЛЬ
+       LIQUID GLASS: ПРЕМИАЛЬНЫЙ ПЕРЕКЛЮЧАТЕЛЬ (КАК В NAV)
        ========================================= */
     .internal-tabs-container {
         display: inline-flex;
-        background: rgba(0, 0, 0, 0.4);
+        background: rgba(25, 25, 28, 0.4);
         border: 1px solid var(--glass-border);
-        border-radius: 10px;
-        padding: 3px;
-        box-shadow: inset 0 2px 8px rgba(0,0,0,0.6);
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
+        border-radius: 14px;
+        padding: 4px;
+        box-shadow: inset 0 2px 10px rgba(0,0,0,0.3), 0 4px 15px rgba(0,0,0,0.5);
+        backdrop-filter: blur(15px);
+        -webkit-backdrop-filter: blur(15px);
+        position: relative;
     }
 
     .internal-tab-btn {
-        padding: 6px 16px;
-        font-size: 9px;
+        position: relative;
+        padding: 8px 24px;
+        font-size: 10px;
         font-weight: 800;
         color: rgba(255, 255, 255, 0.4);
-        border-radius: 7px;
+        border-radius: 10px;
         cursor: pointer;
         transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
         text-transform: uppercase;
         letter-spacing: 0.5px;
         background: transparent;
+        z-index: 2;
     }
 
     .internal-tab-btn.active {
-        background: rgba(255, 255, 255, 0.15);
-        color: #fff;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-        text-shadow: 0 0 10px rgba(255,255,255,0.3);
+        background: rgba(255, 255, 255, 0.1);
+        color: #ffffff;
+        text-shadow: 0 0 15px rgba(255, 255, 255, 0.6);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+
+    /* 🔥 ТА САМАЯ СВЕТЯЩАЯСЯ ПОЛОСКА ИЗ NAV 🔥 */
+    .internal-tab-btn::after {
+        content: '';
+        position: absolute;
+        bottom: -4px; /* Опускаем на край контейнера */
+        left: 50%;
+        transform: translateX(-50%) scaleX(0);
+        width: 35px;
+        height: 3px;
+        background: #ffffff;
+        border-radius: 4px 4px 0 0;
+        box-shadow: 0 -2px 12px rgba(255, 255, 255, 0.9);
+        opacity: 0;
+        transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        z-index: 3;
+    }
+
+    .internal-tab-btn.active::after {
+        transform: translateX(-50%) scaleX(1);
+        opacity: 1;
     }
 
     .internal-tab-btn:active {
@@ -38,7 +63,7 @@
     }
 
     /* =========================================
-       СТИЛИ СОБЫТИЙ (Твои оригинальные)
+       СТИЛИ СОБЫТИЙ (Оригинальные)
        ========================================= */
     .events-container {
         display: flex;
@@ -128,8 +153,8 @@
     }
 </style>
 
-<!-- 🔥 ПЕРЕКЛЮЧАТЕЛЬ ПО ЦЕНТРУ 🔥 -->
-<div style="text-align: center; margin-bottom: 15px;">
+<!-- 🔥 ПЕРЕКЛЮЧАТЕЛЬ ПО ЦЕНТРУ (ПРИПОДНЯТ ВЫШЕ ЧЕРЕЗ margin-top: -10px) 🔥 -->
+<div style="text-align: center; margin-top: -10px; margin-bottom: 15px;">
     <div class="internal-tabs-container">
         <div class="internal-tab-btn active" id="tab-btn-history" onclick="switchEventsSubTab('history')">Действия</div>
         <div class="internal-tab-btn" id="tab-btn-promos" onclick="switchEventsSubTab('promos')">Промокоды</div>
