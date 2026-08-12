@@ -32147,7 +32147,7 @@ class AchievementsRequest(BaseModel):
 
 class EquipAchievementRequest(BaseModel):
     initData: str
-    achievement_id: int
+    achievement_id: Optional[int] = None  # <--- Теперь FastAPI пропустит null !
 
 # =========================================================================
 # 3. ДОСТИЖЕНИЯ: ПОЛУЧЕНИЕ СПИСКА И АВТО-ВЫДАЧА
