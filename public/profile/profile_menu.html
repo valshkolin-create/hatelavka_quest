@@ -1909,8 +1909,9 @@ window.clearAllRewards = function() {
                     document.body.classList.add('has-twitch-error');
                 } else {
                     twitchIcon.className = "fa-brands fa-twitch";
-                    twitchIcon.style.color = hasTwitch ? '#fff' : 'rgba(255,255,255,0.2)';
-                    twitchIcon.style.textShadow = hasTwitch ? '0 0 10px rgba(255,255,255,0.4)' : 'none';
+                    // 🔥 ИСПРАВЛЕНО: Twitch теперь тоже красится в цвет ачивки (glow)
+                    twitchIcon.style.color = hasTwitch ? glow : 'rgba(255,255,255,0.2)';
+                    twitchIcon.style.textShadow = hasTwitch ? `0 0 10px ${localHexToRgba(glow, 0.4)}` : 'none';
                     if(twitchBanner) twitchBanner.classList.remove('active');
                     
                     // Убираем класс сдвига шапки
@@ -1918,7 +1919,6 @@ window.clearAllRewards = function() {
                 }
 
                 // 👇 ДОБАВИТЬ ЭТО 👇
-                // 🔥 ЛОГИКА ПОДСКАЗКИ TWITCH 🔥
                 // 🔥 ЛОГИКА ПОДСКАЗКИ TWITCH 🔥
                 const hintEl = document.getElementById('twitch-onboarding-hint');
                 if (hintEl) {
@@ -2018,7 +2018,7 @@ window.clearAllRewards = function() {
                 }
             }
         });
-
+        
         // --- ЛОГИКА НАСТРОЕК ---
         function openSettings() {
             if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
