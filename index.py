@@ -32202,13 +32202,21 @@ async def get_user_achievements(
             is_unlocked = ach_id in unlocked_dict
             is_equipped = unlocked_dict[ach_id]["is_equipped"] if is_unlocked else False
             
-            # --- УМНАЯ ПРОВЕРКА ПРОГРЕССА ---
+           # --- УМНАЯ ПРОВЕРКА ПРОГРЕССА ---
             current_progress = 0.0
             if c_type in user_db and user_db[c_type] is not None:
+                val = user_db[c_type]
+                
                 try:
-                    current_progress = float(user_db[c_type])
+                    # Сначала честно пытаемся превратить значение в число (счетчики, баланс, билеты)
+                    current_progress = float(val)
                 except (ValueError, TypeError):
-                    current_progress = 0.0
+                    # Если Питон выдал ошибку, значит внутри БУКВЫ (ссылка, никнейм, статус)
+                    # Проверяем: если это строка и она не пустая, то условие выполнено!
+                    if isinstance(val, str) and val.strip():
+                        current_progress = c_val  # Ставим прогресс равным требуемому (например, 1)
+                    else:
+                        current_progress = 0.0
             
             # Если условие выполнено, а ачивки еще нет — готовим к выдаче!
             if not is_unlocked and c_type != 'manual' and current_progress >= c_val:
