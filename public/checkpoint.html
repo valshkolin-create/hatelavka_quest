@@ -914,6 +914,12 @@
             box-shadow: 0 0 15px rgba(50, 215, 75, 0.05);
         }
 
+        /* --- ФОН ДЛЯ ПРОЙДЕННОЙ НЕДЕЛИ (Мягкий градиент без рамки) --- */
+        .week-accordion.completed-week {
+            background: linear-gradient(180deg, rgba(50, 215, 75, 0.05) 0%, var(--surface-bg) 100%);
+            box-shadow: 0 0 15px rgba(50, 215, 75, 0.05);
+        }
+
         /* --- ПРОЗРАЧНЫЕ МОДАЛКИ (Инструкция, Кейс, Premium, Уведомления, Обмен) --- */
 #instruction-modal .premium-panel,
 #case-contents-modal .premium-panel,
@@ -2961,9 +2967,10 @@ const processedQuests = weekQuests.map(cfg => {
             return expA - expB;
         });
 
-        const weekBlock = document.createElement('div');
+        cconst weekBlock = document.createElement('div');
         const isCurrentWeek = (statusClass === 'status-active');
-        weekBlock.className = `week-accordion ${isLocked ? 'locked' : ''} ${isCurrentWeek ? 'current-week' : ''}`;
+        // 👇 Выдаем класс completed-week, если всё собрано
+        weekBlock.className = `week-accordion ${isLocked ? 'locked' : ''} ${isCurrentWeek ? 'current-week' : ''} ${isAllClaimed ? 'completed-week' : ''}`;
         
         // 👇 Красим сам текст "Неделя X" в зеленый с легким свечением, если она пройдена
         const titleStyle = isAllClaimed ? 'color: var(--success); text-shadow: 0 0 10px rgba(50, 215, 75, 0.2);' : '';
