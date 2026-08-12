@@ -3791,28 +3791,13 @@ window.closeHistoryModal = function() {
         // ==========================================
 // 🔥 ЛОГИКА РЕФЕРАЛЬНОГО МАГАЗИНА 🔥
 // ==========================================
-window.getRankInfo = function(refs) {
-    if (refs >= 100) return "Легенда";
-    if (refs >= 50) return "Золото";
-    if (refs >= 10) return "Серебро";
-    return "Новичок";
-};
+
 
 window.initProfileShop = async function() {
     try {
         const res = await window.apiRequest('/api/v1/profile/shop/items', 'POST', null, true);
         
         const balEl = document.getElementById('user-ref-balance');
-        const countEl = document.getElementById('rank-count');
-        const nameEl = document.getElementById('rank-name');
-        const bannerEl = document.getElementById('rank-banner-container');
-        const container = document.getElementById('shop-items-container');
-        const loader = document.getElementById('shop-loader');
-
-        if (balEl) balEl.innerText = res.user_balance || 0;
-        if (countEl) countEl.innerText = res.referrals_count || 0;
-        if (nameEl) nameEl.innerText = window.getRankInfo(res.referrals_count || 0);
-        if (bannerEl) bannerEl.style.display = 'flex';
 
        // 👇 ГЕНЕРАЦИЯ ССЫЛКИ И ОЖИВЛЕНИЕ СТАТИСТИКИ 👇
         // 👇 ВСТАВИТЬ ГЕНЕРАЦИЮ ССЫЛКИ В window.initProfileShop 👇
