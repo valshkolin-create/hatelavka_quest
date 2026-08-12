@@ -434,6 +434,8 @@
         .status-active { background: rgba(50, 215, 75, 0.15); color: var(--success); border: 1px solid rgba(50, 215, 75, 0.3); }
         .status-past { background: rgba(255, 215, 0, 0.1); color: var(--primary); border: 1px solid rgba(255, 215, 0, 0.3); }
         .status-locked { background: rgba(255, 69, 58, 0.1); color: var(--danger); border: 1px solid rgba(255, 69, 58, 0.2); }
+        /* 👇 НОВЫЙ КЛАСС: Серый фон, зеленая надпись */
+        .status-completed { background: rgba(255, 255, 255, 0.05); color: var(--success); border: 1px solid rgba(255, 255, 255, 0.15); }
         
         .week-chevron { color: var(--text-muted); font-size: 14px; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
         .week-header.expanded .week-chevron { transform: rotate(180deg); }
@@ -2932,7 +2934,7 @@ const processedQuests = weekQuests.map(cfg => {
         const isAllClaimed = processedQuests.length > 0 && processedQuests.every(q => q.userProgress.is_claimed);
         if (isAllClaimed) {
             statusText = 'Пройдена';
-            statusClass = 'status-active';
+            statusClass = 'status-completed'; // Выдаем новый серый стиль
         }
         
         const hasRewardsToClaim = !isLocked && processedQuests.some(q => q.userProgress.is_completed && !q.userProgress.is_claimed && q.requiredPrevWeek === null);
