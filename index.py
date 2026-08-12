@@ -4263,12 +4263,19 @@ async def get_bootstrap_data(
         # 🔥 НОВОЕ: Проверяем Матрицу
         matrix_task = supabase.get("/event_matrix_quest", params={"user_id": f"eq.{telegram_id}"})
         
+        # 🔥 НОВОЕ: Запрашиваем надетую ачивку (соединяем таблицы через select)
+        equipped_ach_task = supabase.get("/user_achievements", params={
+            "telegram_id": f"eq.{telegram_id}", 
+            "is_equipped": "eq.true", 
+            "select": "achievements(title,glow_color)"
+        })
+
         # 🔥 НОВОЕ: Запрашиваем глобальные настройки (Key-Value)
         settings_task = supabase.get("/settings")
 
-        # Выполняем разом, экономя время (ДОБАВИЛИ settings_task И settings_res)
-        db_res, notifs_res, p2p_res, balance_res, auctions_res, matrix_res, settings_res = await asyncio.gather(
-            rpc_task, notifs_task, p2p_task, balance_task, auctions_task, matrix_task, settings_task, return_exceptions=True
+        # Выполняем разом, экономя время (ДОБАВИЛИ equipped_ach_task И equipped_ach_res)
+        db_res, notifs_res, p2p_res, balance_res, auctions_res, matrix_res, settings_res, equipped_ach_res = await asyncio.gather(
+            rpc_task, notifs_task, p2p_task, balance_task, auctions_task, matrix_task, settings_task, equipped_ach_task, return_exceptions=True
         )
         
         # Распаковываем Матрицу
