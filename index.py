@@ -4264,10 +4264,10 @@ async def get_bootstrap_data(
         matrix_task = supabase.get("/event_matrix_quest", params={"user_id": f"eq.{telegram_id}"})
         
         # 🔥 НОВОЕ: Запрашиваем надетую ачивку (соединяем таблицы через select)
+        # 🔥 НОВОЕ: Запрашиваем ВСЕ ачивки юзера вместе со связанными данными
         equipped_ach_task = supabase.get("/user_achievements", params={
-            "telegram_id": f"eq.{telegram_id}",
-            "is_equipped": "is.true",         # Важно: is.true вместо eq.true
-            "select": "*, achievements(*)"    # Запрашиваем все доступные поля
+            "telegram_id": f"eq.{telegram_id}", 
+            "select": "*, achievements(title,glow_color)" # Запрашиваем звездочку (*) чтобы видеть is_equipped
         })
 
         # 🔥 НОВОЕ: Запрашиваем глобальные настройки (Key-Value)
@@ -4395,13 +4395,16 @@ async def get_bootstrap_data(
         
         if not isinstance(equipped_ach_res, Exception) and equipped_ach_res.status_code == 200:
             ach_data = equipped_ach_res.json()
-            if isinstance(ach_data, list) and len(ach_data) > 0:
-                # PostgREST может отдавать ключ как 'achievements' или 'achievement'
-                inner_ach = ach_data[0].get("achievements") or ach_data[0].get("achievement")
+            
+            if isinstance(ach_data, list):
+                # 🔥 БРОНЕБОЙНЫЙ ФИЛЬТР: Ищем ту самую ачивку, которая надета
+                active_ach = next((a for a in ach_data if a.get("is_equipped") is True), None)
                 
-                if inner_ach:
-                    user_data['equipped_title'] = inner_ach.get("title")
-                    user_data['equipped_glow'] = inner_ach.get("glow_color")
+                if active_ach:
+                    inner_ach = active_ach.get("achievements") or active_ach.get("achievement")
+                    if inner_ach:
+                        user_data['equipped_title'] = inner_ach.get("title")
+                        user_data['equipped_glow'] = inner_ach.get("glow_color")
         else:
             # Выведет ошибку в логи сервера, если JOIN сломался
             print("❌ ОШИБКА АЧИВОК:", getattr(equipped_ach_res, 'text', str(equipped_ach_res)))
@@ -32248,7 +32251,7 @@ async def get_user_achievements(
         raise HTTPException(status_code=500, detail="Ошибка базы данных")
 
 
-=========================================================================
+# =========================================================================
 # 4. ДОСТИЖЕНИЯ: НАДЕТЬ / СНЯТЬ АЧИВКУ
 # =========================================================================
 @app.post("/api/v1/user/achievements/equip")
@@ -32264,24 +32267,15 @@ async def equip_achievement(
     target_id = request_data.achievement_id
 
     try:
-        # 1. Снимаем ВСЕ надетые ачивки (обрати внимание, я заменил eq.true на is.true)
+        # 1. Железобетонно снимаем ВСЕ ачивки у пользователя
         await supabase.patch(
             "/user_achievements",
-            params={"telegram_id": f"eq.{telegram_id}", "is_equipped": "is.true"},
+            params={"telegram_id": f"eq.{telegram_id}"},
             json={"is_equipped": False}
         )
         
-        # 2. Если ID передали (то есть юзер НАДЕВАЕТ, а не просто снимает)
+        # 2. Если юзер НАДЕВАЕТ (передал ID), а не просто снимает
         if target_id is not None:
-            
-            # Проверяем, есть ли у юзера эта ачивка вообще
-            check_res = await supabase.get(
-                "/user_achievements", 
-                params={"telegram_id": f"eq.{telegram_id}", "achievement_id": f"eq.{target_id}"}
-            )
-            if not check_res.json():
-                raise HTTPException(status_code=400, detail="Достижение еще не разблокировано!")
-
             # Надеваем выбранную
             await supabase.patch(
                 "/user_achievements",
@@ -32290,13 +32284,12 @@ async def equip_achievement(
             )
             return {"success": True, "message": "Достижение надето!"}
             
-        # Если target_id был null, значит юзер просто снял ачивку
         return {"success": True, "message": "Достижение снято!"}
 
     except HTTPException:
         raise
     except Exception as e:
-        logging.error(f"[ACHIEVEMENTS] Ошибка надевания/снятия: {e}")
+        logging.error(f"[ACHIEVEMENTS] Ошибка надевания: {e}")
         raise HTTPException(status_code=500, detail="Ошибка базы данных")
 
 class AdminAchCreateReq(BaseModel):
