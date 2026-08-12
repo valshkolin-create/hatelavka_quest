@@ -2205,13 +2205,19 @@ contentArea.classList.add('fade-in-content');
                     await window.loadEvents();
                 }
                 // 👇🔥 ВЫЗОВ РЕФЕРАЛЬНОГО МАГАЗИНА 🔥👇
-                else if (tabName === 'referral') {
-                    await window.initProfileShop();
-                }
-                // 👇🔥 ВЫЗОВ ВКЛАДКИ ДОСТИЖЕНИЙ 🔥👇
-                else if (tabName === 'achievements') {
-                    if (typeof window.loadAchievements === 'function') await window.loadAchievements();
-                }
+            else if (tabName === 'referral') {
+                await window.initProfileShop();
+            }
+            // 👇🔥 ВЫЗОВ ВКЛАДКИ ДОСТИЖЕНИЙ 🔥👇
+            else if (tabName === 'achievements') {
+                if (typeof window.loadAchievements === 'function') await window.loadAchievements();
+            }
+            
+        } catch (error) { // ЗАКРЫВАЕМ БЛОК TRY И ДОБАВЛЯЕМ CATCH
+            console.error("Ошибка при загрузке вкладки:", error);
+            contentArea.innerHTML = `<div style="text-align:center; color:#ff3b30; margin-top:50px;">Ошибка загрузки вкладки</div>`;
+        }
+    } // ЗАКРЫВАЕМ ФУНКЦИЮ loadTab
 
         // 1. Логика кликов по меню (с фичей Instagram)
         navItems.forEach(item => {
