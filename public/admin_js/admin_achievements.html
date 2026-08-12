@@ -101,12 +101,12 @@
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1000; display: none; align-items: flex-end; justify-content: center; backdrop-filter: blur(5px); }
         .modal-active { display: flex; animation: fadeIn 0.3s ease; }
         
-        /* ГЛАВНЫЙ ФИКС БАГА ЗДЕСЬ: */
+        /* ДЕЛАЕМ ОКНО ПОЧТИ НА ВЕСЬ ЭКРАН */
         .bottom-sheet { 
             background: #1c1c1e; width: 100%; border-radius: 24px 24px 0 0; 
             padding: 20px; padding-bottom: 110px; 
-            max-height: 90vh; 
-            /* Убрал display: flex; из-за которого поля сплющивались, теперь это обычный блок */
+            height: 96vh; /* Форсируем высоту до 96% экрана */
+            max-height: 96vh; 
             display: block; 
             box-sizing: border-box; 
             border-top: 1px solid var(--card-border); overflow-y: auto; 
