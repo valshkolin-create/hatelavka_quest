@@ -1,36 +1,40 @@
 <style>
     /* =========================================
-       LIQUID GLASS: ПЕРЕКЛЮЧАТЕЛЬ ВЛОЖЕННЫХ ВЛАДОК
+       LIQUID GLASS: КОМПАКТНЫЙ ПЕРЕКЛЮЧАТЕЛЬ
        ========================================= */
     .internal-tabs-container {
-        display: flex;
-        background: rgba(25, 25, 28, 0.5);
+        display: inline-flex;
+        background: rgba(0, 0, 0, 0.4);
         border: 1px solid var(--glass-border);
-        border-radius: 12px;
-        padding: 4px;
-        margin-bottom: 15px;
-        box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+        border-radius: 10px;
+        padding: 3px;
+        box-shadow: inset 0 2px 8px rgba(0,0,0,0.6);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
     }
 
     .internal-tab-btn {
-        flex: 1;
-        text-align: center;
-        padding: 8px 0;
-        font-size: 10px;
+        padding: 6px 16px;
+        font-size: 9px;
         font-weight: 800;
         color: rgba(255, 255, 255, 0.4);
-        border-radius: 8px;
+        border-radius: 7px;
         cursor: pointer;
-        transition: all 0.3s ease;
+        transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
         text-transform: uppercase;
         letter-spacing: 0.5px;
+        background: transparent;
     }
 
     .internal-tab-btn.active {
-        background: rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.15);
         color: #fff;
         box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        text-shadow: 0 0 10px rgba(255,255,255,0.3);
+    }
+
+    .internal-tab-btn:active {
+        transform: scale(0.95);
     }
 
     /* =========================================
@@ -124,10 +128,12 @@
     }
 </style>
 
-<!-- 🔥 ПЕРЕКЛЮЧАТЕЛЬ 🔥 -->
-<div class="internal-tabs-container">
-    <div class="internal-tab-btn active" id="tab-btn-history" onclick="switchEventsSubTab('history')">Действия</div>
-    <div class="internal-tab-btn" id="tab-btn-promos" onclick="switchEventsSubTab('promos')">Промокоды</div>
+<!-- 🔥 ПЕРЕКЛЮЧАТЕЛЬ ПО ЦЕНТРУ 🔥 -->
+<div style="text-align: center; margin-bottom: 15px;">
+    <div class="internal-tabs-container">
+        <div class="internal-tab-btn active" id="tab-btn-history" onclick="switchEventsSubTab('history')">Действия</div>
+        <div class="internal-tab-btn" id="tab-btn-promos" onclick="switchEventsSubTab('promos')">Промокоды</div>
+    </div>
 </div>
 
 <!-- =========================================
@@ -135,7 +141,6 @@
      ========================================= -->
 <div id="subtab-history" style="display: block; animation: popIn 0.3s ease-out;">
     <div class="events-container" id="events-list">
-        <!-- Дефолтный лоадер, пока данные не придут -->
         <div style="display:flex; justify-content:center; padding: 30px 0;">
             <i class="fa-solid fa-circle-notch fa-spin" style="font-size: 24px; color: var(--text-color-muted);"></i>
         </div>
@@ -147,10 +152,8 @@
      ========================================= -->
 <div id="subtab-promos" style="display: none; animation: popIn 0.3s ease-out;">
     <div class="events-header-bar" style="margin-bottom: 12px; display: flex; justify-content: flex-start; align-items: center; padding: 0 4px; gap: 10px;">
-        <!-- Левая часть: СОРТИРОВКА -->
         <div style="font-size: 10px; font-weight: 800; color: rgba(255,255,255,0.6); text-transform: uppercase;">Сортировка:</div>
         
-        <!-- Правая часть: Выборка и кнопка -->
         <div style="display: flex; align-items: center; gap: 6px;">
             <select id="promocodes-sort-select" class="events-sort-select" onchange="window.applyPromocodesSort()">
                 <option value="date_desc">Сначала новые</option>
@@ -167,65 +170,5 @@
         </div>
     </div>
 
-    <!-- Контейнер для карточек -->
     <div id="promocodes-list-container" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px;"></div>
 </div>
-
-<script>
-    // Функция переключения между историей и промокодами
-    window.switchEventsSubTab = async function(tabName) {
-        if(window.tg && window.tg.HapticFeedback) window.tg.HapticFeedback.selectionChanged();
-        
-        // Переключаем визуал кнопок
-        document.getElementById('tab-btn-history').classList.remove('active');
-        document.getElementById('tab-btn-promos').classList.remove('active');
-        document.getElementById(`tab-btn-${tabName}`).classList.add('active');
-
-        // Переключаем контент
-        if (tabName === 'history') {
-            document.getElementById('subtab-history').style.display = 'block';
-            document.getElementById('subtab-promos').style.display = 'none';
-            
-            // Загружаем данные истории, если их еще нет
-            if (!window.currentEventsList || window.currentEventsList.length === 0) {
-                await window.loadEvents();
-            } else {
-                window.renderEventsList(); // Перерисовываем если уже есть
-            }
-        } else {
-            document.getElementById('subtab-history').style.display = 'none';
-            document.getElementById('subtab-promos').style.display = 'block';
-            
-            // Загружаем промокоды
-            await loadPromosData();
-        }
-    };
-
-    // Внутренний загрузчик промокодов (перенесен из главной логики)
-    async function loadPromosData() {
-        const promoContainer = document.getElementById('promocodes-list-container');
-        if (!promoContainer) return;
-
-        // Если уже загружали, просто перерисовываем
-        if (window.currentRewardsList && window.currentRewardsList.length > 0) {
-            window.renderRewards(window.currentRewardsList, true);
-            return;
-        }
-
-        promoContainer.innerHTML = `
-            <div style="height: 30vh; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
-                <i class="fa-solid fa-barcode fa-pulse" style="font-size: 30px; color: #ff3b30; filter: drop-shadow(0 0 15px rgba(255, 59, 48, 0.4)); margin-bottom: 15px;"></i>
-                <div style="font-family: monospace; font-size: 14px; font-weight: 900; color: #fff; letter-spacing: 2px; text-transform: uppercase;">Дешифровка</div>
-                <div style="font-family: monospace; font-size: 9px; color: #ff3b30; margin-top: 6px; text-transform: uppercase; letter-spacing: 1px;">Загрузка купонов...</div>
-            </div>`;
-            
-        try {
-            const rewardsData = await window.apiRequest("/api/v1/user/rewards", "POST", null, true);
-            window.renderRewards(rewardsData);
-        } catch (err) {
-            if (err.message !== 'Activity Lock') {
-                promoContainer.innerHTML = `<div style="text-align:center; color:#ff3b30; font-family: monospace; font-weight: 800; margin-top:50px;">ОШИБКА ДЕШИФРОВКИ:<br>${err.message}</div>`;
-            }
-        }
-    }
-</script>
