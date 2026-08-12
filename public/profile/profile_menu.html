@@ -2373,53 +2373,52 @@ contentArea.classList.add('fade-in-content');
     }
 
     // Сетка для карточек
-    let html = '<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; padding-bottom: 20px;">';
+    let html = '<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; padding-bottom: 20px;">';
     
     achievements.forEach(ach => {
         const isUnlocked = ach.is_unlocked;
         const isEquipped = ach.is_equipped;
         
-        // Премиальный фон карточки с градиентом
+        // Строгий темный фон карточки 
         const bg = isUnlocked 
             ? `linear-gradient(145deg, rgba(30, 30, 35, 0.9) 0%, rgba(15, 15, 18, 0.95) 100%)` 
             : `linear-gradient(145deg, rgba(20, 20, 20, 0.8) 0%, rgba(10, 10, 10, 0.9) 100%)`;
         
         const opacity = isUnlocked ? '1' : '0.5';
         
-        // Голографическое премиум-свечение
-        const glowColor = ach.glow_color || '#ffffff';
-        const glowBox = isUnlocked 
-            ? `box-shadow: 0 15px 35px -10px ${glowColor}70, inset 0 0 25px ${glowColor}15; border: 1px solid ${glowColor}60;` 
+        // Убрали цветную подсветку. Оставили аккуратную стеклянную рамку и черную тень.
+        const cardBoxStyle = isUnlocked 
+            ? 'box-shadow: 0 8px 20px rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.1);' 
             : 'box-shadow: 0 4px 15px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.05);';
             
-        const imgFilter = isUnlocked ? `drop-shadow(0 10px 20px ${glowColor}60)` : 'grayscale(100%) brightness(0.3)';
+        // Тень от картинки тоже строгая (без цвета)
+        const imgFilter = isUnlocked ? `drop-shadow(0 10px 15px rgba(0,0,0,0.8))` : 'grayscale(100%) brightness(0.3)';
         
-        // Кнопки вынесены ПОД карточку
+        // 🔥 Сильно уменьшили кнопки (padding: 6px, шрифт: 10px, скругление: 8px)
         let btnHtml = '';
+        const btnBaseStyle = 'border-radius: 8px; font-size: 10px; font-weight: 800; padding: 6px; width: 100%; cursor: pointer; transition: 0.2s;';
+        
         if (!isUnlocked) {
-            btnHtml = `<button disabled style="background: rgba(255,255,255,0.03); color: var(--text-color-muted); border: 1px solid var(--glass-border); border-radius: 12px; font-size: 11px; font-weight: 800; padding: 10px; width: 100%;"><i class="fa-solid fa-lock"></i> ЗАКРЫТО</button>`;
+            btnHtml = `<button disabled style="background: rgba(255,255,255,0.03); color: var(--text-color-muted); border: 1px solid var(--glass-border); ${btnBaseStyle} cursor: not-allowed;"><i class="fa-solid fa-lock"></i> ЗАКРЫТО</button>`;
         } else if (isEquipped) {
-            btnHtml = `<button onclick="window.unequipAchievement(${ach.id})" style="background: rgba(255, 69, 58, 0.1); color: #ff453a; border: 1px solid rgba(255, 69, 58, 0.3); border-radius: 12px; font-size: 11px; font-weight: 900; padding: 10px; width: 100%; cursor: pointer; transition: 0.2s;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'"><i class="fa-solid fa-xmark"></i> СНЯТЬ</button>`;
+            btnHtml = `<button onclick="window.unequipAchievement(${ach.id})" style="background: rgba(255, 69, 58, 0.1); color: #ff453a; border: 1px solid rgba(255, 69, 58, 0.3); ${btnBaseStyle}" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'"><i class="fa-solid fa-xmark"></i> СНЯТЬ</button>`;
         } else {
-            btnHtml = `<button onclick="window.equipAchievement(${ach.id})" style="background: rgba(255,255,255,0.1); color: #fff; border: 1px solid var(--glass-border); border-radius: 12px; font-size: 11px; font-weight: 900; padding: 10px; width: 100%; cursor: pointer; transition: 0.2s;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">НАДЕТЬ</button>`;
+            btnHtml = `<button onclick="window.equipAchievement(${ach.id})" style="background: rgba(255,255,255,0.1); color: #fff; border: 1px solid var(--glass-border); ${btnBaseStyle}" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">НАДЕТЬ</button>`;
         }
 
         html += `
-            <div style="display: flex; flex-direction: column; gap: 8px;">
-                <!-- Коллекционная карточка (пропорция 3:4) -->
-                <div style="aspect-ratio: 3/4; background: ${bg}; ${glowBox} border-radius: 16px; padding: 15px; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: 0.3s; opacity: ${opacity}; position: relative; overflow: hidden; backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);">
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+                <!-- Коллекционная карточка БЕЗ названия внутри -->
+                <div style="aspect-ratio: 3/4; background: ${bg}; ${cardBoxStyle} border-radius: 14px; padding: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: 0.3s; opacity: ${opacity}; position: relative; overflow: hidden; backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);">
                     
-                    <!-- Диагональный блик (эффект фольги) -->
-                    <div style="position: absolute; top: 0; left: -50%; right: -50%; height: 120px; background: linear-gradient(180deg, rgba(255,255,255,0.15) 0%, transparent 100%); transform: rotate(-25deg); pointer-events: none;"></div>
+                    <!-- Диагональный блик (эффект премиального стекла/фольги) -->
+                    <div style="position: absolute; top: 0; left: -50%; right: -50%; height: 120px; background: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, transparent 100%); transform: rotate(-25deg); pointer-events: none;"></div>
 
-                    <img src="${ach.image_url}" style="width: 85%; height: auto; max-height: 65%; object-fit: contain; filter: ${imgFilter}; z-index: 1; transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'">
-                    
-                    <div style="position: absolute; bottom: 12px; left: 8px; right: 8px; text-align: center; z-index: 1;">
-                        <div style="font-size: 12px; font-weight: 900; color: ${isUnlocked ? glowColor : '#fff'}; line-height: 1.1; text-transform: uppercase; text-shadow: ${isUnlocked ? '0 2px 10px ' + glowColor + '90' : 'none'};">${ach.title}</div>
-                    </div>
+                    <!-- Картинка теперь занимает максимум места -->
+                    <img src="${ach.image_url}" style="width: 90%; height: auto; max-height: 85%; object-fit: contain; filter: ${imgFilter}; z-index: 1; transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'">
                 </div>
                 
-                <!-- Кнопка действия -->
+                <!-- Компактная кнопка действия -->
                 ${btnHtml}
             </div>
         `;
