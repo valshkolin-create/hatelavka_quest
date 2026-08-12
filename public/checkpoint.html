@@ -2965,10 +2965,13 @@ const processedQuests = weekQuests.map(cfg => {
         const isCurrentWeek = (statusClass === 'status-active');
         weekBlock.className = `week-accordion ${isLocked ? 'locked' : ''} ${isCurrentWeek ? 'current-week' : ''}`;
         
+        // 👇 Красим сам текст "Неделя X" в зеленый с легким свечением, если она пройдена
+        const titleStyle = isAllClaimed ? 'color: var(--success); text-shadow: 0 0 10px rgba(50, 215, 75, 0.2);' : '';
+
         weekBlock.innerHTML = `
             <div class="week-header ${isExpanded ? 'expanded' : ''}" data-week="${i}" onclick="toggleWeek(this)">
                 <div class="week-title-box">
-                    <div class="week-title">Неделя ${i} <span class="week-status ${statusClass}">${statusText}</span> ${rewardAlertHtml}</div>
+                    <div class="week-title" style="${titleStyle}">Неделя ${i} <span class="week-status ${statusClass}">${statusText}</span> ${rewardAlertHtml}</div>
                     <div class="week-dates"><i class="fa-regular fa-calendar"></i> ${weekStart.toLocaleDateString('ru-RU', {day: '2-digit', month: '2-digit'})} - ${weekEnd.toLocaleDateString('ru-RU', {day: '2-digit', month: '2-digit'})}</div>
                 </div>
                 <div class="week-chevron">
