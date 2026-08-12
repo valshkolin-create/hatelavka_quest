@@ -53,38 +53,65 @@
             color: var(--text); padding: 12px; border-radius: 12px; font-size: 14px; outline: none; transition: 0.2s;
             -webkit-appearance: none; -moz-appearance: none; appearance: none; font-family: inherit;
         }
+
+        /* Защита textarea от сжатия и установка нормальной высоты */
+        .admin-form textarea {
+            height: 100px;
+            min-height: 100px;
+            resize: vertical;
+            flex-shrink: 0 !important;
+            line-height: 1.4;
+        }
         
-        /* Исправление бага с белым фоном на выборке (select) */
         .admin-form select {
             width: 100%; box-sizing: border-box; background: #2a2a2a; border: 1px solid var(--card-border);
             color: #ffffff; padding: 12px; border-radius: 12px; font-size: 14px; outline: none; transition: 0.2s;
-            font-family: inherit; cursor: pointer;
+            font-family: inherit; cursor: pointer; flex-shrink: 0 !important;
         }
         .admin-form select option { background-color: #2a2a2a; color: #ffffff; }
 
         .admin-form input:focus, .admin-form select:focus, .admin-form textarea:focus { border-color: var(--primary); background: rgba(255,255,255,0.05); }
         .admin-form label { display: block; font-size: 12px; color: var(--text-sec); margin: 12px 0 5px; font-weight: 500; }
         
-        .admin-action-btn { background: var(--primary); color: #000; padding: 12px; border: none; border-radius: 12px; font-weight: 800; cursor: pointer; width: 100%; margin-top: 20px; transition: 0.2s; text-transform: uppercase; }
+        .admin-action-btn { background: var(--primary); color: #000; padding: 12px; border: none; border-radius: 12px; font-weight: 800; cursor: pointer; width: 100%; margin-top: 20px; transition: 0.2s; text-transform: uppercase; flex-shrink: 0 !important; }
         .admin-action-btn:active { transform: scale(0.98); }
         .admin-action-btn.danger { background: rgba(255,77,77,0.1); color: var(--danger); border: 1px solid rgba(255,77,77,0.3); }
 
         /* --- Списки --- */
-        .ach-item { background: rgba(255, 255, 255, 0.05); border: 1px solid var(--card-border); border-radius: 14px; padding: 12px; display: flex; gap: 12px; align-items: center; margin-bottom: 10px; cursor: pointer; transition: 0.2s; }
+        .ach-item { 
+            background: rgba(255, 255, 255, 0.05); border: 1px solid var(--card-border); 
+            border-radius: 14px; padding: 12px; display: flex; gap: 12px; 
+            align-items: flex-start;
+            margin-bottom: 10px; cursor: pointer; transition: 0.2s; 
+        }
         .ach-item:active { transform: scale(0.98); background: rgba(255, 255, 255, 0.08); }
-        .ach-img { width: 50px; height: 50px; border-radius: 10px; object-fit: contain; filter: drop-shadow(0 0 5px rgba(255,255,255,0.2)); }
+        
+        .ach-img { width: 50px; height: 50px; border-radius: 10px; object-fit: contain; filter: drop-shadow(0 0 5px rgba(255,255,255,0.2)); flex-shrink: 0; margin-top: 2px; }
+        
         .ach-info { flex-grow: 1; min-width: 0; }
-        .ach-title { font-size: 15px; font-weight: 800; color: #fff; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        /* Убрано ограничение строк (line-clamp), чтобы описание раскрывалось полностью */
-        .ach-desc { font-size: 11px; color: var(--text-sec); display: block; white-space: normal; word-break: break-word; }
-        .ach-meta { font-size: 9px; font-weight: 800; color: #64b5ef; margin-top: 6px; text-transform: uppercase; }
+        
+        .ach-title { font-size: 15px; font-weight: 800; color: #fff; margin-bottom: 4px; word-break: break-word; line-height: 1.2; }
+        
+        .ach-desc { font-size: 11px; color: var(--text-sec); display: block; white-space: normal; word-break: break-word; line-height: 1.4; }
+        .ach-meta { font-size: 9px; font-weight: 800; color: #64b5ef; margin-top: 6px; text-transform: uppercase; display: inline-block; }
         
         .color-preview { width: 12px; height: 12px; display: inline-block; border-radius: 50%; vertical-align: middle; margin-right: 4px; border: 1px solid rgba(255,255,255,0.3); }
 
         /* --- Модальные окна (Bottom Sheet) --- */
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1000; display: none; align-items: flex-end; justify-content: center; backdrop-filter: blur(5px); }
         .modal-active { display: flex; animation: fadeIn 0.3s ease; }
-        .bottom-sheet { background: #1c1c1e; width: 100%; border-radius: 24px 24px 0 0; padding: 20px; padding-bottom: 110px; max-height: 85vh; display: flex; flex-direction: column; box-sizing: border-box; border-top: 1px solid var(--card-border); overflow-y: auto; }
+        
+        /* ГЛАВНЫЙ ФИКС БАГА ЗДЕСЬ: */
+        .bottom-sheet { 
+            background: #1c1c1e; width: 100%; border-radius: 24px 24px 0 0; 
+            padding: 20px; padding-bottom: 110px; 
+            max-height: 90vh; 
+            /* Убрал display: flex; из-за которого поля сплющивались, теперь это обычный блок */
+            display: block; 
+            box-sizing: border-box; 
+            border-top: 1px solid var(--card-border); overflow-y: auto; 
+        }
+        
         .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         
         #mainLoader { text-align: center; padding: 40px; color: var(--text-sec); }
@@ -126,18 +153,18 @@
             <input type="text" id="achTitle" placeholder="Например: Ветеран Твича" autocomplete="off">
 
             <label>Описание</label>
-            <textarea id="achDesc" rows="4" placeholder="Что нужно сделать, чтобы получить..."></textarea>
+            <textarea id="achDesc" placeholder="Что нужно сделать, чтобы получить..."></textarea>
 
             <label>Картинка (URL)</label>
             <input type="url" id="achImage" placeholder="https://imgur.com/...png">
 
             <label>Цвет свечения (HEX, RGB, RGBA)</label>
-            <div style="display: flex; gap: 10px; align-items: center;">
+            <div style="display: flex; gap: 10px; align-items: center; flex-shrink: 0 !important;">
                 <input type="color" id="achGlowPicker" style="width: 45px; height: 45px; padding: 0; border: none; border-radius: 8px; cursor: pointer; background: transparent; flex-shrink: 0;" title="Выбрать цвет на палитре">
                 <input type="text" id="achGlow" placeholder="Например: #ffd700 или rgba(255, 0, 0, 0.8)">
             </div>
             
-            <div style="background: rgba(100, 181, 239, 0.1); border: 1px dashed rgba(100, 181, 239, 0.3); border-radius: 12px; padding: 12px; margin-top: 15px; margin-bottom: 5px;">
+            <div style="background: rgba(100, 181, 239, 0.1); border: 1px dashed rgba(100, 181, 239, 0.3); border-radius: 12px; padding: 12px; margin-top: 15px; margin-bottom: 5px; flex-shrink: 0 !important;">
                 <label style="margin-top: 0; color: #64b5ef;">Поле в таблице users (Условие)</label>
                 <select id="achType" style="border-color: rgba(100, 181, 239, 0.4); margin-bottom: 12px;">
                     <option value="" disabled selected>-- Выберите поле --</option>
