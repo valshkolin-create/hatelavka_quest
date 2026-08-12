@@ -21,7 +21,7 @@
             --action-color: rgba(255, 255, 255, 0.15);
             --danger-color: rgba(255, 69, 58, 0.9);
             
-            /* iOS Liquid Glass Variables - Премиальное темное стекло */
+            /* iOS Liquid Glass Variables */
             --glass-bg: rgba(18, 18, 20, 0.75);
             --glass-border: rgba(255, 255, 255, 0.08);
             --glass-shadow: 0 10px 40px rgba(0, 0, 0, 0.9);
@@ -29,6 +29,36 @@
             
             /* БАЗОВЫЙ ОТСТУП ДЛЯ МОБИЛЬНЫХ УСТРОЙСТВ */
             --safe-top-gap: calc(env(safe-area-inset-top, 15px) + 40px);
+
+            /* 🔥 НОВЫЕ ПЕРЕМЕННЫЕ ДЛЯ ТЕМЫ ПРОФИЛЯ 🔥 */
+            --theme-color: #ffffff;
+            --theme-color-shadow: rgba(255, 255, 255, 0.4);
+            --theme-color-glow: rgba(255, 255, 255, 0.9);
+        }
+
+        /* Дальше найди и замени эти классы на новые: */
+
+        .nav-item.active {
+            color: var(--theme-color);
+            font-weight: 800;
+            text-shadow: 0 0 15px var(--theme-color-shadow);
+        }
+        
+        .nav-item.active::after {
+            transform: translateX(-50%) scaleX(1);
+            opacity: 1;
+            /* Перекрашиваем нижнюю светящуюся полоску меню */
+            background: var(--theme-color) !important;
+            box-shadow: 0 -2px 12px var(--theme-color-glow) !important;
+        }
+
+        .h-slot-icon {
+            font-size: 16px;
+            /* Перекрашиваем иконки кейсов и купонов в истории */
+            color: var(--theme-color);
+            filter: drop-shadow(0 0 5px var(--theme-color-shadow));
+            margin-bottom: 4px;
+            transition: all 0.3s ease;
         }
 
        /* --- ПЛАВАЮЩИЙ БАННЕР ОШИБКИ (СУПЕР МИНИ) --- */
@@ -1814,32 +1844,44 @@ window.clearAllRewards = function() {
                 userIdEl.innerHTML = `ID ${currentUserData.telegram_id} <i class="fa-regular fa-copy" style="margin-left: 4px;"></i>`;
                 userIdEl.dataset.uid = currentUserData.telegram_id; // Сохраняем чистый ID
 
-                // 🔥 НОВОЕ: ОЖИВЛЯЕМ АВАТАРКУ И РАНГ
+                // 🔥 НОВОЕ: ОЖИВЛЯЕМ АВАТАРКУ, РАНГ И ВЕСЬ ПРОФИЛЬ 🔥
                 const avatarCont = document.querySelector('.avatar-container');
                 const rankEl = document.getElementById('user-equipped-rank');
 
+                // Функция для прозрачности (добавлена сюда для удобства)
+                function localHexToRgba(hex, alpha) {
+                    let r = 0, g = 0, b = 0;
+                    if (!hex) return `rgba(255,255,255,${alpha})`;
+                    hex = hex.replace('#', '');
+                    if (hex.length === 3) { r = parseInt(hex[0]+hex[0], 16); g = parseInt(hex[1]+hex[1], 16); b = parseInt(hex[2]+hex[2], 16); }
+                    else if (hex.length === 6) { r = parseInt(hex.substring(0,2), 16); g = parseInt(hex.substring(2,4), 16); b = parseInt(hex.substring(4,6), 16); }
+                    else { return hex; } 
+                    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+                }
+
+                // Устанавливаем базовый цвет (либо от ачивки, либо белый по умолчанию)
+                const glow = currentUserData.equipped_glow || '#ffffff';
+                
+                // 💎 ПРИМЕНЯЕМ ГЛОБАЛЬНУЮ ТЕМУ К CSS ПЕРЕМЕННЫМ 💎
+                document.documentElement.style.setProperty('--theme-color', glow);
+                document.documentElement.style.setProperty('--theme-color-shadow', localHexToRgba(glow, 0.4));
+                document.documentElement.style.setProperty('--theme-color-glow', localHexToRgba(glow, 0.9));
+
                 if (currentUserData.equipped_title && currentUserData.equipped_glow) {
-    const glow = currentUserData.equipped_glow;
-    
-    // 1. Премиальное многослойное свечение (Liquid Neon)
-    // Добавляем прозрачность к HEX-цвету (50, 20, 40), чтобы свет был глубоким
-    avatarCont.style.boxShadow = `
-        0 8px 25px rgba(0,0,0,0.8), 
-        0 0 15px ${glow}50, 
-        0 0 45px ${glow}20, 
-        inset 0 0 20px ${glow}40
-    `;
-    // Делаем рамку тонкой и слегка прозрачной, убираем "эффект светофора"
-    avatarCont.style.border = `1px solid ${glow}70`;
-    
-    // 2. Включаем текст ранга
-    rankEl.style.display = 'block';
-    rankEl.style.color = glow;
-    // Делаем свечение текста более направленным
-    rankEl.style.textShadow = `0 2px 10px ${glow}80`;
-    rankEl.innerHTML = `<i class="fa-solid fa-ranking-star"></i> ${currentUserData.equipped_title}`;
+                    // Премиальное многослойное свечение
+                    avatarCont.style.boxShadow = `
+                        0 8px 25px rgba(0,0,0,0.8), 
+                        0 0 15px ${localHexToRgba(glow, 0.5)}, 
+                        0 0 45px ${localHexToRgba(glow, 0.2)}, 
+                        inset 0 0 20px ${localHexToRgba(glow, 0.4)}
+                    `;
+                    avatarCont.style.border = `1px solid ${localHexToRgba(glow, 0.7)}`;
+                    
+                    rankEl.style.display = 'block';
+                    rankEl.style.color = glow;
+                    rankEl.style.textShadow = `0 2px 10px ${localHexToRgba(glow, 0.8)}`;
+                    rankEl.innerHTML = `<i class="fa-solid fa-ranking-star"></i> ${currentUserData.equipped_title}`;
                 } else {
-                    // Выключаем (если снял или нет ачивок)
                     avatarCont.style.boxShadow = '0 4px 20px rgba(0,0,0,0.8)';
                     avatarCont.style.border = '1px solid var(--glass-border)';
                     rankEl.style.display = 'none';
@@ -1847,7 +1889,30 @@ window.clearAllRewards = function() {
 
                 const hasSteam = !!currentUserData.trade_link;
                 const hasTwitch = !!currentUserData.twitch_login;
-                const isTwitchError = currentUserData.twitch_status === 'error'; // 🔥 Проверяем ошибку
+                const isTwitchError = currentUserData.twitch_status === 'error'; 
+                
+                // 🔥 Steam перекрашивается в цвет ачивки, если привязан
+                document.getElementById('icon-steam').style.color = hasSteam ? glow : 'rgba(255,255,255,0.2)';
+                document.getElementById('icon-steam').style.textShadow = hasSteam ? `0 0 10px ${localHexToRgba(glow, 0.4)}` : 'none';
+                
+                // Twitch Иконка
+                const twitchIcon = document.getElementById('icon-twitch');
+                const twitchBanner = document.getElementById('top-twitch-banner');
+                
+                if (isTwitchError) {
+                    twitchIcon.className = "fa-brands fa-twitch twitch-icon-error";
+                    twitchIcon.style.color = ''; 
+                    twitchIcon.style.textShadow = '';
+                    if(twitchBanner) twitchBanner.classList.add('active');
+                    document.body.classList.add('has-twitch-error');
+                } else {
+                    twitchIcon.className = "fa-brands fa-twitch";
+                    // 🔥 Twitch перекрашивается в цвет ачивки, если привязан
+                    twitchIcon.style.color = hasTwitch ? glow : 'rgba(255,255,255,0.2)';
+                    twitchIcon.style.textShadow = hasTwitch ? `0 0 10px ${localHexToRgba(glow, 0.4)}` : 'none';
+                    if(twitchBanner) twitchBanner.classList.remove('active');
+                    document.body.classList.remove('has-twitch-error');
+                }
                 
                 // Steam
                 document.getElementById('icon-steam').style.color = hasSteam ? '#fff' : 'rgba(255,255,255,0.2)';
@@ -2388,10 +2453,15 @@ window.renderAchievements = function(achievements) {
         return;
     }
 
-    // Возвращаем сетку в 2 столбца
+    // 🔥 СОРТИРОВКА: Сначала открытые, потом закрытые
+    let sortedAchievements = [...achievements].sort((a, b) => {
+        if (a.is_unlocked === b.is_unlocked) return 0;
+        return a.is_unlocked ? -1 : 1;
+    });
+
     let html = '<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; padding-bottom: 20px;">';
     
-    achievements.forEach(ach => {
+    sortedAchievements.forEach(ach => {
         const isUnlocked = ach.is_unlocked;
         const isEquipped = ach.is_equipped;
         
@@ -2418,15 +2488,18 @@ window.renderAchievements = function(achievements) {
             btnHtml = `<button onclick="window.equipAchievement(${ach.id})" style="background: rgba(255,255,255,0.1); color: #fff; border: 1px solid var(--glass-border); ${btnBaseStyle}" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">Надеть</button>`;
         }
 
+        // 🔥 ЛОГИКА КЛИКОВ И ЗУМА: Добавляем клик и hover-эффект ТОЛЬКО для разблокированных
+        const clickAttr = isUnlocked ? `onclick="openFullscreenCard(${ach.id})"` : '';
+        const cursorStyle = isUnlocked ? 'cursor: pointer;' : 'cursor: default;';
+        const hoverEffects = isUnlocked ? `onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'"` : '';
+
         html += `
             <div style="display: flex; flex-direction: column; gap: 6px;">
-                <!-- padding: 0 делает так, что картинка прилегает впритык к рамкам -->
-                <div onclick="openFullscreenCard(${ach.id})" style="cursor: pointer; aspect-ratio: 3/4; background: ${bg}; ${cardBoxStyle} border-radius: 14px; padding: 0; display: flex; align-items: center; justify-content: center; opacity: ${opacity}; position: relative; overflow: hidden; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                <div ${clickAttr} style="${cursorStyle} aspect-ratio: 3/4; background: ${bg}; ${cardBoxStyle} border-radius: 14px; padding: 0; display: flex; align-items: center; justify-content: center; opacity: ${opacity}; position: relative; overflow: hidden; transition: transform 0.2s;" ${hoverEffects}>
                     
-                    <!-- Сама картинка (z-index 1) растянута на 100% -->
                     <img src="${ach.image_url}" style="position: relative; z-index: 1; width: 100%; height: 100%; object-fit: cover; filter: ${imgFilter}; pointer-events: none;">
                     
-                    <!-- Пленка (блик) ПОВЕРХ картинки (z-index 2) -->
+                    <!-- Пленка (блик) ПОВЕРХ картинки -->
                     <div style="position: absolute; inset: 0; background: linear-gradient(135deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.02) 40%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0) 60%); pointer-events: none; z-index: 2;"></div>
                 </div>
                 
