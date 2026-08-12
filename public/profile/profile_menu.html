@@ -2372,29 +2372,24 @@ contentArea.classList.add('fade-in-content');
         return;
     }
 
-    // Сетка для карточек
     let html = '<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; padding-bottom: 20px;">';
     
     achievements.forEach(ach => {
         const isUnlocked = ach.is_unlocked;
         const isEquipped = ach.is_equipped;
         
-        // Строгий темный фон карточки 
         const bg = isUnlocked 
             ? `linear-gradient(145deg, rgba(30, 30, 35, 0.9) 0%, rgba(15, 15, 18, 0.95) 100%)` 
             : `linear-gradient(145deg, rgba(20, 20, 20, 0.8) 0%, rgba(10, 10, 10, 0.9) 100%)`;
         
         const opacity = isUnlocked ? '1' : '0.5';
         
-        // Убрали цветную подсветку. Оставили аккуратную стеклянную рамку и черную тень.
         const cardBoxStyle = isUnlocked 
             ? 'box-shadow: 0 8px 20px rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.1);' 
             : 'box-shadow: 0 4px 15px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.05);';
             
-        // Тень от картинки тоже строгая (без цвета)
-        const imgFilter = isUnlocked ? `drop-shadow(0 10px 15px rgba(0,0,0,0.8))` : 'grayscale(100%) brightness(0.3)';
+        const imgFilter = isUnlocked ? `drop-shadow(0 15px 25px rgba(0,0,0,0.9))` : 'grayscale(100%) brightness(0.3)';
         
-        // 🔥 Сильно уменьшили кнопки (padding: 6px, шрифт: 10px, скругление: 8px)
         let btnHtml = '';
         const btnBaseStyle = 'border-radius: 8px; font-size: 10px; font-weight: 800; padding: 6px; width: 100%; cursor: pointer; transition: 0.2s;';
         
@@ -2406,19 +2401,18 @@ contentArea.classList.add('fade-in-content');
             btnHtml = `<button onclick="window.equipAchievement(${ach.id})" style="background: rgba(255,255,255,0.1); color: #fff; border: 1px solid var(--glass-border); ${btnBaseStyle}" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">НАДЕТЬ</button>`;
         }
 
+        // ВАЖНО: Добавлена перспектива и класс achievement-3d-card
         html += `
-            <div style="display: flex; flex-direction: column; gap: 6px;">
-                <!-- Коллекционная карточка БЕЗ названия внутри -->
-                <div style="aspect-ratio: 3/4; background: ${bg}; ${cardBoxStyle} border-radius: 14px; padding: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: 0.3s; opacity: ${opacity}; position: relative; overflow: hidden; backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);">
+            <div style="display: flex; flex-direction: column; gap: 6px; perspective: 1200px;">
+                <div class="achievement-3d-card" style="aspect-ratio: 3/4; background: ${bg}; ${cardBoxStyle} border-radius: 14px; padding: 10px; display: flex; align-items: center; justify-content: center; opacity: ${opacity}; position: relative; overflow: visible; transform-style: preserve-3d; transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); will-change: transform;">
                     
-                    <!-- Диагональный блик (эффект премиального стекла/фольги) -->
-                    <div style="position: absolute; top: 0; left: -50%; right: -50%; height: 120px; background: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, transparent 100%); transform: rotate(-25deg); pointer-events: none;"></div>
+                    <!-- Блик фона -->
+                    <div style="position: absolute; top: 0; left: -50%; right: -50%; height: 120px; background: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, transparent 100%); transform: rotate(-25deg) translateZ(0px); pointer-events: none; border-radius: 14px;"></div>
 
-                    <!-- Картинка теперь занимает максимум места -->
-                    <img src="${ach.image_url}" style="width: 90%; height: auto; max-height: 85%; object-fit: contain; filter: ${imgFilter}; z-index: 1; transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'">
+                    <!-- Картинка "выпрыгивает" вперед благодаря translateZ(40px) -->
+                    <img src="${ach.image_url}" style="width: 90%; height: auto; max-height: 85%; object-fit: contain; filter: ${imgFilter}; transform: translateZ(40px); pointer-events: none;">
                 </div>
                 
-                <!-- Компактная кнопка действия -->
                 ${btnHtml}
             </div>
         `;
@@ -2426,6 +2420,114 @@ contentArea.classList.add('fade-in-content');
     
     html += '</div>';
     container.innerHTML = html;
+
+    // Вызываем активацию 3D движка после рендера карточек
+    if(typeof window.init3DCards === 'function') window.init3DCards();
+};
+
+        window.init3DCards = function() {
+    const cards = document.querySelectorAll('.achievement-3d-card');
+    
+    cards.forEach(card => {
+        let currentScale = 1;
+        let initialPinchDistance = 0; 
+
+        // Функция плавного возврата карточки на место
+        const resetCard = () => {
+            currentScale = 1;
+            card.style.transform = `scale(1) rotateX(0deg) rotateY(0deg)`;
+            card.style.zIndex = '1';
+        };
+
+        // --- ДЛЯ КОМПЬЮТЕРОВ ---
+        
+        // 1. Вращение за курсором
+        card.addEventListener('mousemove', (e) => {
+            const rect = card.getBoundingClientRect();
+            const x = e.clientX - rect.left; 
+            const y = e.clientY - rect.top;  
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+            
+            // Рассчитываем углы наклона (до 25 градусов)
+            const rotateX = ((y - centerY) / centerY) * -25; 
+            const rotateY = ((x - centerX) / centerX) * 25;  
+
+            card.style.transition = 'none'; // Отключаем задержку, чтобы карточка "прилипла" к курсору
+            card.style.transform = `scale(${currentScale}) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+        });
+
+        card.addEventListener('mouseleave', () => {
+            card.style.transition = 'transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1)';
+            resetCard();
+        });
+
+        // 2. Зум колесиком мышки
+        card.addEventListener('wheel', (e) => {
+            e.preventDefault(); // Запрещаем странице крутиться вниз-вверх
+            
+            // Шаг зума: 0.1, Максимум: 1.8x, Минимум: 1x
+            currentScale += e.deltaY < 0 ? 0.1 : -0.1;
+            currentScale = Math.min(Math.max(1, currentScale), 1.8);
+            
+            card.style.zIndex = '100'; // Выносим карточку поверх других
+            card.style.transition = 'transform 0.1s ease-out';
+            card.style.transform = `scale(${currentScale})`;
+        }, { passive: false });
+
+        // --- ДЛЯ ТЕЛЕФОНОВ ---
+        
+        card.addEventListener('touchmove', (e) => {
+            const rect = card.getBoundingClientRect();
+            
+            // 1. Вращение одним пальцем при скролле (Легкий наклон)
+            if (e.touches.length === 1 && currentScale === 1) {
+                 const touch = e.touches[0];
+                 const x = touch.clientX - rect.left;
+                 const y = touch.clientY - rect.top;
+                 const rotateX = (((y - rect.height / 2) / (rect.height / 2)) * -20);
+                 const rotateY = (((x - rect.width / 2) / (rect.width / 2)) * 20);
+                 
+                 card.style.transition = 'none';
+                 card.style.transform = `scale(1) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+            } 
+            // 2. Зум двумя пальцами (Pinch-to-zoom)
+            else if (e.touches.length === 2) {
+                e.preventDefault(); // Блокируем скролл страницы двумя пальцами
+                
+                const touch1 = e.touches[0];
+                const touch2 = e.touches[1];
+                const dist = Math.hypot(touch1.clientX - touch2.clientX, touch1.clientY - touch2.clientY);
+
+                if (initialPinchDistance === 0) initialPinchDistance = dist;
+                
+                const diff = dist - initialPinchDistance;
+                currentScale = Math.max(1, Math.min(1.8, 1 + diff / 150));
+                
+                card.style.transition = 'none';
+                card.style.zIndex = '100';
+                card.style.transform = `scale(${currentScale}) rotateX(0deg) rotateY(0deg)`;
+            }
+        }, { passive: false });
+
+        // Сброс дистанции пальцев при начале щипка
+        card.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 2) {
+                const touch1 = e.touches[0];
+                const touch2 = e.touches[1];
+                initialPinchDistance = Math.hypot(touch1.clientX - touch2.clientX, touch1.clientY - touch2.clientY);
+            }
+        });
+
+        // Отпускаем пальцы — карточка улетает обратно
+        card.addEventListener('touchend', (e) => {
+            if (e.touches.length === 0) {
+                initialPinchDistance = 0;
+                card.style.transition = 'transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1)';
+                resetCard();
+            }
+        });
+    });
 };
 
         window.unequipAchievement = async function(ach_id) {
