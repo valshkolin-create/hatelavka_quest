@@ -4389,6 +4389,18 @@ async def get_bootstrap_data(
             **db_data.get('user_settings', {})  # 🔥 ВОТ ОНА — РАСПАКОВКА НАСТРОЕК
         })
 
+        # --- 🔥 РАСПАКОВКА НАДЕТОЙ АЧИВКИ ---
+        user_data['equipped_title'] = None
+        user_data['equipped_glow'] = None
+        if not isinstance(equipped_ach_res, Exception) and equipped_ach_res.status_code == 200:
+            ach_data = equipped_ach_res.json()
+            if isinstance(ach_data, list) and len(ach_data) > 0:
+                # Достаем данные из связанной таблицы 'achievements'
+                inner_ach = ach_data[0].get("achievements")
+                if inner_ach:
+                    user_data['equipped_title'] = inner_ach.get("title")
+                    user_data['equipped_glow'] = inner_ach.get("glow_color")
+
         # --- 🔥 НОВЫЙ БЛОК: Распаковываем доп. данные ---
         
         # 1. Баланс и Подарок
