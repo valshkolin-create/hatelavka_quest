@@ -4265,9 +4265,9 @@ async def get_bootstrap_data(
         
         # 🔥 НОВОЕ: Запрашиваем надетую ачивку (соединяем таблицы через select)
         equipped_ach_task = supabase.get("/user_achievements", params={
-            "telegram_id": f"eq.{telegram_id}", 
-            "is_equipped": "eq.true", 
-            "select": "achievements(title,glow_color)"
+            "telegram_id": f"eq.{telegram_id}",
+            "is_equipped": "is.true",         # Важно: is.true вместо eq.true
+            "select": "*, achievements(*)"    # Запрашиваем все доступные поля
         })
 
         # 🔥 НОВОЕ: Запрашиваем глобальные настройки (Key-Value)
@@ -4392,14 +4392,19 @@ async def get_bootstrap_data(
         # --- 🔥 РАСПАКОВКА НАДЕТОЙ АЧИВКИ ---
         user_data['equipped_title'] = None
         user_data['equipped_glow'] = None
+        
         if not isinstance(equipped_ach_res, Exception) and equipped_ach_res.status_code == 200:
             ach_data = equipped_ach_res.json()
             if isinstance(ach_data, list) and len(ach_data) > 0:
-                # Достаем данные из связанной таблицы 'achievements'
-                inner_ach = ach_data[0].get("achievements")
+                # PostgREST может отдавать ключ как 'achievements' или 'achievement'
+                inner_ach = ach_data[0].get("achievements") or ach_data[0].get("achievement")
+                
                 if inner_ach:
                     user_data['equipped_title'] = inner_ach.get("title")
                     user_data['equipped_glow'] = inner_ach.get("glow_color")
+        else:
+            # Выведет ошибку в логи сервера, если JOIN сломался
+            print("❌ ОШИБКА АЧИВОК:", getattr(equipped_ach_res, 'text', str(equipped_ach_res)))
 
         # --- 🔥 НОВЫЙ БЛОК: Распаковываем доп. данные ---
         
