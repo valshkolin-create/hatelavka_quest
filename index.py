@@ -32248,7 +32248,7 @@ async def get_user_achievements(
         raise HTTPException(status_code=500, detail="Ошибка базы данных")
 
 
-# =========================================================================
+=========================================================================
 # 4. ДОСТИЖЕНИЯ: НАДЕТЬ / СНЯТЬ АЧИВКУ
 # =========================================================================
 @app.post("/api/v1/user/achievements/equip")
@@ -32264,34 +32264,39 @@ async def equip_achievement(
     target_id = request_data.achievement_id
 
     try:
-        # 1. Проверяем, есть ли у юзера эта ачивка вообще
-        check_res = await supabase.get(
-            "/user_achievements", 
-            params={"telegram_id": f"eq.{telegram_id}", "achievement_id": f"eq.{target_id}"}
-        )
-        if not check_res.json():
-            raise HTTPException(status_code=400, detail="Достижение еще не разблокировано!")
-
-        # 2. Снимаем все надетые ачивки (массовый апдейт)
+        # 1. Снимаем ВСЕ надетые ачивки (обрати внимание, я заменил eq.true на is.true)
         await supabase.patch(
             "/user_achievements",
-            params={"telegram_id": f"eq.{telegram_id}", "is_equipped": "eq.true"},
+            params={"telegram_id": f"eq.{telegram_id}", "is_equipped": "is.true"},
             json={"is_equipped": False}
         )
         
-        # 3. Надеваем выбранную
-        await supabase.patch(
-            "/user_achievements",
-            params={"telegram_id": f"eq.{telegram_id}", "achievement_id": f"eq.{target_id}"},
-            json={"is_equipped": True}
-        )
+        # 2. Если ID передали (то есть юзер НАДЕВАЕТ, а не просто снимает)
+        if target_id is not None:
+            
+            # Проверяем, есть ли у юзера эта ачивка вообще
+            check_res = await supabase.get(
+                "/user_achievements", 
+                params={"telegram_id": f"eq.{telegram_id}", "achievement_id": f"eq.{target_id}"}
+            )
+            if not check_res.json():
+                raise HTTPException(status_code=400, detail="Достижение еще не разблокировано!")
 
-        return {"success": True, "message": "Достижение надето!"}
+            # Надеваем выбранную
+            await supabase.patch(
+                "/user_achievements",
+                params={"telegram_id": f"eq.{telegram_id}", "achievement_id": f"eq.{target_id}"},
+                json={"is_equipped": True}
+            )
+            return {"success": True, "message": "Достижение надето!"}
+            
+        # Если target_id был null, значит юзер просто снял ачивку
+        return {"success": True, "message": "Достижение снято!"}
 
     except HTTPException:
         raise
     except Exception as e:
-        logging.error(f"[ACHIEVEMENTS] Ошибка надевания: {e}")
+        logging.error(f"[ACHIEVEMENTS] Ошибка надевания/снятия: {e}")
         raise HTTPException(status_code=500, detail="Ошибка базы данных")
 
 class AdminAchCreateReq(BaseModel):
