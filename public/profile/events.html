@@ -1,18 +1,55 @@
 <style>
+    /* =========================================
+       LIQUID GLASS: ПЕРЕКЛЮЧАТЕЛЬ ВЛОЖЕННЫХ ВЛАДОК
+       ========================================= */
+    .internal-tabs-container {
+        display: flex;
+        background: rgba(25, 25, 28, 0.5);
+        border: 1px solid var(--glass-border);
+        border-radius: 12px;
+        padding: 4px;
+        margin-bottom: 15px;
+        box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+    }
+
+    .internal-tab-btn {
+        flex: 1;
+        text-align: center;
+        padding: 8px 0;
+        font-size: 10px;
+        font-weight: 800;
+        color: rgba(255, 255, 255, 0.4);
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .internal-tab-btn.active {
+        background: rgba(255, 255, 255, 0.1);
+        color: #fff;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    /* =========================================
+       СТИЛИ СОБЫТИЙ (Твои оригинальные)
+       ========================================= */
     .events-container {
         display: flex;
         flex-direction: column;
-        gap: 8px; /* Было 12px: уменьшено расстояние между карточками */
-        padding-bottom: 20px; /* Было 30px */
+        gap: 8px;
+        padding-bottom: 20px;
     }
     
     .event-card {
         background: var(--glass-bg);
         border: 1px solid var(--glass-border);
-        border-radius: 12px; /* Было 16px: чуть аккуратнее для компактного размера */
-        padding: 10px 12px; /* Было 16px: уменьшены внутренние отступы карточки */
+        border-radius: 12px;
+        padding: 10px 12px;
         display: flex;
-        gap: 10px; /* Было 15px: уменьшен отступ между иконкой и текстом */
+        gap: 10px;
         align-items: center;
         box-shadow: var(--glass-shadow);
         backdrop-filter: var(--glass-blur);
@@ -22,15 +59,14 @@
     }
 
     .event-icon {
-        width: 36px; /* Было 44px */
-        height: 36px; /* Было 44px */
-        border-radius: 10px; /* Было 12px */
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
         display: flex;
         justify-content: center;
         align-items: center;
-        font-size: 16px; /* Было 20px: размер самой иконки внутри */
+        font-size: 16px;
         flex-shrink: 0;
-        /* 🔥 Желтая подсветка иконок */
         box-shadow: 0 0 12px rgba(255, 215, 0, 0.25);
         border: 1px solid rgba(255, 215, 0, 0.4);
         background: rgba(255, 215, 0, 0.1);
@@ -41,30 +77,30 @@
         flex-grow: 1;
         display: flex;
         flex-direction: column;
-        gap: 2px; /* Было 4px: текст теперь чуть плотнее друг к другу */
+        gap: 2px;
     }
 
     .event-title {
-        font-size: 13px; /* Было 14px */
+        font-size: 13px;
         font-weight: 800;
         color: #fff;
     }
 
     .event-desc {
-        font-size: 11px; /* Было 12px */
+        font-size: 11px;
         color: var(--text-color-muted);
-        line-height: 1.3; /* Было 1.4: более компактные строки для длинных описаний */
+        line-height: 1.3;
     }
 
     .event-footer {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-top: 2px; /* Было 4px */
+        margin-top: 2px;
     }
 
     .event-time {
-        font-size: 9px; /* Было 10px */
+        font-size: 9px;
         color: rgba(255, 255, 255, 0.3);
         font-weight: 700;
         text-transform: uppercase;
@@ -75,22 +111,121 @@
         color: var(--text-color-muted);
         font-weight: 800;
         background: rgba(255, 255, 255, 0.05);
-        padding: 2px 5px; /* Было 2px 6px */
+        padding: 2px 5px;
         border-radius: 4px;
         border: 1px solid var(--glass-border);
     }
 
     .event-reward {
-        font-size: 13px; /* Было 14px */
+        font-size: 13px;
         font-weight: 900;
         color: #ffd700;
         white-space: nowrap;
     }
 </style>
 
-<div class="events-container" id="events-list">
-    <!-- Отступы и размер иконки загрузки тоже слегка уменьшены для общей гармонии -->
-    <div style="display:flex; justify-content:center; padding: 30px 0;">
-        <i class="fa-solid fa-circle-notch fa-spin" style="font-size: 24px; color: var(--text-color-muted);"></i>
+<!-- 🔥 ПЕРЕКЛЮЧАТЕЛЬ 🔥 -->
+<div class="internal-tabs-container">
+    <div class="internal-tab-btn active" id="tab-btn-history" onclick="switchEventsSubTab('history')">Действия</div>
+    <div class="internal-tab-btn" id="tab-btn-promos" onclick="switchEventsSubTab('promos')">Промокоды</div>
+</div>
+
+<!-- =========================================
+     РАЗДЕЛ 1: ИСТОРИЯ ДЕЙСТВИЙ
+     ========================================= -->
+<div id="subtab-history" style="display: block; animation: popIn 0.3s ease-out;">
+    <div class="events-container" id="events-list">
+        <!-- Дефолтный лоадер, пока данные не придут -->
+        <div style="display:flex; justify-content:center; padding: 30px 0;">
+            <i class="fa-solid fa-circle-notch fa-spin" style="font-size: 24px; color: var(--text-color-muted);"></i>
+        </div>
     </div>
 </div>
+
+<!-- =========================================
+     РАЗДЕЛ 2: ПРОМОКОДЫ
+     ========================================= -->
+<div id="subtab-promos" style="display: none; animation: popIn 0.3s ease-out;">
+    <div class="events-header-bar" style="margin-bottom: 12px; display: flex; justify-content: flex-start; align-items: center; padding: 0 4px; gap: 10px;">
+        <!-- Левая часть: СОРТИРОВКА -->
+        <div style="font-size: 10px; font-weight: 800; color: rgba(255,255,255,0.6); text-transform: uppercase;">Сортировка:</div>
+        
+        <!-- Правая часть: Выборка и кнопка -->
+        <div style="display: flex; align-items: center; gap: 6px;">
+            <select id="promocodes-sort-select" class="events-sort-select" onchange="window.applyPromocodesSort()">
+                <option value="date_desc">Сначала новые</option>
+                <option value="auto">Сначала авто</option>
+                <option value="manual">Сначала ручные</option>
+                <option value="admin">От админа</option>
+            </select>
+            
+            <button id="btn-clear-all-rewards" onclick="window.clearAllRewards()" style="display: none; align-items: center; justify-content: center; gap: 6px; background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); color: #fff; border: 1px solid rgba(255, 255, 255, 0.15); border-top: 1px solid rgba(255, 255, 255, 0.25); border-radius: 10px; padding: 6px 14px; font-size: 10px; font-weight: 800; cursor: pointer; transition: 0.2s; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2); font-family: inherit;">
+                <i class="fa-solid fa-trash" style="color: #ff453a;"></i> ОЧИСТИТЬ ВСЁ
+            </button>
+            
+            <span id="promo-count-badge" style="display: none;"></span>
+        </div>
+    </div>
+
+    <!-- Контейнер для карточек -->
+    <div id="promocodes-list-container" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px;"></div>
+</div>
+
+<script>
+    // Функция переключения между историей и промокодами
+    window.switchEventsSubTab = async function(tabName) {
+        if(window.tg && window.tg.HapticFeedback) window.tg.HapticFeedback.selectionChanged();
+        
+        // Переключаем визуал кнопок
+        document.getElementById('tab-btn-history').classList.remove('active');
+        document.getElementById('tab-btn-promos').classList.remove('active');
+        document.getElementById(`tab-btn-${tabName}`).classList.add('active');
+
+        // Переключаем контент
+        if (tabName === 'history') {
+            document.getElementById('subtab-history').style.display = 'block';
+            document.getElementById('subtab-promos').style.display = 'none';
+            
+            // Загружаем данные истории, если их еще нет
+            if (!window.currentEventsList || window.currentEventsList.length === 0) {
+                await window.loadEvents();
+            } else {
+                window.renderEventsList(); // Перерисовываем если уже есть
+            }
+        } else {
+            document.getElementById('subtab-history').style.display = 'none';
+            document.getElementById('subtab-promos').style.display = 'block';
+            
+            // Загружаем промокоды
+            await loadPromosData();
+        }
+    };
+
+    // Внутренний загрузчик промокодов (перенесен из главной логики)
+    async function loadPromosData() {
+        const promoContainer = document.getElementById('promocodes-list-container');
+        if (!promoContainer) return;
+
+        // Если уже загружали, просто перерисовываем
+        if (window.currentRewardsList && window.currentRewardsList.length > 0) {
+            window.renderRewards(window.currentRewardsList, true);
+            return;
+        }
+
+        promoContainer.innerHTML = `
+            <div style="height: 30vh; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
+                <i class="fa-solid fa-barcode fa-pulse" style="font-size: 30px; color: #ff3b30; filter: drop-shadow(0 0 15px rgba(255, 59, 48, 0.4)); margin-bottom: 15px;"></i>
+                <div style="font-family: monospace; font-size: 14px; font-weight: 900; color: #fff; letter-spacing: 2px; text-transform: uppercase;">Дешифровка</div>
+                <div style="font-family: monospace; font-size: 9px; color: #ff3b30; margin-top: 6px; text-transform: uppercase; letter-spacing: 1px;">Загрузка купонов...</div>
+            </div>`;
+            
+        try {
+            const rewardsData = await window.apiRequest("/api/v1/user/rewards", "POST", null, true);
+            window.renderRewards(rewardsData);
+        } catch (err) {
+            if (err.message !== 'Activity Lock') {
+                promoContainer.innerHTML = `<div style="text-align:center; color:#ff3b30; font-family: monospace; font-weight: 800; margin-top:50px;">ОШИБКА ДЕШИФРОВКИ:<br>${err.message}</div>`;
+            }
+        }
+    }
+</script>
