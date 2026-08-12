@@ -2551,19 +2551,25 @@ window.closeFullscreenCard = function() {
     document.getElementById('global-loader').classList.add('active');
 
     try {
-        // Пробуем специальный роут для снятия, если он есть
         const res = await apiRequest("/api/v1/user/achievements/unequip", "POST", { achievement_id: ach_id }, true);
         if (res && res.success) {
             if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+            
+            // 🔥 Очищаем кэш перед обновлением данных
+            localStorage.removeItem('cache_bootstrap');
+            
             await window.fetchAndApplyUserData(true); 
             await window.loadAchievements(); 
         }
     } catch (err) {
-        // Если роута /unequip нет, передаем null в обычный /equip (стандартная практика бэкенда)
         try {
             const resFallback = await apiRequest("/api/v1/user/achievements/equip", "POST", { achievement_id: null }, true);
             if (resFallback && resFallback.success) {
                 if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+                
+                // 🔥 Очищаем кэш перед обновлением данных
+                localStorage.removeItem('cache_bootstrap');
+                
                 await window.fetchAndApplyUserData(true); 
                 await window.loadAchievements(); 
             }
@@ -2576,22 +2582,26 @@ window.closeFullscreenCard = function() {
 };
 
         window.equipAchievement = async function(ach_id) {
-            if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
-            document.getElementById('global-loader').classList.add('active');
+    if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+    document.getElementById('global-loader').classList.add('active');
 
-            try {
-                const res = await apiRequest("/api/v1/user/achievements/equip", "POST", { achievement_id: ach_id }, true);
-                if (res && res.success) {
-                    if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
-                    await window.fetchAndApplyUserData(true); 
-                    await window.loadAchievements(); 
-                }
-            } catch (err) {
-                if (err.message !== 'Activity Lock') customAlert("Ошибка: " + err.message);
-            } finally {
-                document.getElementById('global-loader').classList.remove('active');
-            }
-        };
+    try {
+        const res = await apiRequest("/api/v1/user/achievements/equip", "POST", { achievement_id: ach_id }, true);
+        if (res && res.success) {
+            if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+            
+            // 🔥 Очищаем кэш перед обновлением данных
+            localStorage.removeItem('cache_bootstrap');
+            
+            await window.fetchAndApplyUserData(true); 
+            await window.loadAchievements(); 
+        }
+    } catch (err) {
+        if (err.message !== 'Activity Lock') customAlert("Ошибка: " + err.message);
+    } finally {
+        document.getElementById('global-loader').classList.remove('active');
+    }
+};
 
         // --- ЛОГИКА СОБЫТИЙ С СОРТИРОВКОЙ ---
         window.currentEventsList = [];
