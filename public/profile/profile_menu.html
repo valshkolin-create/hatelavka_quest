@@ -1895,29 +1895,6 @@ window.clearAllRewards = function() {
                 document.getElementById('icon-steam').style.color = hasSteam ? glow : 'rgba(255,255,255,0.2)';
                 document.getElementById('icon-steam').style.textShadow = hasSteam ? `0 0 10px ${localHexToRgba(glow, 0.4)}` : 'none';
                 
-                // Twitch Иконка
-                const twitchIcon = document.getElementById('icon-twitch');
-                const twitchBanner = document.getElementById('top-twitch-banner');
-                
-                if (isTwitchError) {
-                    twitchIcon.className = "fa-brands fa-twitch twitch-icon-error";
-                    twitchIcon.style.color = ''; 
-                    twitchIcon.style.textShadow = '';
-                    if(twitchBanner) twitchBanner.classList.add('active');
-                    document.body.classList.add('has-twitch-error');
-                } else {
-                    twitchIcon.className = "fa-brands fa-twitch";
-                    // 🔥 Twitch перекрашивается в цвет ачивки, если привязан
-                    twitchIcon.style.color = hasTwitch ? glow : 'rgba(255,255,255,0.2)';
-                    twitchIcon.style.textShadow = hasTwitch ? `0 0 10px ${localHexToRgba(glow, 0.4)}` : 'none';
-                    if(twitchBanner) twitchBanner.classList.remove('active');
-                    document.body.classList.remove('has-twitch-error');
-                }
-                
-                // Steam
-                document.getElementById('icon-steam').style.color = hasSteam ? '#fff' : 'rgba(255,255,255,0.2)';
-                document.getElementById('icon-steam').style.textShadow = hasSteam ? '0 0 10px rgba(255,255,255,0.4)' : 'none';
-                
                 // 🔥 Twitch Иконка и Плавающий баннер
                 const twitchIcon = document.getElementById('icon-twitch');
                 const twitchBanner = document.getElementById('top-twitch-banner');
