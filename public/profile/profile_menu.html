@@ -3798,6 +3798,11 @@ window.initProfileShop = async function() {
         const res = await window.apiRequest('/api/v1/profile/shop/items', 'POST', null, true);
         
         const balEl = document.getElementById('user-ref-balance');
+        const container = document.getElementById('shop-items-container');
+        const loader = document.getElementById('shop-loader');
+
+        // Вот эта строка отвечает за вывод баланса билетов в шапке
+        if (balEl) balEl.innerText = res.user_balance || 0;
 
        // 👇 ГЕНЕРАЦИЯ ССЫЛКИ И ОЖИВЛЕНИЕ СТАТИСТИКИ 👇
         // 👇 ВСТАВИТЬ ГЕНЕРАЦИЮ ССЫЛКИ В window.initProfileShop 👇
