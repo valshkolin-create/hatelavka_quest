@@ -2385,6 +2385,7 @@ window.renderAchievements = function(achievements) {
         return;
     }
 
+    // Возвращаем сетку в 2 столбца
     let html = '<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; padding-bottom: 20px;">';
     
     achievements.forEach(ach => {
@@ -2401,27 +2402,29 @@ window.renderAchievements = function(achievements) {
             ? 'box-shadow: 0 8px 20px rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.1);' 
             : 'box-shadow: 0 4px 15px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.05);';
             
-        const imgFilter = isUnlocked ? `drop-shadow(0 8px 12px rgba(0,0,0,0.6))` : 'grayscale(100%) brightness(0.3)';
+        const imgFilter = isUnlocked ? `drop-shadow(0 10px 15px rgba(0,0,0,0.8))` : 'grayscale(100%) brightness(0.3)';
         
         let btnHtml = '';
-        const btnBaseStyle = 'border-radius: 8px; font-size: 10px; font-weight: 800; padding: 6px; width: 100%; cursor: pointer; transition: 0.2s;';
+        const btnBaseStyle = 'border-radius: 8px; font-size: 10px; font-weight: 800; padding: 6px; width: 100%; cursor: pointer; transition: 0.2s; text-transform: uppercase; margin-top: 4px;';
         
         if (!isUnlocked) {
-            btnHtml = `<button disabled style="background: rgba(255,255,255,0.03); color: var(--text-color-muted); border: 1px solid var(--glass-border); ${btnBaseStyle} cursor: not-allowed;"><i class="fa-solid fa-lock"></i> ЗАКРЫТО</button>`;
+            btnHtml = `<button disabled style="background: rgba(255,255,255,0.03); color: var(--text-color-muted); border: 1px solid var(--glass-border); ${btnBaseStyle} cursor: not-allowed;"><i class="fa-solid fa-lock"></i> Закрыто</button>`;
         } else if (isEquipped) {
-            btnHtml = `<button onclick="window.unequipAchievement(${ach.id})" style="background: rgba(255, 69, 58, 0.1); color: #ff453a; border: 1px solid rgba(255, 69, 58, 0.3); ${btnBaseStyle}" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'"><i class="fa-solid fa-xmark"></i> СНЯТЬ</button>`;
+            btnHtml = `<button onclick="window.unequipAchievement(${ach.id})" style="background: rgba(255, 69, 58, 0.1); color: #ff453a; border: 1px solid rgba(255, 69, 58, 0.3); ${btnBaseStyle}" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'"><i class="fa-solid fa-xmark"></i> Снять</button>`;
         } else {
-            btnHtml = `<button onclick="window.equipAchievement(${ach.id})" style="background: rgba(255,255,255,0.1); color: #fff; border: 1px solid var(--glass-border); ${btnBaseStyle}" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">НАДЕТЬ</button>`;
+            btnHtml = `<button onclick="window.equipAchievement(${ach.id})" style="background: rgba(255,255,255,0.1); color: #fff; border: 1px solid var(--glass-border); ${btnBaseStyle}" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">Надеть</button>`;
         }
 
         html += `
             <div style="display: flex; flex-direction: column; gap: 6px;">
-                <div onclick="openFullscreenCard(${ach.id})" style="cursor: pointer; aspect-ratio: 3/4; background: ${bg}; ${cardBoxStyle} border-radius: 14px; padding: 10px; display: flex; align-items: center; justify-content: center; opacity: ${opacity}; position: relative; overflow: hidden; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                <!-- padding: 0 делает так, что картинка прилегает впритык к рамкам -->
+                <div onclick="openFullscreenCard(${ach.id})" style="cursor: pointer; aspect-ratio: 3/4; background: ${bg}; ${cardBoxStyle} border-radius: 14px; padding: 0; display: flex; align-items: center; justify-content: center; opacity: ${opacity}; position: relative; overflow: hidden; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
                     
-                    <div style="position: absolute; top: 0; left: -50%; right: -50%; height: 120px; background: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, transparent 100%); transform: rotate(-25deg); pointer-events: none;"></div>
-
-                    <!-- 🔥 Картинка теперь 100% размера -->
-                    <img src="${ach.image_url}" style="width: 100%; height: auto; max-height: 95%; object-fit: contain; filter: ${imgFilter}; pointer-events: none;">
+                    <!-- Сама картинка (z-index 1) растянута на 100% -->
+                    <img src="${ach.image_url}" style="position: relative; z-index: 1; width: 100%; height: 100%; object-fit: cover; filter: ${imgFilter}; pointer-events: none;">
+                    
+                    <!-- Пленка (блик) ПОВЕРХ картинки (z-index 2) -->
+                    <div style="position: absolute; inset: 0; background: linear-gradient(135deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.02) 40%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0) 60%); pointer-events: none; z-index: 2;"></div>
                 </div>
                 
                 ${btnHtml}
@@ -2443,6 +2446,10 @@ window.openFullscreenCard = function(ach_id) {
     const modal = document.getElementById('fullscreen-card-modal');
     const wrapper = document.getElementById('fullscreen-card-wrapper');
     
+    if (wrapper) {
+        wrapper.style.maxWidth = '420px';
+    }
+    
     const isUnlocked = ach.is_unlocked;
     const glowColor = ach.glow_color || '#ffffff';
     
@@ -2451,21 +2458,18 @@ window.openFullscreenCard = function(ach_id) {
         : `linear-gradient(145deg, rgba(20, 20, 20, 0.8) 0%, rgba(10, 10, 10, 0.9) 100%)`;
         
     const cardBoxStyle = isUnlocked 
-        ? `box-shadow: 0 10px 40px -10px ${glowColor}60, inset 0 0 20px ${glowColor}20; border: 1px solid ${glowColor}50;` 
+        ? `box-shadow: 0 15px 50px -10px ${glowColor}70, inset 0 0 25px ${glowColor}20; border: 1px solid ${glowColor}60;` 
         : 'box-shadow: 0 10px 30px rgba(0,0,0,0.8); border: 1px solid rgba(255,255,255,0.05);';
         
-    // Облегченная тень для максимальной плавности
-    const imgFilter = isUnlocked ? `drop-shadow(0 10px 15px rgba(0,0,0,0.5))` : 'grayscale(100%) brightness(0.3)';
+    const imgFilter = isUnlocked ? `drop-shadow(0 15px 25px rgba(0,0,0,0.7))` : 'grayscale(100%) brightness(0.3)';
 
-    // Убран preserve-3d, добавлен легкий градиент-блик
+    // Карточка в зуме: padding: 0, картинка на 100%, блик поверх
     wrapper.innerHTML = `
-        <div id="active-3d-card" style="width: 100%; aspect-ratio: 3/4; background: ${bg}; ${cardBoxStyle} border-radius: 20px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; will-change: transform;">
+        <div id="active-3d-card" style="width: 100%; aspect-ratio: 3/4; background: ${bg}; ${cardBoxStyle} border-radius: 22px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; will-change: transform; padding: 0;">
             
-            <!-- Картинка огромная, без зависания в 3D пространстве -->
-            <img src="${ach.image_url}" style="width: 100%; height: auto; max-height: 95%; object-fit: contain; filter: ${imgFilter}; pointer-events: none; z-index: 1;">
+            <img src="${ach.image_url}" style="position: relative; z-index: 1; width: 100%; height: 100%; object-fit: cover; filter: ${imgFilter}; pointer-events: none;">
             
-            <!-- Легкий динамический блик для эффекта переливания (заменяет сложный 3D) -->
-            <div id="card-glare" style="position: absolute; top: -50%; left: -50%; right: -50%; bottom: -50%; background: linear-gradient(135deg, rgba(255,255,255,0) 30%, rgba(255,255,255,0.15) 50%, rgba(255,255,255,0) 70%); transform: translate(0, 0); pointer-events: none; z-index: 10;"></div>
+            <div id="card-glare" style="position: absolute; top: 0; left: 0; width: 200%; height: 200%; background: linear-gradient(135deg, rgba(255,255,255,0) 35%, rgba(255,255,255,0.15) 48%, rgba(255,255,255,0.3) 50%, rgba(255,255,255,0.15) 52%, rgba(255,255,255,0) 65%); transform: translate(-25%, -25%); pointer-events: none; z-index: 10;"></div>
         </div>
         
         <div style="text-align: center; margin-top: 25px; width: 100%; display: flex; flex-direction: column; align-items: center;">
@@ -2481,7 +2485,6 @@ window.openFullscreenCard = function(ach_id) {
     const glare = document.getElementById('card-glare');
     let isTicking = false;
     
-    // Вращение: плавно и легко (максимум 12 градусов)
     const handleMove = (x, y) => {
         if (!isTicking) {
             window.requestAnimationFrame(() => {
@@ -2493,9 +2496,8 @@ window.openFullscreenCard = function(ach_id) {
                 
                 card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
                 
-                // Двигаем блик, создавая иллюзию объема
                 if (glare) {
-                    glare.style.transform = `translate(${rotateY * 3}%, ${-rotateX * 3}%)`;
+                    glare.style.transform = `translate(${ -25 + rotateY * 1.5 }%, ${ -25 + -rotateX * 1.5 }%)`;
                 }
                 
                 isTicking = false;
@@ -2507,14 +2509,13 @@ window.openFullscreenCard = function(ach_id) {
     modal.onmousemove = (e) => handleMove(e.clientX, e.clientY);
     modal.ontouchmove = (e) => handleMove(e.touches[0].clientX, e.touches[0].clientY);
     
-    // Возврат в 0 координат без лагов
     modal.onmouseleave = modal.ontouchend = () => {
         card.style.transition = 'transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)';
         card.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg)`;
         
         if (glare) {
             glare.style.transition = 'transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)';
-            glare.style.transform = `translate(0, 0)`;
+            glare.style.transform = `translate(-25%, -25%)`;
         }
         
         setTimeout(() => { 
