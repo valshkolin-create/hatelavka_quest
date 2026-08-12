@@ -2908,13 +2908,15 @@ const processedQuests = weekQuests.map(cfg => {
                     
                     let prevProg = null;
                     if (userData.bp_quests) {
-                        if (pIsRepeatable) {
-                            prevProg = userData.bp_quests.find(q => String(q.quest_id) === String(prevCfg.quest_id) && String(q.week) === String(prevCfg.week));
-                        } else {
-                            prevProg = userData.bp_quests.find(q => String(q.quest_id) === String(prevCfg.quest_id));
+                        // 🔥 ВСЕГДА ищем строго по номеру предыдущей недели!
+                        prevProg = userData.bp_quests.find(q => String(q.quest_id) === String(prevCfg.quest_id) && String(q.week) === String(prevCfg.week));
+                        
+                        // Фоллбэк: если это старый квест без привязки к неделе
+                        if (!prevProg && !pIsRepeatable) {
+                            prevProg = userData.bp_quests.find(q => String(q.quest_id) === String(prevCfg.quest_id) && (q.week == null || q.week === 0));
                         }
                     }
-
+                    
                     if (!prevProg || !prevProg.is_claimed) {
                         requiredPrevWeek = prevCfg.week;
                         break; 
@@ -2925,6 +2927,13 @@ const processedQuests = weekQuests.map(cfg => {
             // Прокидываем флаг isWaterfall дальше для рендера текста
             return { cfg, title, userProgress, requiredPrevWeek, isWaterfall };
         });
+
+        // 👇 Меняем статус на ПРОЙДЕНА, если все квесты недели уже собраны
+        const isAllClaimed = processedQuests.length > 0 && processedQuests.every(q => q.userProgress.is_claimed);
+        if (isAllClaimed) {
+            statusText = 'Пройдена';
+            statusClass = 'status-active';
+        }
         
         const hasRewardsToClaim = !isLocked && processedQuests.some(q => q.userProgress.is_completed && !q.userProgress.is_claimed && q.requiredPrevWeek === null);
         if (hasRewardsToClaim) globalHasRewards = true; 
