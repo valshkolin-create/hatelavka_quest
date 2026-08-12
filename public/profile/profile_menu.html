@@ -2368,13 +2368,12 @@ contentArea.classList.add('fade-in-content');
             }
         };
 
-        window.currentAchievementsList = []; // Добавляем массив для хранения данных карточек
+window.currentAchievementsList = []; 
 
 window.renderAchievements = function(achievements) {
     const container = document.getElementById('achievements-list-container');
     if (!container) return;
     
-    // Сохраняем ачивки, чтобы их можно было открыть по клику
     window.currentAchievementsList = achievements || [];
     
     if (!achievements || achievements.length === 0) {
@@ -2402,7 +2401,7 @@ window.renderAchievements = function(achievements) {
             ? 'box-shadow: 0 8px 20px rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.1);' 
             : 'box-shadow: 0 4px 15px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.05);';
             
-        const imgFilter = isUnlocked ? `drop-shadow(0 10px 15px rgba(0,0,0,0.8))` : 'grayscale(100%) brightness(0.3)';
+        const imgFilter = isUnlocked ? `drop-shadow(0 8px 12px rgba(0,0,0,0.6))` : 'grayscale(100%) brightness(0.3)';
         
         let btnHtml = '';
         const btnBaseStyle = 'border-radius: 8px; font-size: 10px; font-weight: 800; padding: 6px; width: 100%; cursor: pointer; transition: 0.2s;';
@@ -2417,12 +2416,12 @@ window.renderAchievements = function(achievements) {
 
         html += `
             <div style="display: flex; flex-direction: column; gap: 6px;">
-                <!-- Плоская карточка, открывающая 3D-режим по клику -->
                 <div onclick="openFullscreenCard(${ach.id})" style="cursor: pointer; aspect-ratio: 3/4; background: ${bg}; ${cardBoxStyle} border-radius: 14px; padding: 10px; display: flex; align-items: center; justify-content: center; opacity: ${opacity}; position: relative; overflow: hidden; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
                     
                     <div style="position: absolute; top: 0; left: -50%; right: -50%; height: 120px; background: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, transparent 100%); transform: rotate(-25deg); pointer-events: none;"></div>
 
-                    <img src="${ach.image_url}" style="width: 90%; height: auto; max-height: 85%; object-fit: contain; filter: ${imgFilter}; pointer-events: none;">
+                    <!-- 🔥 Картинка теперь 100% размера -->
+                    <img src="${ach.image_url}" style="width: 100%; height: auto; max-height: 95%; object-fit: contain; filter: ${imgFilter}; pointer-events: none;">
                 </div>
                 
                 ${btnHtml}
@@ -2434,7 +2433,7 @@ window.renderAchievements = function(achievements) {
     container.innerHTML = html;
 };
 
-// Функция открытия карточки на весь экран в 3D
+
 window.openFullscreenCard = function(ach_id) {
     const ach = window.currentAchievementsList.find(a => a.id === ach_id);
     if (!ach) return;
@@ -2451,32 +2450,27 @@ window.openFullscreenCard = function(ach_id) {
         ? `linear-gradient(145deg, rgba(30, 30, 35, 0.9) 0%, rgba(15, 15, 18, 0.95) 100%)` 
         : `linear-gradient(145deg, rgba(20, 20, 20, 0.8) 0%, rgba(10, 10, 10, 0.9) 100%)`;
         
-    // Огромное премиальное свечение
     const cardBoxStyle = isUnlocked 
-        ? `box-shadow: 0 20px 50px -10px ${glowColor}80, inset 0 0 30px ${glowColor}20; border: 1px solid ${glowColor}70;` 
+        ? `box-shadow: 0 10px 40px -10px ${glowColor}60, inset 0 0 20px ${glowColor}20; border: 1px solid ${glowColor}50;` 
         : 'box-shadow: 0 10px 30px rgba(0,0,0,0.8); border: 1px solid rgba(255,255,255,0.05);';
         
-    const imgFilter = isUnlocked ? `drop-shadow(0 20px 30px rgba(0,0,0,0.9))` : 'grayscale(100%) brightness(0.3)';
+    // Облегченная тень для максимальной плавности
+    const imgFilter = isUnlocked ? `drop-shadow(0 10px 15px rgba(0,0,0,0.5))` : 'grayscale(100%) brightness(0.3)';
 
-    // Рендерим огромную 3D-карточку
-    // Рендерим огромную 3D-карточку
-    // ВАЖНО: Убран transition: transform 0.1s linear, чтобы движение за пальцем не лагало
+    // Убран preserve-3d, добавлен легкий градиент-блик
     wrapper.innerHTML = `
-        <div id="active-3d-card" style="width: 100%; aspect-ratio: 3/4; background: ${bg}; ${cardBoxStyle} border-radius: 20px; display: flex; align-items: center; justify-content: center; position: relative; transform-style: preserve-3d; will-change: transform;">
+        <div id="active-3d-card" style="width: 100%; aspect-ratio: 3/4; background: ${bg}; ${cardBoxStyle} border-radius: 20px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; will-change: transform;">
             
-            <!-- Арт висит в воздухе (translateZ 60px) -->
-            <img src="${ach.image_url}" style="width: 90%; height: auto; max-height: 85%; object-fit: contain; filter: ${imgFilter}; transform: translateZ(60px); pointer-events: none; z-index: 1;">
+            <!-- Картинка огромная, без зависания в 3D пространстве -->
+            <img src="${ach.image_url}" style="width: 100%; height: auto; max-height: 95%; object-fit: contain; filter: ${imgFilter}; pointer-events: none; z-index: 1;">
             
-            <!-- Блик висит еще выше (translateZ 80px) и обрезается рамками -->
-            <div style="position: absolute; inset: 0; border-radius: 20px; overflow: hidden; transform: translateZ(80px); pointer-events: none; z-index: 10;">
-                <div style="position: absolute; top: -20px; left: -50%; right: -50%; height: 200px; background: linear-gradient(180deg, rgba(255,255,255,0.15) 0%, transparent 100%); transform: rotate(-25deg); pointer-events: none;"></div>
-            </div>
+            <!-- Легкий динамический блик для эффекта переливания (заменяет сложный 3D) -->
+            <div id="card-glare" style="position: absolute; top: -50%; left: -50%; right: -50%; bottom: -50%; background: linear-gradient(135deg, rgba(255,255,255,0) 30%, rgba(255,255,255,0.15) 50%, rgba(255,255,255,0) 70%); transform: translate(0, 0); pointer-events: none; z-index: 10;"></div>
         </div>
         
-        <!-- Текст теперь под карточкой -->
-        <div style="text-align: center; margin-top: 30px; width: 100%; transform: translateZ(0); display: flex; flex-direction: column; align-items: center;">
+        <div style="text-align: center; margin-top: 25px; width: 100%; display: flex; flex-direction: column; align-items: center;">
             <div style="font-size: 24px; font-weight: 900; color: ${isUnlocked ? glowColor : '#fff'}; text-transform: uppercase; text-shadow: ${isUnlocked ? '0 4px 20px ' + glowColor : 'none'}; line-height: 1.1;">${ach.title}</div>
-            <div style="font-size: 13px; color: rgba(255,255,255,0.6); margin-top: 12px; line-height: 1.4; max-width: 90%;">${ach.description || ''}</div>
+            <div style="font-size: 13px; color: rgba(255,255,255,0.6); margin-top: 10px; line-height: 1.4; max-width: 90%;">${ach.description || ''}</div>
         </div>
     `;
 
@@ -2484,19 +2478,26 @@ window.openFullscreenCard = function(ach_id) {
     modal.style.pointerEvents = 'auto';
 
     const card = document.getElementById('active-3d-card');
-    let isTicking = false; // Флаг для оптимизации анимации
+    const glare = document.getElementById('card-glare');
+    let isTicking = false;
     
-    // Вращение относительно центра экрана с оптимизацией requestAnimationFrame
+    // Вращение: плавно и легко (максимум 12 градусов)
     const handleMove = (x, y) => {
         if (!isTicking) {
             window.requestAnimationFrame(() => {
                 const centerX = window.innerWidth / 2;
                 const centerY = window.innerHeight / 2;
-                // Максимальный угол наклона - 30 градусов
-                const rotateX = ((y - centerY) / centerY) * -30;
-                const rotateY = ((x - centerX) / centerX) * 30;
                 
-                card.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+                const rotateX = ((y - centerY) / centerY) * -12;
+                const rotateY = ((x - centerX) / centerX) * 12;
+                
+                card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+                
+                // Двигаем блик, создавая иллюзию объема
+                if (glare) {
+                    glare.style.transform = `translate(${rotateY * 3}%, ${-rotateX * 3}%)`;
+                }
+                
                 isTicking = false;
             });
             isTicking = true;
@@ -2506,14 +2507,20 @@ window.openFullscreenCard = function(ach_id) {
     modal.onmousemove = (e) => handleMove(e.clientX, e.clientY);
     modal.ontouchmove = (e) => handleMove(e.touches[0].clientX, e.touches[0].clientY);
     
-    // Плавный возврат в исходное положение
+    // Возврат в 0 координат без лагов
     modal.onmouseleave = modal.ontouchend = () => {
-        // Включаем CSS-анимацию только для того, чтобы карточка плавно вернулась в 0 градусов
-        card.style.transition = 'transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1)';
-        card.style.transform = `rotateX(0deg) rotateY(0deg)`;
+        card.style.transition = 'transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)';
+        card.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg)`;
         
-        // Убираем CSS-анимацию через полсекунды, чтобы следующее касание снова не начало лагать
-        setTimeout(() => { card.style.transition = ''; }, 500);
+        if (glare) {
+            glare.style.transition = 'transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)';
+            glare.style.transform = `translate(0, 0)`;
+        }
+        
+        setTimeout(() => { 
+            card.style.transition = ''; 
+            if (glare) glare.style.transition = '';
+        }, 400);
     };
 };
 
