@@ -48,13 +48,21 @@
         .sec-title { font-size: 13px; color: var(--primary); margin: 0 0 10px 0; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
 
         /* --- Формы --- */
-        .admin-form input, .admin-form select, .admin-form textarea {
+        .admin-form input:not([type="color"]), .admin-form textarea {
             width: 100%; box-sizing: border-box; background: var(--card-bg); border: 1px solid var(--card-border);
             color: var(--text); padding: 12px; border-radius: 12px; font-size: 14px; outline: none; transition: 0.2s;
             -webkit-appearance: none; -moz-appearance: none; appearance: none; font-family: inherit;
         }
-        .admin-form select option { background-color: #1e1e1e; color: #ffffff; }
-        .admin-form input:focus, .admin-form select:focus, .admin-form textarea:focus { border-color: var(--primary); background: rgba(255,255,255,0.03); }
+        
+        /* Исправление бага с белым фоном на выборке (select) */
+        .admin-form select {
+            width: 100%; box-sizing: border-box; background: #2a2a2a; border: 1px solid var(--card-border);
+            color: #ffffff; padding: 12px; border-radius: 12px; font-size: 14px; outline: none; transition: 0.2s;
+            font-family: inherit; cursor: pointer;
+        }
+        .admin-form select option { background-color: #2a2a2a; color: #ffffff; }
+
+        .admin-form input:focus, .admin-form select:focus, .admin-form textarea:focus { border-color: var(--primary); background: rgba(255,255,255,0.05); }
         .admin-form label { display: block; font-size: 12px; color: var(--text-sec); margin: 12px 0 5px; font-weight: 500; }
         
         .admin-action-btn { background: var(--primary); color: #000; padding: 12px; border: none; border-radius: 12px; font-weight: 800; cursor: pointer; width: 100%; margin-top: 20px; transition: 0.2s; text-transform: uppercase; }
@@ -67,7 +75,8 @@
         .ach-img { width: 50px; height: 50px; border-radius: 10px; object-fit: contain; filter: drop-shadow(0 0 5px rgba(255,255,255,0.2)); }
         .ach-info { flex-grow: 1; min-width: 0; }
         .ach-title { font-size: 15px; font-weight: 800; color: #fff; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .ach-desc { font-size: 11px; color: var(--text-sec); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        /* Убрано ограничение строк (line-clamp), чтобы описание раскрывалось полностью */
+        .ach-desc { font-size: 11px; color: var(--text-sec); display: block; white-space: normal; word-break: break-word; }
         .ach-meta { font-size: 9px; font-weight: 800; color: #64b5ef; margin-top: 6px; text-transform: uppercase; }
         
         .color-preview { width: 12px; height: 12px; display: inline-block; border-radius: 50%; vertical-align: middle; margin-right: 4px; border: 1px solid rgba(255,255,255,0.3); }
@@ -117,17 +126,111 @@
             <input type="text" id="achTitle" placeholder="Например: Ветеран Твича" autocomplete="off">
 
             <label>Описание</label>
-            <textarea id="achDesc" rows="3" placeholder="Что нужно сделать, чтобы получить..."></textarea>
+            <textarea id="achDesc" rows="4" placeholder="Что нужно сделать, чтобы получить..."></textarea>
 
             <label>Картинка (URL)</label>
             <input type="url" id="achImage" placeholder="https://imgur.com/...png">
 
             <label>Цвет свечения (HEX, RGB, RGBA)</label>
-            <input type="text" id="achGlow" placeholder="Например: #ffd700 или rgba(255, 0, 0, 0.8)">
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <input type="color" id="achGlowPicker" style="width: 45px; height: 45px; padding: 0; border: none; border-radius: 8px; cursor: pointer; background: transparent; flex-shrink: 0;" title="Выбрать цвет на палитре">
+                <input type="text" id="achGlow" placeholder="Например: #ffd700 или rgba(255, 0, 0, 0.8)">
+            </div>
             
             <div style="background: rgba(100, 181, 239, 0.1); border: 1px dashed rgba(100, 181, 239, 0.3); border-radius: 12px; padding: 12px; margin-top: 15px; margin-bottom: 5px;">
                 <label style="margin-top: 0; color: #64b5ef;">Поле в таблице users (Условие)</label>
-                <input type="text" id="achType" placeholder="Например: total_uptime_minutes" style="border-color: rgba(100, 181, 239, 0.4);">
+                <select id="achType" style="border-color: rgba(100, 181, 239, 0.4); margin-bottom: 12px;">
+                    <option value="" disabled selected>-- Выберите поле --</option>
+                    <option value="idx">idx</option>
+                    <option value="telegram_id">telegram_id</option>
+                    <option value="username">username</option>
+                    <option value="full_name">full_name</option>
+                    <option value="photo_url">photo_url</option>
+                    <option value="quest_progress">quest_progress</option>
+                    <option value="created_at">created_at</option>
+                    <option value="total_message_count">total_message_count</option>
+                    <option value="weekly_message_count">weekly_message_count</option>
+                    <option value="twitch_id">twitch_id</option>
+                    <option value="twitch_login">twitch_login</option>
+                    <option value="monthly_message_count">monthly_message_count</option>
+                    <option value="last_synced_message_count">last_synced_message_count</option>
+                    <option value="last_sync_timestamp">last_sync_timestamp</option>
+                    <option value="daily_message_count">daily_message_count</option>
+                    <option value="total_progress">total_progress</option>
+                    <option value="active_quest_id">active_quest_id</option>
+                    <option value="total_uptime_minutes">total_uptime_minutes</option>
+                    <option value="daily_uptime_minutes">daily_uptime_minutes</option>
+                    <option value="weekly_uptime_minutes">weekly_uptime_minutes</option>
+                    <option value="monthly_uptime_minutes">monthly_uptime_minutes</option>
+                    <option value="last_synced_uptime_minutes">last_synced_uptime_minutes</option>
+                    <option value="telegram_daily_message_count">telegram_daily_message_count</option>
+                    <option value="telegram_weekly_message_count">telegram_weekly_message_count</option>
+                    <option value="telegram_monthly_message_count">telegram_monthly_message_count</option>
+                    <option value="telegram_total_message_count">telegram_total_message_count</option>
+                    <option value="last_seen">last_seen</option>
+                    <option value="tickets">tickets</option>
+                    <option value="trade_link">trade_link</option>
+                    <option value="completed_challenges_count">completed_challenges_count</option>
+                    <option value="challenge_cooldown_until">challenge_cooldown_until</option>
+                    <option value="last_quest_cancel_at">last_quest_cancel_at</option>
+                    <option value="last_free_ticket_claimed_at">last_free_ticket_claimed_at</option>
+                    <option value="has_events_access">has_events_access</option>
+                    <option value="has_checkpoint_access">has_checkpoint_access</option>
+                    <option value="last_telegram_quest_start">last_telegram_quest_start</option>
+                    <option value="checkpoint_stars">checkpoint_stars</option>
+                    <option value="checkpoint_level">checkpoint_level</option>
+                    <option value="last_challenge_completed_at">last_challenge_completed_at</option>
+                    <option value="checkpoint_stars_frozen_until">checkpoint_stars_frozen_until</option>
+                    <option value="active_quest_end_date">active_quest_end_date</option>
+                    <option value="quest_start_value">quest_start_value</option>
+                    <option value="auction_cooldown_until">auction_cooldown_until</option>
+                    <option value="coins">coins</option>
+                    <option value="streak_days">streak_days</option>
+                    <option value="last_grind_at">last_grind_at</option>
+                    <option value="bot_t_coins">bot_t_coins</option>
+                    <option value="bott_internal_id">bott_internal_id</option>
+                    <option value="bott_secret_key">bott_secret_key</option>
+                    <option value="last_challenge_assigned_at">last_challenge_assigned_at</option>
+                    <option value="notify_auction_start">notify_auction_start</option>
+                    <option value="notify_auction_outbid">notify_auction_outbid</option>
+                    <option value="notify_auction_end">notify_auction_end</option>
+                    <option value="notify_rewards">notify_rewards</option>
+                    <option value="notify_stream_start">notify_stream_start</option>
+                    <option value="notify_daily_grind">notify_daily_grind</option>
+                    <option value="notify_dnd_enabled">notify_dnd_enabled</option>
+                    <option value="is_bot_active">is_bot_active</option>
+                    <option value="referrer_id">referrer_id</option>
+                    <option value="referral_activated_at">referral_activated_at</option>
+                    <option value="bott_ref_id">bott_ref_id</option>
+                    <option value="last_balance_sync">last_balance_sync</option>
+                    <option value="referrals_count">referrals_count</option>
+                    <option value="twitch_status">twitch_status</option>
+                    <option value="twitch_access_token">twitch_access_token</option>
+                    <option value="twitch_refresh_token">twitch_refresh_token</option>
+                    <option value="last_twitch_sync">last_twitch_sync</option>
+                    <option value="last_mystery_box_at">last_mystery_box_at</option>
+                    <option value="last_new_year_gift_at">last_new_year_gift_at</option>
+                    <option value="vk_id">vk_id</option>
+                    <option value="platform">platform</option>
+                    <option value="is_banned">is_banned</option>
+                    <option value="trust_level">trust_level</option>
+                    <option value="trust_score">trust_score</option>
+                    <option value="prev_monthly_message_count">prev_monthly_message_count</option>
+                    <option value="prev_monthly_uptime_minutes">prev_monthly_uptime_minutes</option>
+                    <option value="prev_telegram_monthly_message_count">prev_telegram_monthly_message_count</option>
+                    <option value="penalty_points">penalty_points</option>
+                    <option value="amnesty_used_at">amnesty_used_at</option>
+                    <option value="amnesty_bonus">amnesty_bonus</option>
+                    <option value="monthly_quest_bonus">monthly_quest_bonus</option>
+                    <option value="has_cp_premium">has_cp_premium</option>
+                    <option value="topskin_views">topskin_views</option>
+                    <option value="has_accepted_oferta">has_accepted_oferta</option>
+                    <option value="device_id">device_id</option>
+                    <option value="last_ip">last_ip</option>
+                    <option value="platform_type">platform_type</option>
+                    <option value="is_admin">is_admin</option>
+                    <option value="last_weekly_ref_bonus_at">last_weekly_ref_bonus_at</option>
+                </select>
                 
                 <label style="color: #64b5ef;">Значение (Сколько нужно набрать)</label>
                 <input type="number" id="achValue" placeholder="Например: 6000" style="border-color: rgba(100, 181, 239, 0.4);">
@@ -156,7 +259,21 @@
         tg.BackButton.show();
         tg.BackButton.onClick(() => window.location.href = '/admin');
 
-        // Глобальная функция для запросов (копия из твоей админки)
+        // Логика синхронизации палитры цветов
+        const achGlowInput = document.getElementById('achGlow');
+        const achGlowPicker = document.getElementById('achGlowPicker');
+        
+        achGlowPicker.addEventListener('input', (e) => {
+            achGlowInput.value = e.target.value;
+        });
+        
+        achGlowInput.addEventListener('input', (e) => {
+            if (/^#[0-9a-fA-F]{6}$/.test(e.target.value)) {
+                achGlowPicker.value = e.target.value;
+            }
+        });
+
+        // Глобальная функция для запросов
         window.makeApiRequest = async function(endpoint, method = 'POST', data = null) {
             let url = endpoint;
             const options = { method: method.toUpperCase(), headers: { 'Content-Type': 'application/json' } };
@@ -203,7 +320,17 @@
             document.getElementById('achTitle').value = isEdit ? achData.title : '';
             document.getElementById('achDesc').value = isEdit ? (achData.description || '') : '';
             document.getElementById('achImage').value = isEdit ? (achData.image_url || '') : '';
-            document.getElementById('achGlow').value = isEdit ? (achData.glow_color || 'rgba(255, 255, 255, 0.5)') : 'rgba(255, 215, 0, 0.8)';
+            
+            const defaultColor = isEdit ? (achData.glow_color || 'rgba(255, 255, 255, 0.5)') : '#ffd700';
+            document.getElementById('achGlow').value = defaultColor;
+            
+            // Если цвет - HEX, ставим его в палитру, иначе ставим белый
+            if (defaultColor.startsWith('#') && defaultColor.length === 7) {
+                document.getElementById('achGlowPicker').value = defaultColor;
+            } else {
+                document.getElementById('achGlowPicker').value = '#ffffff';
+            }
+
             document.getElementById('achType').value = isEdit ? (achData.condition_type || '') : '';
             document.getElementById('achValue').value = isEdit ? (achData.condition_value || 0) : 0;
 
@@ -240,7 +367,7 @@
             list.innerHTML = items.map(ach => {
                 const safeJson = encodeURIComponent(JSON.stringify(ach).replace(/'/g, "&apos;"));
                 return `
-                    <div class="ach-item" onclick="openModal('achModal', JSON.parse(decodeURIComponent('${safeJson}'.replace(/&apos;/g, \\"'\\"))))" style="box-shadow: 0 0 10px ${ach.glow_color}20; border-color: ${ach.glow_color}40;">
+                    <div class="ach-item" onclick="openModal('achModal', JSON.parse(decodeURIComponent('${safeJson}'.replace(/&apos;/g, "\\'"))))" style="box-shadow: 0 0 10px ${ach.glow_color}20; border-color: ${ach.glow_color}40;">
                         <img src="${ach.image_url || 'https://placehold.co/100x100/1e1e1e/ffffff?text=?'}" class="ach-img">
                         <div class="ach-info">
                             <div class="ach-title" style="color: ${ach.glow_color}; text-shadow: 0 0 8px ${ach.glow_color}80;">${ach.title}</div>
