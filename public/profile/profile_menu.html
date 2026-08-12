@@ -2600,39 +2600,28 @@ window.closeFullscreenCard = function() {
 };
 
         window.unequipAchievement = async function(ach_id) {
-    if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
-    document.getElementById('global-loader').classList.add('active');
+            if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+            document.getElementById('global-loader').classList.add('active');
 
-    try {
-        const res = await apiRequest("/api/v1/user/achievements/unequip", "POST", { achievement_id: ach_id }, true);
-        if (res && res.success) {
-            if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
-            
-            // 🔥 ЖЕСТКО УДАЛЯЕМ КЭШ 🔥
-            localStorage.removeItem('cache_bootstrap');
-            
-            await window.fetchAndApplyUserData(true); 
-            await window.loadAchievements(); 
-        }
-    } catch (err) {
-        try {
-            const resFallback = await apiRequest("/api/v1/user/achievements/equip", "POST", { achievement_id: null }, true);
-            if (resFallback && resFallback.success) {
-                if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+            try {
+                // 🔥 ИСПРАВЛЕНО: Обращаемся к правильному адресу (/equip) и передаем null, чтобы бэкенд понял, что нужно снять ачивку
+                const res = await apiRequest("/api/v1/user/achievements/equip", "POST", { achievement_id: null }, true);
                 
-                // 🔥 И ЗДЕСЬ ТОЖЕ УДАЛЯЕМ КЭШ 🔥
-                localStorage.removeItem('cache_bootstrap');
-                
-                await window.fetchAndApplyUserData(true); 
-                await window.loadAchievements(); 
+                if (res && res.success) {
+                    if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+                    
+                    // 🔥 ЖЕСТКО УДАЛЯЕМ КЭШ 🔥
+                    localStorage.removeItem('cache_bootstrap');
+                    
+                    await window.fetchAndApplyUserData(true); 
+                    await window.loadAchievements(); 
+                }
+            } catch (err) {
+                if (err.message !== 'Activity Lock') customAlert("Ошибка снятия: " + err.message);
+            } finally {
+                document.getElementById('global-loader').classList.remove('active');
             }
-        } catch (fallbackErr) {
-             if (fallbackErr.message !== 'Activity Lock') customAlert("Ошибка снятия: " + fallbackErr.message);
-        }
-    } finally {
-        document.getElementById('global-loader').classList.remove('active');
-    }
-};
+        };
 
         window.equipAchievement = async function(ach_id) {
     if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
