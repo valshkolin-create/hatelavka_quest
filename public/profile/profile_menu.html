@@ -2446,8 +2446,17 @@ window.openFullscreenCard = function(ach_id) {
     const modal = document.getElementById('fullscreen-card-modal');
     const wrapper = document.getElementById('fullscreen-card-wrapper');
     
+    // Скрываем старый крестик в правом верхнем углу (чтобы не дублировался)
+    const oldBtn = modal.querySelector('button');
+    if (oldBtn) oldBtn.style.display = 'none';
+    
     if (wrapper) {
         wrapper.style.maxWidth = '420px';
+        wrapper.style.width = '90%'; 
+        wrapper.style.display = 'flex';
+        wrapper.style.flexDirection = 'column';
+        wrapper.style.alignItems = 'center';
+        wrapper.style.justifyContent = 'center';
     }
     
     const isUnlocked = ach.is_unlocked;
@@ -2463,18 +2472,21 @@ window.openFullscreenCard = function(ach_id) {
         
     const imgFilter = isUnlocked ? `drop-shadow(0 15px 25px rgba(0,0,0,0.7))` : 'grayscale(100%) brightness(0.3)';
 
-    // Карточка в зуме: padding: 0, картинка на 100%, блик поверх
+    // Карточка в зуме: без текста, картинка на 100%, центрированный крестик снизу
     wrapper.innerHTML = `
         <div id="active-3d-card" style="width: 100%; aspect-ratio: 3/4; background: ${bg}; ${cardBoxStyle} border-radius: 22px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; will-change: transform; padding: 0;">
             
             <img src="${ach.image_url}" style="position: relative; z-index: 1; width: 100%; height: 100%; object-fit: cover; filter: ${imgFilter}; pointer-events: none;">
             
+            <!-- Блик ПОВЕРХ картинки -->
             <div id="card-glare" style="position: absolute; top: 0; left: 0; width: 200%; height: 200%; background: linear-gradient(135deg, rgba(255,255,255,0) 35%, rgba(255,255,255,0.15) 48%, rgba(255,255,255,0.3) 50%, rgba(255,255,255,0.15) 52%, rgba(255,255,255,0) 65%); transform: translate(-25%, -25%); pointer-events: none; z-index: 10;"></div>
         </div>
         
-        <div style="text-align: center; margin-top: 25px; width: 100%; display: flex; flex-direction: column; align-items: center;">
-            <div style="font-size: 24px; font-weight: 900; color: ${isUnlocked ? glowColor : '#fff'}; text-transform: uppercase; text-shadow: ${isUnlocked ? '0 4px 20px ' + glowColor : 'none'}; line-height: 1.1;">${ach.title}</div>
-            <div style="font-size: 13px; color: rgba(255,255,255,0.6); margin-top: 10px; line-height: 1.4; max-width: 90%;">${ach.description || ''}</div>
+        <!-- Центрированный крестик под карточкой -->
+        <div style="margin-top: 40px; display: flex; justify-content: center; width: 100%;">
+            <button onclick="closeFullscreenCard()" style="background: rgba(255,255,255,0.08); border: 1px solid var(--glass-border); color: #fff; width: 56px; height: 56px; border-radius: 50%; font-size: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px); transition: transform 0.2s; box-shadow: 0 4px 15px rgba(0,0,0,0.5);" onmousedown="this.style.transform='scale(0.9)'" onmouseup="this.style.transform='scale(1)'">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
         </div>
     `;
 
@@ -2524,7 +2536,7 @@ window.openFullscreenCard = function(ach_id) {
         }, 400);
     };
 };
-
+        
 window.closeFullscreenCard = function() {
     const modal = document.getElementById('fullscreen-card-modal');
     modal.style.opacity = '0';
