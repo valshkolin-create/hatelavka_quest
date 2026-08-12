@@ -2967,7 +2967,7 @@ const processedQuests = weekQuests.map(cfg => {
             return expA - expB;
         });
 
-        cconst weekBlock = document.createElement('div');
+        const weekBlock = document.createElement('div');
         const isCurrentWeek = (statusClass === 'status-active');
         // 👇 Выдаем класс completed-week, если всё собрано
         weekBlock.className = `week-accordion ${isLocked ? 'locked' : ''} ${isCurrentWeek ? 'current-week' : ''} ${isAllClaimed ? 'completed-week' : ''}`;
