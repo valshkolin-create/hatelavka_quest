@@ -54,7 +54,6 @@
             -webkit-appearance: none; -moz-appearance: none; appearance: none; font-family: inherit;
         }
         
-        /* Исправление бага с белым фоном на выборке (select) */
         .admin-form select {
             width: 100%; box-sizing: border-box; background: #2a2a2a; border: 1px solid var(--card-border);
             color: #ffffff; padding: 12px; border-radius: 12px; font-size: 14px; outline: none; transition: 0.2s;
@@ -70,22 +69,36 @@
         .admin-action-btn.danger { background: rgba(255,77,77,0.1); color: var(--danger); border: 1px solid rgba(255,77,77,0.3); }
 
         /* --- Списки --- */
-        .ach-item { background: rgba(255, 255, 255, 0.05); border: 1px solid var(--card-border); border-radius: 14px; padding: 12px; display: flex; gap: 12px; align-items: center; margin-bottom: 10px; cursor: pointer; transition: 0.2s; }
+        .ach-item { 
+            background: rgba(255, 255, 255, 0.05); border: 1px solid var(--card-border); 
+            border-radius: 14px; padding: 12px; display: flex; gap: 12px; 
+            align-items: flex-start; /* Выравнивание по верху, чтобы длинный текст не ломал верстку */
+            margin-bottom: 10px; cursor: pointer; transition: 0.2s; 
+        }
         .ach-item:active { transform: scale(0.98); background: rgba(255, 255, 255, 0.08); }
-        .ach-img { width: 50px; height: 50px; border-radius: 10px; object-fit: contain; filter: drop-shadow(0 0 5px rgba(255,255,255,0.2)); }
+        
+        /* Добавлен flex-shrink: 0, чтобы картинка не сжималась из-за текста */
+        .ach-img { width: 50px; height: 50px; border-radius: 10px; object-fit: contain; filter: drop-shadow(0 0 5px rgba(255,255,255,0.2)); flex-shrink: 0; margin-top: 2px; }
+        
         .ach-info { flex-grow: 1; min-width: 0; }
-        .ach-title { font-size: 15px; font-weight: 800; color: #fff; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        /* Убрано ограничение строк (line-clamp), чтобы описание раскрывалось полностью */
-        .ach-desc { font-size: 11px; color: var(--text-sec); display: block; white-space: normal; word-break: break-word; }
-        .ach-meta { font-size: 9px; font-weight: 800; color: #64b5ef; margin-top: 6px; text-transform: uppercase; }
+        
+        /* Убрано nowrap и ellipsis, теперь длинные названия полностью отображаются */
+        .ach-title { font-size: 15px; font-weight: 800; color: #fff; margin-bottom: 4px; word-break: break-word; line-height: 1.2; }
+        
+        /* Описание полностью раскрывается, добавлен межстрочный интервал */
+        .ach-desc { font-size: 11px; color: var(--text-sec); display: block; white-space: normal; word-break: break-word; line-height: 1.4; }
+        .ach-meta { font-size: 9px; font-weight: 800; color: #64b5ef; margin-top: 6px; text-transform: uppercase; display: inline-block; }
         
         .color-preview { width: 12px; height: 12px; display: inline-block; border-radius: 50%; vertical-align: middle; margin-right: 4px; border: 1px solid rgba(255,255,255,0.3); }
 
         /* --- Модальные окна (Bottom Sheet) --- */
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1000; display: none; align-items: flex-end; justify-content: center; backdrop-filter: blur(5px); }
         .modal-active { display: flex; animation: fadeIn 0.3s ease; }
-        .bottom-sheet { background: #1c1c1e; width: 100%; border-radius: 24px 24px 0 0; padding: 20px; padding-bottom: 110px; max-height: 85vh; display: flex; flex-direction: column; box-sizing: border-box; border-top: 1px solid var(--card-border); overflow-y: auto; }
-        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        
+        /* max-height увеличен до 95vh, чтобы модалка поднималась выше */
+        .bottom-sheet { background: #1c1c1e; width: 100%; border-radius: 24px 24px 0 0; padding: 20px; padding-bottom: 110px; max-height: 95vh; display: flex; flex-direction: column; box-sizing: border-box; border-top: 1px solid var(--card-border); overflow-y: auto; }
+        
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-shrink: 0; }
         
         #mainLoader { text-align: center; padding: 40px; color: var(--text-sec); }
         .hidden { display: none !important; }
@@ -126,7 +139,7 @@
             <input type="text" id="achTitle" placeholder="Например: Ветеран Твича" autocomplete="off">
 
             <label>Описание</label>
-            <textarea id="achDesc" rows="4" placeholder="Что нужно сделать, чтобы получить..."></textarea>
+            <textarea id="achDesc" rows="5" placeholder="Что нужно сделать, чтобы получить..."></textarea>
 
             <label>Картинка (URL)</label>
             <input type="url" id="achImage" placeholder="https://imgur.com/...png">
