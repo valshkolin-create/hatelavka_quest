@@ -1807,21 +1807,26 @@ window.clearAllRewards = function() {
                 const rankEl = document.getElementById('user-equipped-rank');
 
                 if (currentUserData.equipped_title && currentUserData.equipped_glow) {
-                    // 1. Благородное, многослойное свечение вокруг аватарки (Premium Neon)
-// Добавляем прозрачность (hex + alpha), чтобы свечение было мягким, глубоким и не "вырвиглазным"
-avatarCont.style.boxShadow = `
-    0 4px 20px rgba(0,0,0,0.8), 
-    0 0 15px ${currentUserData.equipped_glow}40, 
-    0 0 35px ${currentUserData.equipped_glow}15, 
-    inset 0 0 10px ${currentUserData.equipped_glow}30
-`;
-avatarCont.style.border = `1px solid ${currentUserData.equipped_glow}60`; // Тонкая и деликатная рамка
-                    
-                    // 2. Включаем текст ранга
-                    rankEl.style.display = 'block';
-                    rankEl.style.color = currentUserData.equipped_glow;
-                    rankEl.style.textShadow = `0 0 10px ${currentUserData.equipped_glow}`;
-                    rankEl.innerHTML = `<i class="fa-solid fa-ranking-star"></i> ${currentUserData.equipped_title}`;
+    const glow = currentUserData.equipped_glow;
+    
+    // 1. Премиальное многослойное свечение (Liquid Neon)
+    // Добавляем прозрачность к HEX-цвету (50, 20, 40), чтобы свет был глубоким
+    avatarCont.style.boxShadow = `
+        0 8px 25px rgba(0,0,0,0.8), 
+        0 0 15px ${glow}50, 
+        0 0 45px ${glow}20, 
+        inset 0 0 20px ${glow}40
+    `;
+    // Делаем рамку тонкой и слегка прозрачной, убираем "эффект светофора"
+    avatarCont.style.border = `1px solid ${glow}70`;
+    
+    // 2. Включаем текст ранга
+    rankEl.style.display = 'block';
+    rankEl.style.color = glow;
+    // Делаем свечение текста более направленным
+    rankEl.style.textShadow = `0 2px 10px ${glow}80`;
+    rankEl.innerHTML = `<i class="fa-solid fa-ranking-star"></i> ${currentUserData.equipped_title}`;
+}
                 } else {
                     // Выключаем (если снял или нет ачивок)
                     avatarCont.style.boxShadow = '0 4px 20px rgba(0,0,0,0.8)';
@@ -2368,54 +2373,90 @@ contentArea.classList.add('fade-in-content');
         return;
     }
 
-    // Создаем сетку из двух колонок
-    let html = '<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; padding-bottom: 20px;">';
+    // Сетка для карточек
+    let html = '<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; padding-bottom: 20px;">';
     
     achievements.forEach(ach => {
         const isUnlocked = ach.is_unlocked;
         const isEquipped = ach.is_equipped;
         
-        const bg = isUnlocked ? 'rgba(25, 25, 28, 0.4)' : 'rgba(15, 15, 15, 0.6)';
-        const opacity = isUnlocked ? '1' : '0.6';
+        // Премиальный фон карточки с градиентом
+        const bg = isUnlocked 
+            ? `linear-gradient(145deg, rgba(30, 30, 35, 0.9) 0%, rgba(15, 15, 18, 0.95) 100%)` 
+            : `linear-gradient(145deg, rgba(20, 20, 20, 0.8) 0%, rgba(10, 10, 10, 0.9) 100%)`;
         
-        // Дорогое многослойное свечение для разблокированной карточки
+        const opacity = isUnlocked ? '1' : '0.5';
+        
+        // Голографическое премиум-свечение
+        const glowColor = ach.glow_color || '#ffffff';
         const glowBox = isUnlocked 
-            ? `box-shadow: 0 4px 15px rgba(0,0,0,0.6), 0 0 20px ${ach.glow_color}15, inset 0 0 15px ${ach.glow_color}10; border: 1px solid ${ach.glow_color}50;` 
-            : 'box-shadow: 0 4px 15px rgba(0,0,0,0.5); border: 1px solid var(--glass-border);';
+            ? `box-shadow: 0 15px 35px -10px ${glowColor}70, inset 0 0 25px ${glowColor}15; border: 1px solid ${glowColor}60;` 
+            : 'box-shadow: 0 4px 15px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.05);';
             
-        const imgFilter = isUnlocked ? `drop-shadow(0 8px 15px ${ach.glow_color}40)` : 'grayscale(100%) brightness(0.4)';
+        const imgFilter = isUnlocked ? `drop-shadow(0 10px 20px ${glowColor}60)` : 'grayscale(100%) brightness(0.3)';
         
+        // Кнопки вынесены ПОД карточку
         let btnHtml = '';
         if (!isUnlocked) {
-            btnHtml = `<button disabled style="background: rgba(255,255,255,0.03); color: var(--text-color-muted); border: 1px solid var(--glass-border); border-radius: 10px; font-size: 10px; font-weight: 800; padding: 8px 10px; width: 100%;"><i class="fa-solid fa-lock"></i> ЗАКРЫТО</button>`;
+            btnHtml = `<button disabled style="background: rgba(255,255,255,0.03); color: var(--text-color-muted); border: 1px solid var(--glass-border); border-radius: 12px; font-size: 11px; font-weight: 800; padding: 10px; width: 100%;"><i class="fa-solid fa-lock"></i> ЗАКРЫТО</button>`;
         } else if (isEquipped) {
-            btnHtml = `<button disabled style="background: ${ach.glow_color}15; color: ${ach.glow_color}; border: 1px solid ${ach.glow_color}50; border-radius: 10px; font-size: 10px; font-weight: 900; padding: 8px 10px; width: 100%; text-shadow: 0 0 8px ${ach.glow_color};"><i class="fa-solid fa-check"></i> НАДЕТО</button>`;
+            btnHtml = `<button onclick="window.unequipAchievement(${ach.id})" style="background: rgba(255, 69, 58, 0.1); color: #ff453a; border: 1px solid rgba(255, 69, 58, 0.3); border-radius: 12px; font-size: 11px; font-weight: 900; padding: 10px; width: 100%; cursor: pointer; transition: 0.2s;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'"><i class="fa-solid fa-xmark"></i> СНЯТЬ</button>`;
         } else {
-            btnHtml = `<button onclick="window.equipAchievement(${ach.id})" style="background: rgba(255,255,255,0.1); color: #fff; border: 1px solid var(--glass-border); border-radius: 10px; font-size: 10px; font-weight: 900; padding: 8px 10px; width: 100%; cursor: pointer; transition: 0.2s;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">НАДЕТЬ</button>`;
+            btnHtml = `<button onclick="window.equipAchievement(${ach.id})" style="background: rgba(255,255,255,0.1); color: #fff; border: 1px solid var(--glass-border); border-radius: 12px; font-size: 11px; font-weight: 900; padding: 10px; width: 100%; cursor: pointer; transition: 0.2s;" onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">НАДЕТЬ</button>`;
         }
 
-        // Вертикальная верстка в стиле коллекционной карточки
         html += `
-            <div style="background: ${bg}; ${glowBox} border-radius: 18px; padding: 14px 12px; display: flex; flex-direction: column; align-items: center; gap: 10px; transition: 0.3s; opacity: ${opacity}; position: relative; overflow: hidden; backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);">
-                <!-- Мягкий верхний блик в цвет достижения (эффект фольги) -->
-                <div style="position: absolute; top: 0; left: 0; right: 0; height: 50px; background: linear-gradient(180deg, ${isUnlocked ? ach.glow_color : '#ffffff'}15 0%, transparent 100%); pointer-events: none;"></div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                <!-- Коллекционная карточка (пропорция 3:4) -->
+                <div style="aspect-ratio: 3/4; background: ${bg}; ${glowBox} border-radius: 16px; padding: 15px; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: 0.3s; opacity: ${opacity}; position: relative; overflow: hidden; backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur);">
+                    
+                    <!-- Диагональный блик (эффект фольги) -->
+                    <div style="position: absolute; top: 0; left: -50%; right: -50%; height: 120px; background: linear-gradient(180deg, rgba(255,255,255,0.15) 0%, transparent 100%); transform: rotate(-25deg); pointer-events: none;"></div>
 
-                <img src="${ach.image_url}" style="width: 75px; height: 75px; object-fit: contain; filter: ${imgFilter}; z-index: 1; transition: transform 0.3s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
-                
-                <div style="flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; z-index: 1;">
-                    <div style="font-size: 13px; font-weight: 900; color: ${isUnlocked ? ach.glow_color : '#fff'}; margin-bottom: 4px; text-align: center; line-height: 1.1; text-shadow: ${isUnlocked ? '0 0 10px ' + ach.glow_color + '60' : 'none'};">${ach.title}</div>
-                    <div style="font-size: 9px; color: var(--text-color-muted); line-height: 1.3; text-align: center; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; padding: 0 4px;">${ach.description}</div>
+                    <img src="${ach.image_url}" style="width: 85%; height: auto; max-height: 65%; object-fit: contain; filter: ${imgFilter}; z-index: 1; transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);" onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'">
+                    
+                    <div style="position: absolute; bottom: 12px; left: 8px; right: 8px; text-align: center; z-index: 1;">
+                        <div style="font-size: 12px; font-weight: 900; color: ${isUnlocked ? glowColor : '#fff'}; line-height: 1.1; text-transform: uppercase; text-shadow: ${isUnlocked ? '0 2px 10px ' + glowColor + '90' : 'none'};">${ach.title}</div>
+                    </div>
                 </div>
                 
-                <div style="width: 100%; z-index: 1; margin-top: auto;">
-                    ${btnHtml}
-                </div>
+                <!-- Кнопка действия -->
+                ${btnHtml}
             </div>
         `;
     });
     
     html += '</div>';
     container.innerHTML = html;
+};
+
+        window.unequipAchievement = async function(ach_id) {
+    if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+    document.getElementById('global-loader').classList.add('active');
+
+    try {
+        // Пробуем специальный роут для снятия, если он есть
+        const res = await apiRequest("/api/v1/user/achievements/unequip", "POST", { achievement_id: ach_id }, true);
+        if (res && res.success) {
+            if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+            await window.fetchAndApplyUserData(true); 
+            await window.loadAchievements(); 
+        }
+    } catch (err) {
+        // Если роута /unequip нет, передаем null в обычный /equip (стандартная практика бэкенда)
+        try {
+            const resFallback = await apiRequest("/api/v1/user/achievements/equip", "POST", { achievement_id: null }, true);
+            if (resFallback && resFallback.success) {
+                if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+                await window.fetchAndApplyUserData(true); 
+                await window.loadAchievements(); 
+            }
+        } catch (fallbackErr) {
+             if (fallbackErr.message !== 'Activity Lock') customAlert("Ошибка снятия: " + fallbackErr.message);
+        }
+    } finally {
+        document.getElementById('global-loader').classList.remove('active');
+    }
 };
 
         window.equipAchievement = async function(ach_id) {
