@@ -32114,6 +32114,162 @@ async def get_history_details(
     else:
         raise HTTPException(status_code=400, detail="Неверный тип данных (ожидалось cases или coupons)")
 
+
+class AchievementsRequest(BaseModel):
+    initData: str
+
+class EquipAchievementRequest(BaseModel):
+    initData: str
+    achievement_id: int
+
+# =========================================================================
+# 3. ДОСТИЖЕНИЯ: ПОЛУЧЕНИЕ СПИСКА И АВТО-ВЫДАЧА
+# =========================================================================
+@app.post("/api/v1/user/achievements")
+async def get_user_achievements(
+    request_data: AchievementsRequest,
+    background_tasks: BackgroundTasks,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    telegram_id = user_info["id"]
+
+    try:
+        # 1. Запускаем параллельно 3 запроса: юзер, все ачивки, надетые ачивки юзера
+        async def fetch_user():
+            res = await supabase.get("/users", params={"telegram_id": f"eq.{telegram_id}"})
+            return res.json()
+
+        async def fetch_all_achievements():
+            res = await supabase.get("/achievements", params={"order": "condition_value.asc"})
+            return res.json()
+
+        async def fetch_user_achievements():
+            res = await supabase.get("/user_achievements", params={"telegram_id": f"eq.{telegram_id}"})
+            return res.json()
+
+        user_data_res, all_ach_data, user_ach_data = await asyncio.gather(
+            fetch_user(), fetch_all_achievements(), fetch_user_achievements()
+        )
+
+        if not user_data_res:
+            raise HTTPException(status_code=404, detail="Пользователь не найден")
+        
+        user_db = user_data_res[0]
+        
+        # Превращаем ачивки юзера в удобный словарь: { achievement_id: data }
+        unlocked_dict = { ua["achievement_id"]: ua for ua in user_ach_data }
+
+        response_list = []
+        new_unlocks = [] # Сюда сложим то, что нужно выдать прямо сейчас
+
+        # 2. Проходимся по всем ачивкам и проверяем условия
+        for ach in all_ach_data:
+            ach_id = ach.get("id")
+            c_type = ach.get("condition_type")
+            c_val = float(ach.get("condition_value", 0))
+            
+            is_unlocked = ach_id in unlocked_dict
+            is_equipped = unlocked_dict[ach_id]["is_equipped"] if is_unlocked else False
+            
+            # --- УМНАЯ ПРОВЕРКА ПРОГРЕССА ---
+            current_progress = 0.0
+            if c_type in user_db and user_db[c_type] is not None:
+                try:
+                    current_progress = float(user_db[c_type])
+                except (ValueError, TypeError):
+                    current_progress = 0.0
+            
+            # Если условие выполнено, а ачивки еще нет — готовим к выдаче!
+            if not is_unlocked and c_type != 'manual' and current_progress >= c_val:
+                new_unlocks.append({
+                    "telegram_id": telegram_id,
+                    "achievement_id": ach_id,
+                    "is_equipped": False
+                })
+                is_unlocked = True
+                current_progress = c_val # Визуально фиксируем прогресс на максимуме
+
+            response_list.append({
+                "id": ach_id,
+                "title": ach.get("title"),
+                "description": ach.get("description"),
+                "image_url": ach.get("image_url"),
+                "glow_color": ach.get("glow_color"),
+                "is_unlocked": is_unlocked,
+                "is_equipped": is_equipped,
+                "progress": min(current_progress, c_val), # Не даем полоске вылезти за 100%
+                "target": c_val
+            })
+
+        # 3. Если есть новые ачивки — асинхронно записываем их в БД
+        if new_unlocks:
+            async def save_new_achievements(unlocks):
+                try:
+                    await supabase.post("/user_achievements", json=unlocks)
+                except Exception as e:
+                    logging.error(f"[ACHIEVEMENTS] Ошибка авто-выдачи: {e}")
+            
+            background_tasks.add_task(save_new_achievements, new_unlocks)
+
+        return {"success": True, "achievements": response_list}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"[ACHIEVEMENTS] Ошибка загрузки списка: {e}")
+        raise HTTPException(status_code=500, detail="Ошибка базы данных")
+
+
+# =========================================================================
+# 4. ДОСТИЖЕНИЯ: НАДЕТЬ / СНЯТЬ АЧИВКУ
+# =========================================================================
+@app.post("/api/v1/user/achievements/equip")
+async def equip_achievement(
+    request_data: EquipAchievementRequest,
+    supabase: httpx.AsyncClient = Depends(get_supabase_client)
+):
+    user_info = is_valid_init_data(request_data.initData, ALL_VALID_TOKENS)
+    if not user_info:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    telegram_id = user_info["id"]
+    target_id = request_data.achievement_id
+
+    try:
+        # 1. Проверяем, есть ли у юзера эта ачивка вообще
+        check_res = await supabase.get(
+            "/user_achievements", 
+            params={"telegram_id": f"eq.{telegram_id}", "achievement_id": f"eq.{target_id}"}
+        )
+        if not check_res.json():
+            raise HTTPException(status_code=400, detail="Достижение еще не разблокировано!")
+
+        # 2. Снимаем все надетые ачивки (массовый апдейт)
+        await supabase.patch(
+            "/user_achievements",
+            params={"telegram_id": f"eq.{telegram_id}", "is_equipped": "eq.true"},
+            json={"is_equipped": False}
+        )
+        
+        # 3. Надеваем выбранную
+        await supabase.patch(
+            "/user_achievements",
+            params={"telegram_id": f"eq.{telegram_id}", "achievement_id": f"eq.{target_id}"},
+            json={"is_equipped": True}
+        )
+
+        return {"success": True, "message": "Достижение надето!"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"[ACHIEVEMENTS] Ошибка надевания: {e}")
+        raise HTTPException(status_code=500, detail="Ошибка базы данных")
+
 # --- СХЕМЫ (УНИКАЛЬНЫЕ НАЗВАНИЯ) ---
 class ProfileShopItemsRequest(BaseModel):
     initData: str
