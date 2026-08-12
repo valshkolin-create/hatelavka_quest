@@ -2558,7 +2558,7 @@ window.closeFullscreenCard = function() {
         if (res && res.success) {
             if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
             
-            // 🔥 Очищаем кэш перед обновлением данных
+            // 🔥 ЖЕСТКО УДАЛЯЕМ КЭШ 🔥
             localStorage.removeItem('cache_bootstrap');
             
             await window.fetchAndApplyUserData(true); 
@@ -2570,7 +2570,7 @@ window.closeFullscreenCard = function() {
             if (resFallback && resFallback.success) {
                 if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
                 
-                // 🔥 Очищаем кэш перед обновлением данных
+                // 🔥 И ЗДЕСЬ ТОЖЕ УДАЛЯЕМ КЭШ 🔥
                 localStorage.removeItem('cache_bootstrap');
                 
                 await window.fetchAndApplyUserData(true); 
@@ -2593,7 +2593,7 @@ window.closeFullscreenCard = function() {
         if (res && res.success) {
             if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
             
-            // 🔥 Очищаем кэш перед обновлением данных
+            // 🔥 ЖЕСТКО УДАЛЯЕМ КЭШ ПЕРЕД ПЕРЕРИСОВКОЙ ПРОФИЛЯ 🔥
             localStorage.removeItem('cache_bootstrap');
             
             await window.fetchAndApplyUserData(true); 
@@ -2605,7 +2605,6 @@ window.closeFullscreenCard = function() {
         document.getElementById('global-loader').classList.remove('active');
     }
 };
-
         // --- ЛОГИКА СОБЫТИЙ С СОРТИРОВКОЙ ---
         window.currentEventsList = [];
         
