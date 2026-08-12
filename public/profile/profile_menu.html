@@ -2134,6 +2134,15 @@ window.clearAllRewards = function() {
                 const html = await response.text();
 contentArea.innerHTML = html;
 
+// 🔥 ФИКС Z-INDEX: Вытаскиваем модалки из контента в корень body
+// 1. Удаляем модалки от прошлых вкладок, чтобы не было дублей при переключении меню
+document.querySelectorAll('.dynamic-tab-modal').forEach(m => m.remove());
+// 2. Ищем все новые модальные окна внутри вкладки и переносим их в body
+contentArea.querySelectorAll('.modal-overlay').forEach(modal => {
+    modal.classList.add('dynamic-tab-modal');
+    document.body.appendChild(modal);
+});
+
 // 🔥 Магия перезапуска CSS-анимации
 contentArea.classList.remove('fade-in-content');
 void contentArea.offsetWidth; // Вызываем reflow, чтобы браузер понял, что класс удалили
