@@ -1805,6 +1805,9 @@ window.clearAllRewards = function() {
 
                 currentUserData = { ...bootstrapData.user, ...bootstrapData.menu };
 
+        // 🔥 ДОБАВЬ ВОТ ЭТУ СТРОКУ СЮДА:
+                console.log("🔥 Пришли данные профиля:", currentUserData);
+
                 document.getElementById('user-avatar').src = currentUserData.photo_url || "https://placehold.co/150x150/1c1c1e/ffffff?text=?";
                 document.getElementById('user-nickname').innerText = currentUserData.full_name || currentUserData.username || "Игрок";
                 const userIdEl = document.getElementById('user-id');
