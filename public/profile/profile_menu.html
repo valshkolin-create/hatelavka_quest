@@ -863,7 +863,7 @@ html body nav.floating-bottom-bar .comic-badge {
     <div id="fullscreen-card-modal" onclick="if(event.target===this) closeFullscreenCard()" style="position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 999999; display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);">
         <button onclick="closeFullscreenCard()" style="position: absolute; top: max(env(safe-area-inset-top, 24px) + 20px, 40px); right: 20px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); color: #fff; width: 36px; height: 36px; border-radius: 50%; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10;"><i class="fa-solid fa-xmark"></i></button>
         
-        <div id="fullscreen-card-wrapper" style="perspective: 1200px; width: 75%; max-width: 320px; display: flex; flex-direction: column; align-items: center;">
+        <div id="fullscreen-card-wrapper" style="perspective: 1200px; width: 90%; max-width: 400px; display: flex; flex-direction: column; align-items: center;">
             <!-- Сюда скрипт вставит 3D-карточку -->
         </div>
     </div>
@@ -2459,8 +2459,10 @@ window.openFullscreenCard = function(ach_id) {
     const imgFilter = isUnlocked ? `drop-shadow(0 20px 30px rgba(0,0,0,0.9))` : 'grayscale(100%) brightness(0.3)';
 
     // Рендерим огромную 3D-карточку
+    // Рендерим огромную 3D-карточку
+    // ВАЖНО: Убран transition: transform 0.1s linear, чтобы движение за пальцем не лагало
     wrapper.innerHTML = `
-        <div id="active-3d-card" style="width: 100%; aspect-ratio: 3/4; background: ${bg}; ${cardBoxStyle} border-radius: 20px; display: flex; align-items: center; justify-content: center; position: relative; transform-style: preserve-3d; transition: transform 0.1s linear; will-change: transform;">
+        <div id="active-3d-card" style="width: 100%; aspect-ratio: 3/4; background: ${bg}; ${cardBoxStyle} border-radius: 20px; display: flex; align-items: center; justify-content: center; position: relative; transform-style: preserve-3d; will-change: transform;">
             
             <!-- Арт висит в воздухе (translateZ 60px) -->
             <img src="${ach.image_url}" style="width: 90%; height: auto; max-height: 85%; object-fit: contain; filter: ${imgFilter}; transform: translateZ(60px); pointer-events: none; z-index: 1;">
@@ -2482,16 +2484,23 @@ window.openFullscreenCard = function(ach_id) {
     modal.style.pointerEvents = 'auto';
 
     const card = document.getElementById('active-3d-card');
+    let isTicking = false; // Флаг для оптимизации анимации
     
-    // Вращение относительно центра экрана
+    // Вращение относительно центра экрана с оптимизацией requestAnimationFrame
     const handleMove = (x, y) => {
-        const centerX = window.innerWidth / 2;
-        const centerY = window.innerHeight / 2;
-        // Максимальный угол наклона - 30 градусов
-        const rotateX = ((y - centerY) / centerY) * -30;
-        const rotateY = ((x - centerX) / centerX) * 30;
-        
-        card.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+        if (!isTicking) {
+            window.requestAnimationFrame(() => {
+                const centerX = window.innerWidth / 2;
+                const centerY = window.innerHeight / 2;
+                // Максимальный угол наклона - 30 градусов
+                const rotateX = ((y - centerY) / centerY) * -30;
+                const rotateY = ((x - centerX) / centerX) * 30;
+                
+                card.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+                isTicking = false;
+            });
+            isTicking = true;
+        }
     };
 
     modal.onmousemove = (e) => handleMove(e.clientX, e.clientY);
@@ -2499,9 +2508,12 @@ window.openFullscreenCard = function(ach_id) {
     
     // Плавный возврат в исходное положение
     modal.onmouseleave = modal.ontouchend = () => {
+        // Включаем CSS-анимацию только для того, чтобы карточка плавно вернулась в 0 градусов
         card.style.transition = 'transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1)';
         card.style.transform = `rotateX(0deg) rotateY(0deg)`;
-        setTimeout(() => { card.style.transition = 'transform 0.1s linear'; }, 500);
+        
+        // Убираем CSS-анимацию через полсекунды, чтобы следующее касание снова не начало лагать
+        setTimeout(() => { card.style.transition = ''; }, 500);
     };
 };
 
