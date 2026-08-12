@@ -101,15 +101,20 @@
         .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1000; display: none; align-items: flex-end; justify-content: center; backdrop-filter: blur(5px); }
         .modal-active { display: flex; animation: fadeIn 0.3s ease; }
         
-        /* ДЕЛАЕМ ОКНО ПОЧТИ НА ВЕСЬ ЭКРАН */
+        /* ГЛАВНЫЙ ФИКС БАГА ЗДЕСЬ: */
         .bottom-sheet { 
             background: #1c1c1e; width: 100%; border-radius: 24px 24px 0 0; 
             padding: 20px; padding-bottom: 110px; 
-            height: 96vh; /* Форсируем высоту до 96% экрана */
-            max-height: 96vh; 
+            
+            /* Используем проценты вместо vh, чтобы zoom на body не ломал расчеты */
+            height: 100%;
+            max-height: 95%; 
+            
             display: block; 
             box-sizing: border-box; 
-            border-top: 1px solid var(--card-border); overflow-y: auto; 
+            border-top: 1px solid var(--card-border); 
+            overflow-y: auto; 
+            -webkit-overflow-scrolling: touch; /* Плавный скролл на iOS */
         }
         
         .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
