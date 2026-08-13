@@ -1820,169 +1820,191 @@ window.clearAllRewards = function() {
         };
 
        // --- ЗАГРУЗКА И ПРИМЕНЕНИЕ ДАННЫХ ---
+// --- ЗАГРУЗКА И ПРИМЕНЕНИЕ ДАННЫХ ---
         async function fetchAndApplyUserData(isSilent = false) {
             try {
                 if (!isSilent) document.getElementById('global-loader').classList.add('active');
 
-                // 1. ЧИТАЕМ КЭШ или делаем запрос
+                // 1. ЧИТАЕМ КЭШ (чтобы мгновенно показать UI)
                 let bootstrapData = JSON.parse(localStorage.getItem('cache_bootstrap'));
-                let needBootstrapFetch = !bootstrapData;
-
-                if (needBootstrapFetch) {
-                    bootstrapData = await apiRequest("/api/v1/bootstrap", 'POST', {}, true);
-                    localStorage.setItem('cache_bootstrap', JSON.stringify(bootstrapData));
+                
+                // Если кэш есть, сразу применяем его для скорости
+                if (bootstrapData) {
+                    applyDataToUI(bootstrapData); 
                 }
 
-                currentUserData = { ...bootstrapData.user, ...bootstrapData.menu };
-
-        // 🔥 ДОБАВЬ ВОТ ЭТУ СТРОКУ СЮДА:
-                console.log("🔥 Пришли данные профиля:", currentUserData);
-
-                document.getElementById('user-avatar').src = currentUserData.photo_url || "https://placehold.co/150x150/1c1c1e/ffffff?text=?";
-                document.getElementById('user-nickname').innerText = currentUserData.full_name || currentUserData.username || "Игрок";
-                const userIdEl = document.getElementById('user-id');
-                userIdEl.innerHTML = `ID ${currentUserData.telegram_id} <i class="fa-regular fa-copy" style="margin-left: 4px;"></i>`;
-                userIdEl.dataset.uid = currentUserData.telegram_id; // Сохраняем чистый ID
-
-                // 🔥 НОВОЕ: ОЖИВЛЯЕМ АВАТАРКУ, РАНГ И ВЕСЬ ПРОФИЛЬ 🔥
-                const avatarCont = document.querySelector('.avatar-container');
-                const rankEl = document.getElementById('user-equipped-rank');
-
-                // Функция для прозрачности (добавлена сюда для удобства)
-                function localHexToRgba(hex, alpha) {
-                    let r = 0, g = 0, b = 0;
-                    if (!hex) return `rgba(255,255,255,${alpha})`;
-                    hex = hex.replace('#', '');
-                    if (hex.length === 3) { r = parseInt(hex[0]+hex[0], 16); g = parseInt(hex[1]+hex[1], 16); b = parseInt(hex[2]+hex[2], 16); }
-                    else if (hex.length === 6) { r = parseInt(hex.substring(0,2), 16); g = parseInt(hex.substring(2,4), 16); b = parseInt(hex.substring(4,6), 16); }
-                    else { return hex; } 
-                    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-                }
-
-                // Устанавливаем базовый цвет (либо от ачивки, либо белый по умолчанию)
-                const glow = currentUserData.equipped_glow || '#ffffff';
-                
-                // 💎 ПРИМЕНЯЕМ ГЛОБАЛЬНУЮ ТЕМУ К CSS ПЕРЕМЕННЫМ 💎
-                document.documentElement.style.setProperty('--theme-color', glow);
-                document.documentElement.style.setProperty('--theme-color-shadow', localHexToRgba(glow, 0.4));
-                document.documentElement.style.setProperty('--theme-color-glow', localHexToRgba(glow, 0.9));
-
-                if (currentUserData.equipped_title && currentUserData.equipped_glow) {
-                    // Премиальное многослойное свечение
-                    avatarCont.style.boxShadow = `
-                        0 8px 25px rgba(0,0,0,0.8), 
-                        0 0 15px ${localHexToRgba(glow, 0.5)}, 
-                        0 0 45px ${localHexToRgba(glow, 0.2)}, 
-                        inset 0 0 20px ${localHexToRgba(glow, 0.4)}
-                    `;
-                    avatarCont.style.border = `1px solid ${localHexToRgba(glow, 0.7)}`;
-                    
-                    rankEl.style.display = 'block';
-                    rankEl.style.color = glow;
-                    rankEl.style.textShadow = `0 2px 10px ${localHexToRgba(glow, 0.8)}`;
-                    rankEl.innerHTML = `<i class="fa-solid fa-ranking-star"></i> ${currentUserData.equipped_title}`;
-                } else {
-                    avatarCont.style.boxShadow = '0 4px 20px rgba(0,0,0,0.8)';
-                    avatarCont.style.border = '1px solid var(--glass-border)';
-                    rankEl.style.display = 'none';
-                }
-
-                const hasSteam = !!currentUserData.trade_link;
-                const hasTwitch = !!currentUserData.twitch_login;
-                const isTwitchError = currentUserData.twitch_status === 'error'; 
-                
-                // 🔥 Steam перекрашивается в цвет ачивки, если привязан
-                document.getElementById('icon-steam').style.color = hasSteam ? glow : 'rgba(255,255,255,0.2)';
-                document.getElementById('icon-steam').style.textShadow = hasSteam ? `0 0 10px ${localHexToRgba(glow, 0.4)}` : 'none';
-                
-                // 🔥 Twitch Иконка и Плавающий баннер
-                const twitchIcon = document.getElementById('icon-twitch');
-                const twitchBanner = document.getElementById('top-twitch-banner');
-                
-                if (isTwitchError) {
-                    twitchIcon.className = "fa-brands fa-twitch twitch-icon-error";
-                    twitchIcon.style.color = ''; 
-                    twitchIcon.style.textShadow = '';
-                    if(twitchBanner) twitchBanner.classList.add('active');
-                    
-                    // Добавляем класс для сдвига шапки на телефонах
-                    document.body.classList.add('has-twitch-error');
-                } else {
-                    twitchIcon.className = "fa-brands fa-twitch";
-                    // 🔥 ИСПРАВЛЕНО: Twitch теперь тоже красится в цвет ачивки (glow)
-                    twitchIcon.style.color = hasTwitch ? glow : 'rgba(255,255,255,0.2)';
-                    twitchIcon.style.textShadow = hasTwitch ? `0 0 10px ${localHexToRgba(glow, 0.4)}` : 'none';
-                    if(twitchBanner) twitchBanner.classList.remove('active');
-                    
-                    // Убираем класс сдвига шапки
-                    document.body.classList.remove('has-twitch-error');
-                }
-
-                // 👇 ДОБАВИТЬ ЭТО 👇
-                // 🔥 ЛОГИКА ПОДСКАЗКИ TWITCH 🔥
-                const hintEl = document.getElementById('twitch-onboarding-hint');
-                if (hintEl) {
-                    // Если нет Твича, нет ошибки и флаг в localStorage еще не стоит -> показываем
-                    if (!hasTwitch && !isTwitchError && !localStorage.getItem('twitch_hint_shown')) {
-                        hintEl.classList.add('visible');
+                // 2. ВСЕГДА ДЕЛАЕМ ФОНОВЫЙ ЗАПРОС за свежими данными (даже если кэш есть)
+                const freshDataPromise = apiRequest("/api/v1/bootstrap", 'POST', {}, true)
+                    .then(freshData => {
+                        // Обновляем кэш свежими данными
+                        localStorage.setItem('cache_bootstrap', JSON.stringify(freshData));
                         
-                        // Заставляем саму иконку светиться желтым и стать чуть больше!
-                        twitchIcon.style.color = '#ffd700';
-                        twitchIcon.style.textShadow = '0 0 15px rgba(255, 215, 0, 0.8)';
-                        twitchIcon.style.transform = 'scale(1.1)';
+                        // Если данные из кэша и свежие данные отличаются — перерисовываем UI
+                        if (!bootstrapData || 
+                            JSON.stringify(bootstrapData.user) !== JSON.stringify(freshData.user) || 
+                            JSON.stringify(bootstrapData.menu) !== JSON.stringify(freshData.menu)) {
+                            
+                            console.log("🔥 Данные обновились в фоне, перерисовываем профиль");
+                            applyDataToUI(freshData);
+                        }
+                    })
+                    .catch(err => console.error("Фоновое обновление профиля не удалось:", err));
+
+                // Если кэша не было вообще, ждем ответа, чтобы не показать пустой экран
+                if (!bootstrapData) {
+                    await freshDataPromise;
+                }
+
+                // --- ВЫДЕЛЕННАЯ ФУНКЦИЯ ДЛЯ ОТРИСОВКИ ИНТЕРФЕЙСА ---
+                function applyDataToUI(data) {
+                    currentUserData = { ...data.user, ...data.menu };
+
+                    console.log("🔥 Пришли данные профиля:", currentUserData);
+
+                    document.getElementById('user-avatar').src = currentUserData.photo_url || "https://placehold.co/150x150/1c1c1e/ffffff?text=?";
+                    document.getElementById('user-nickname').innerText = currentUserData.full_name || currentUserData.username || "Игрок";
+                    const userIdEl = document.getElementById('user-id');
+                    userIdEl.innerHTML = `ID ${currentUserData.telegram_id} <i class="fa-regular fa-copy" style="margin-left: 4px;"></i>`;
+                    userIdEl.dataset.uid = currentUserData.telegram_id; // Сохраняем чистый ID
+
+                    // 🔥 НОВОЕ: ОЖИВЛЯЕМ АВАТАРКУ, РАНГ И ВЕСЬ ПРОФИЛЬ 🔥
+                    const avatarCont = document.querySelector('.avatar-container');
+                    const rankEl = document.getElementById('user-equipped-rank');
+
+                    // Функция для прозрачности
+                    function localHexToRgba(hex, alpha) {
+                        let r = 0, g = 0, b = 0;
+                        if (!hex) return `rgba(255,255,255,${alpha})`;
+                        hex = hex.replace('#', '');
+                        if (hex.length === 3) { r = parseInt(hex[0]+hex[0], 16); g = parseInt(hex[1]+hex[1], 16); b = parseInt(hex[2]+hex[2], 16); }
+                        else if (hex.length === 6) { r = parseInt(hex.substring(0,2), 16); g = parseInt(hex.substring(2,4), 16); b = parseInt(hex.substring(4,6), 16); }
+                        else { return hex; } 
+                        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+                    }
+
+                    // Устанавливаем базовый цвет (либо от ачивки, либо белый по умолчанию)
+                    const glow = currentUserData.equipped_glow || '#ffffff';
+                    
+                    // 💎 ПРИМЕНЯЕМ ГЛОБАЛЬНУЮ ТЕМУ К CSS ПЕРЕМЕННЫМ 💎
+                    document.documentElement.style.setProperty('--theme-color', glow);
+                    document.documentElement.style.setProperty('--theme-color-shadow', localHexToRgba(glow, 0.4));
+                    document.documentElement.style.setProperty('--theme-color-glow', localHexToRgba(glow, 0.9));
+
+                    if (currentUserData.equipped_title && currentUserData.equipped_glow) {
+                        // Премиальное многослойное свечение
+                        avatarCont.style.boxShadow = `
+                            0 8px 25px rgba(0,0,0,0.8), 
+                            0 0 15px ${localHexToRgba(glow, 0.5)}, 
+                            0 0 45px ${localHexToRgba(glow, 0.2)}, 
+                            inset 0 0 20px ${localHexToRgba(glow, 0.4)}
+                        `;
+                        avatarCont.style.border = `1px solid ${localHexToRgba(glow, 0.7)}`;
+                        
+                        rankEl.style.display = 'block';
+                        rankEl.style.color = glow;
+                        rankEl.style.textShadow = `0 2px 10px ${localHexToRgba(glow, 0.8)}`;
+                        rankEl.innerHTML = `<i class="fa-solid fa-ranking-star"></i> ${currentUserData.equipped_title}`;
                     } else {
-                        hintEl.classList.remove('visible');
-                        // Возвращаем масштаб на место, если подсказки нет
-                        twitchIcon.style.transform = 'scale(1)';
+                        avatarCont.style.boxShadow = '0 4px 20px rgba(0,0,0,0.8)';
+                        avatarCont.style.border = '1px solid var(--glass-border)';
+                        rankEl.style.display = 'none';
                     }
-                }
-                // 👆 КОНЕЦ ВСТАВКИ 👆
 
-                const tlDisplay = document.getElementById('trade-link-display');
-                if (tlDisplay) {
-                    let dLink = currentUserData.trade_link;
-                    if (dLink && dLink.includes('?partner=')) {
-                        dLink = '/?partner=' + dLink.split('?partner=')[1];
+                    const hasSteam = !!currentUserData.trade_link;
+                    const hasTwitch = !!currentUserData.twitch_login;
+                    const isTwitchError = currentUserData.twitch_status === 'error'; 
+                    
+                    // 🔥 Steam перекрашивается в цвет ачивки, если привязан
+                    document.getElementById('icon-steam').style.color = hasSteam ? glow : 'rgba(255,255,255,0.2)';
+                    document.getElementById('icon-steam').style.textShadow = hasSteam ? `0 0 10px ${localHexToRgba(glow, 0.4)}` : 'none';
+                    
+                    // 🔥 Twitch Иконка и Плавающий баннер
+                    const twitchIcon = document.getElementById('icon-twitch');
+                    const twitchBanner = document.getElementById('top-twitch-banner');
+                    
+                    if (isTwitchError) {
+                        twitchIcon.className = "fa-brands fa-twitch twitch-icon-error";
+                        twitchIcon.style.color = ''; 
+                        twitchIcon.style.textShadow = '';
+                        if(twitchBanner) twitchBanner.classList.add('active');
+                        
+                        // Добавляем класс для сдвига шапки на телефонах
+                        document.body.classList.add('has-twitch-error');
+                    } else {
+                        twitchIcon.className = "fa-brands fa-twitch";
+                        // 🔥 ИСПРАВЛЕНО: Twitch теперь тоже красится в цвет ачивки (glow)
+                        twitchIcon.style.color = hasTwitch ? glow : 'rgba(255,255,255,0.2)';
+                        twitchIcon.style.textShadow = hasTwitch ? `0 0 10px ${localHexToRgba(glow, 0.4)}` : 'none';
+                        if(twitchBanner) twitchBanner.classList.remove('active');
+                        
+                        // Убираем класс сдвига шапки
+                        document.body.classList.remove('has-twitch-error');
                     }
-                    tlDisplay.innerText = dLink || "Ссылка не привязана";
-                }
-                
-                // 🔥 Рендер Twitch внутри настроек
-                const twitchText = document.getElementById('twitch-status-text');
-                const twitchBtnCont = document.getElementById('twitch-action-btn-container');
-                
-                if (isTwitchError) {
-                    twitchText.innerHTML = `Привязан: <b style="color:#ff3b30;">${currentUserData.twitch_login}</b><br><span style="color:#ffcccb; font-size:9px; font-weight:800;">ОШИБКА СИНХРОНИЗАЦИИ</span>`;
-                    twitchBtnCont.innerHTML = `<button class="ios-btn btn-danger" onclick="unlinkTwitch()">Отвязать</button>`;
-                } else if (hasTwitch) {
-                    twitchText.innerHTML = `Привязан: <b style="color:#fff;">${currentUserData.twitch_login}</b>`;
-                    twitchBtnCont.innerHTML = `<button class="ios-btn btn-danger" onclick="unlinkTwitch()">Отвязать</button>`;
-                } else {
-                    twitchText.innerHTML = `Аккаунт не привязан<br><span class="twitch-trust-link" id="twitch-trust-btn" style="font-size: 11px; color: var(--text-color-muted); text-decoration: underline; cursor: pointer; margin-top: 4px; display: inline-block;"><i class="fa-solid fa-shield-halved"></i> Безопасно ли это?</span>`;
-                    twitchBtnCont.innerHTML = `
-                        <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end;">
-                            <button class="ios-btn btn-twitch" onclick="connectTwitch()">Привязать</button>
-                            <button id="twitch-help-btn" class="ios-btn" style="background: rgba(255,255,255,0.05); font-size: 11px; width: 100%;">Помощь</button>
-                        </div>
-                    `;
-                }
 
-                // ВАЖНО: Вешаем обработчики на новые кнопки Твича
-                setTimeout(() => {
-                    const trustBtn = document.getElementById('twitch-trust-btn');
-                    const helpBtn = document.getElementById('twitch-help-btn');
-                    if (trustBtn) trustBtn.onclick = () => document.getElementById('twitch-trust-popup').classList.add('visible');
-                    if (helpBtn) helpBtn.onclick = () => document.getElementById('twitch-help-popup').classList.add('visible');
-                }, 100);
+                    // 🔥 ЛОГИКА ПОДСКАЗКИ TWITCH 🔥
+                    const hintEl = document.getElementById('twitch-onboarding-hint');
+                    if (hintEl) {
+                        // Если нет Твича, нет ошибки и флаг в localStorage еще не стоит -> показываем
+                        if (!hasTwitch && !isTwitchError && !localStorage.getItem('twitch_hint_shown')) {
+                            hintEl.classList.add('visible');
+                            
+                            // Заставляем саму иконку светиться желтым и стать чуть больше!
+                            twitchIcon.style.color = '#ffd700';
+                            twitchIcon.style.textShadow = '0 0 15px rgba(255, 215, 0, 0.8)';
+                            twitchIcon.style.transform = 'scale(1.1)';
+                        } else {
+                            hintEl.classList.remove('visible');
+                            // Возвращаем масштаб на место, если подсказки нет
+                            twitchIcon.style.transform = 'scale(1)';
+                        }
+                    }
 
-                // Отрисовка статуса Уведомлений
-                const isBotActive = currentUserData.is_bot_active === true;
-                const notifyBadgeCont = document.getElementById('notify-badge-container');
-                if (notifyBadgeCont) {
-                    notifyBadgeCont.innerHTML = isBotActive 
-                        ? `<span style="background:rgba(52,199,89,0.2);color:#34c759;font-size:10px;padding:2px 6px;border-radius:6px;font-weight:800;">ВКЛ</span>` 
-                        : `<span style="background:rgba(255,59,48,0.2);color:#ff453a;font-size:10px;padding:2px 6px;border-radius:6px;font-weight:800;">ОТКЛ</span>`;
-                }
+                    const tlDisplay = document.getElementById('trade-link-display');
+                    if (tlDisplay) {
+                        let dLink = currentUserData.trade_link;
+                        if (dLink && dLink.includes('?partner=')) {
+                            dLink = '/?partner=' + dLink.split('?partner=')[1];
+                        }
+                        tlDisplay.innerText = dLink || "Ссылка не привязана";
+                    }
+                    
+                    // 🔥 Рендер Twitch внутри настроек
+                    const twitchText = document.getElementById('twitch-status-text');
+                    const twitchBtnCont = document.getElementById('twitch-action-btn-container');
+                    
+                    if (isTwitchError) {
+                        twitchText.innerHTML = `Привязан: <b style="color:#ff3b30;">${currentUserData.twitch_login}</b><br><span style="color:#ffcccb; font-size:9px; font-weight:800;">ОШИБКА СИНХРОНИЗАЦИИ</span>`;
+                        twitchBtnCont.innerHTML = `<button class="ios-btn btn-danger" onclick="unlinkTwitch()">Отвязать</button>`;
+                    } else if (hasTwitch) {
+                        twitchText.innerHTML = `Привязан: <b style="color:#fff;">${currentUserData.twitch_login}</b>`;
+                        twitchBtnCont.innerHTML = `<button class="ios-btn btn-danger" onclick="unlinkTwitch()">Отвязать</button>`;
+                    } else {
+                        twitchText.innerHTML = `Аккаунт не привязан<br><span class="twitch-trust-link" id="twitch-trust-btn" style="font-size: 11px; color: var(--text-color-muted); text-decoration: underline; cursor: pointer; margin-top: 4px; display: inline-block;"><i class="fa-solid fa-shield-halved"></i> Безопасно ли это?</span>`;
+                        twitchBtnCont.innerHTML = `
+                            <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end;">
+                                <button class="ios-btn btn-twitch" onclick="connectTwitch()">Привязать</button>
+                                <button id="twitch-help-btn" class="ios-btn" style="background: rgba(255,255,255,0.05); font-size: 11px; width: 100%;">Помощь</button>
+                            </div>
+                        `;
+                    }
+
+                    // ВАЖНО: Вешаем обработчики на новые кнопки Твича
+                    setTimeout(() => {
+                        const trustBtn = document.getElementById('twitch-trust-btn');
+                        const helpBtn = document.getElementById('twitch-help-btn');
+                        if (trustBtn) trustBtn.onclick = () => document.getElementById('twitch-trust-popup').classList.add('visible');
+                        if (helpBtn) helpBtn.onclick = () => document.getElementById('twitch-help-popup').classList.add('visible');
+                    }, 100);
+
+                    // Отрисовка статуса Уведомлений
+                    const isBotActive = currentUserData.is_bot_active === true;
+                    const notifyBadgeCont = document.getElementById('notify-badge-container');
+                    if (notifyBadgeCont) {
+                        notifyBadgeCont.innerHTML = isBotActive 
+                            ? `<span style="background:rgba(52,199,89,0.2);color:#34c759;font-size:10px;padding:2px 6px;border-radius:6px;font-weight:800;">ВКЛ</span>` 
+                            : `<span style="background:rgba(255,59,48,0.2);color:#ff453a;font-size:10px;padding:2px 6px;border-radius:6px;font-weight:800;">ОТКЛ</span>`;
+                    }
+                } // --- КОНЕЦ ФУНКЦИИ applyDataToUI ---
 
                 // 👇🔥 БОЕВОЙ БЛОК: ЗАГРУЗКА СТАТИСТИКИ ДЛЯ КВАДРАТИКОВ 🔥👇
                 try {
