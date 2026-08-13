@@ -32202,7 +32202,7 @@ async def get_user_achievements(
             is_unlocked = ach_id in unlocked_dict
             is_equipped = unlocked_dict[ach_id]["is_equipped"] if is_unlocked else False
             
-           # --- УМНАЯ ПРОВЕРКА ПРОГРЕССА (ИСПРАВЛЕННАЯ) ---
+            # --- УМНАЯ ПРОВЕРКА ПРОГРЕССА (ИСПРАВЛЕННАЯ) ---
             current_progress = 0.0
             if c_type in user_db and user_db[c_type] is not None:
                 val = user_db[c_type]
@@ -32216,7 +32216,7 @@ async def get_user_achievements(
                 elif isinstance(val, (int, float)):
                     current_progress = float(val)
                 
-                # 3. Если это строка (например "82.3", "true" или "green")
+                # 3. Если это строка (например "82.3", "true" или "to4lff")
                 elif isinstance(val, str):
                     val_str = val.strip().lower()
                     try:
@@ -32226,6 +32226,9 @@ async def get_user_achievements(
                         # Если это текст, проверяем, не значит ли он "да"
                         if val_str in ['true', 'yes', '1']:
                             current_progress = c_val
+                        # Если это любой другой непустой текст (например логин твича), считаем за единицу
+                        elif len(val_str) > 0:
+                            current_progress = 1.0
                         else:
                             current_progress = 0.0
             
@@ -32268,7 +32271,6 @@ async def get_user_achievements(
     except Exception as e:
         logging.error(f"[ACHIEVEMENTS] Ошибка загрузки списка: {e}")
         raise HTTPException(status_code=500, detail="Ошибка базы данных")
-
 
 # =========================================================================
 # 4. ДОСТИЖЕНИЯ: НАДЕТЬ / СНЯТЬ АЧИВКУ
