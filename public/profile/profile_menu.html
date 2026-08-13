@@ -909,6 +909,24 @@ html body nav.floating-bottom-bar .comic-badge {
         top: 5px;
     }
 }
+
+        /* ========================================== */
+/* 🔥 ЖЕСТКИЙ ФИКС ШАПКИ ДЛЯ ANDROID 🔥       */
+/* ========================================== */
+body.is-android {
+    /* Увеличиваем базовый отступ, чтобы контент ушел из-под нативной кнопки Назад */
+    --safe-top-gap: 80px; 
+}
+
+body.is-android .btn-old-profile {
+    /* Спускаем кнопку "Старый профиль", чтобы она не перекрывалась статус-баром */
+    top: 20px; 
+}
+
+body.is-android .system-top-banner {
+    /* Опускаем всплывающий баннер ошибки Твича ниже кнопки Назад */
+    top: 65px;
+}
         
     </style>
 </head>
@@ -1245,11 +1263,15 @@ html body nav.floating-bottom-bar .comic-badge {
     <script>
         const tg = window.Telegram.WebApp;
 
-        // 🔥 ДОБАВЛЯЕМ ЭТОТ БЛОК: Жестко определяем ПК-версию Telegram
-        const desktopPlatforms = ['tdesktop', 'macos', 'web', 'weba'];
-        if (desktopPlatforms.includes(tg.platform)) {
-            document.body.classList.add('is-desktop');
-        }
+// 🔥 Определяем платформы (ПК и Android)
+const desktopPlatforms = ['tdesktop', 'macos', 'web', 'weba'];
+if (desktopPlatforms.includes(tg.platform)) {
+    document.body.classList.add('is-desktop');
+}
+// Добавляем этот класс специально для фикса шапки на Android
+if (tg.platform === 'android') {
+    document.body.classList.add('is-android');
+}
 // ==========================================
 // 🔥 ЛОГИКА ПРОМОКОДОВ (LIQUID GLASS) 🔥
 // ==========================================
