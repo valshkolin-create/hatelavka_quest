@@ -1890,7 +1890,12 @@ window.clearAllRewards = function() {
                     document.documentElement.style.setProperty('--theme-color-shadow', localHexToRgba(glow, 0.4));
                     document.documentElement.style.setProperty('--theme-color-glow', localHexToRgba(glow, 0.9));
 
+                    // 🔥 ДОБАВЛЕНО: ПРЕМИАЛЬНАЯ ЗАЛИВКА ФОНА ВСЕГО ПРОФИЛЯ 🔥
                     if (currentUserData.equipped_title && currentUserData.equipped_glow) {
+                        // Радиальный градиент: источник света сверху по центру с прозрачностью всего 12%,
+                        // который плавно растворяется в глубоком черном (#050505) к середине экрана.
+                        document.body.style.background = `radial-gradient(circle at 50% 0%, ${localHexToRgba(glow, 0.12)} 0%, #050505 60%, #050505 100%)`;
+                        
                         // Премиальное многослойное свечение
                         avatarCont.style.boxShadow = `
                             0 8px 25px rgba(0,0,0,0.8), 
@@ -1905,6 +1910,9 @@ window.clearAllRewards = function() {
                         rankEl.style.textShadow = `0 2px 10px ${localHexToRgba(glow, 0.8)}`;
                         rankEl.innerHTML = `<i class="fa-solid fa-ranking-star"></i> ${currentUserData.equipped_title}`;
                     } else {
+                        // Если ачивка не надета — строгий черный фон
+                        document.body.style.background = '#050505';
+                        
                         avatarCont.style.boxShadow = '0 4px 20px rgba(0,0,0,0.8)';
                         avatarCont.style.border = '1px solid var(--glass-border)';
                         rankEl.style.display = 'none';
@@ -2535,14 +2543,15 @@ window.openFullscreenCard = function(ach_id) {
     }
     
     const isUnlocked = ach.is_unlocked;
-    const glowColor = ach.glow_color || '#ffffff';
     
     const bg = isUnlocked 
         ? `linear-gradient(145deg, rgba(30, 30, 35, 0.9) 0%, rgba(15, 15, 18, 0.95) 100%)` 
         : `linear-gradient(145deg, rgba(20, 20, 20, 0.8) 0%, rgba(10, 10, 10, 0.9) 100%)`;
         
+    // 🔥 УБРАЛИ ЦВЕТНОЕ СВЕЧЕНИЕ ИЗ ЗУМА
+    // Заменили на глубокую черную тень и тонкую белую границу (чистый Liquid Glass)
     const cardBoxStyle = isUnlocked 
-        ? `box-shadow: 0 15px 50px -10px ${glowColor}70, inset 0 0 25px ${glowColor}20; border: 1px solid ${glowColor}60;` 
+        ? 'box-shadow: 0 25px 60px rgba(0,0,0,0.95), inset 0 0 20px rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.15);' 
         : 'box-shadow: 0 10px 30px rgba(0,0,0,0.8); border: 1px solid rgba(255,255,255,0.05);';
         
     const imgFilter = isUnlocked ? `drop-shadow(0 15px 25px rgba(0,0,0,0.7))` : 'grayscale(100%) brightness(0.3)';
