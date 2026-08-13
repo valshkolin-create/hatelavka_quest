@@ -165,10 +165,10 @@ document.addEventListener("DOMContentLoaded", () => {
             <a href="/events" class="nav-item" data-path="events">
                 <i class="fa-solid fa-fire"></i><span>Гринд</span>
             </a>
-            <a href="public/event_page.html" class="nav-item" data-path="public/event_page.html" id="nav-games-btn">
-                <div class="comic-badge">ИГРА<br>НАЧАЛАСЬ</div>
-                <i class="fa-solid fa-gamepad"></i><span>Игры</span>
-            </a>
+            <a href="/event_page.html" class="nav-item" data-path="event_page" id="nav-games-btn">
+    <div class="comic-badge">ИГРА<br>НАЧАЛАСЬ</div>
+    <i class="fa-solid fa-gamepad"></i><span>Игры</span>
+</a>
         </nav>
     `;
     document.body.insertAdjacentHTML('beforeend', navHTML);
