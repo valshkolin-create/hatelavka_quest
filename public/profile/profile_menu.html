@@ -867,6 +867,43 @@ html body nav.floating-bottom-bar .comic-badge {
     transform: translateX(-50%) scaleX(1);
     opacity: 1;
 }
+
+        /* --- КНОПКА СТАРЫЙ ПРОФИЛЬ --- */
+.btn-old-profile {
+    position: absolute;
+    /* Размещаем ровно под системной челкой iOS/Android + 5px отступа */
+    top: calc(env(safe-area-inset-top, 10px) + 5px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--glass-border);
+    color: var(--text-color-muted);
+    font-size: 8px;
+    padding: 4px 12px;
+    border-radius: 12px;
+    text-decoration: none;
+    z-index: 1005;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.btn-old-profile:active {
+    background: rgba(255, 255, 255, 0.15);
+    color: #fff;
+    transform: translateX(-50%) scale(0.95);
+}
+
+/* Для ПК-версии прижимаем ближе к краю */
+@media (min-width: 768px) {
+    .btn-old-profile {
+        top: 5px;
+    }
+}
         
     </style>
 </head>
@@ -902,6 +939,9 @@ html body nav.floating-bottom-bar .comic-badge {
         
         <!-- ЕДИНЫЙ БЛОК ШАПКИ И МЕНЮ В ЖИДКОМ СТЕКЛЕ -->
         <div class="header-nav-wrapper">
+            
+            <!-- 🔥 КНОПКА ВОЗВРАТА В СТАРЫЙ ПРОФИЛЬ 🔥 -->
+            <a href="/public/profile.html" class="btn-old-profile">Перейти в старый профиль</a>
             <!-- HEADER -->
             <header class="profile-header">
                 <div style="display: flex; gap: 15px;">
