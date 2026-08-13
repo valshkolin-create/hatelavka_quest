@@ -126,7 +126,7 @@
                 </div>
                 
                 <nav class="side-nav">
-                    <a href="/profile"><i class="fa-solid fa-user"></i> Мой Профиль</a>
+                    <a href="public/profile/profile_menu.html"><i class="fa-solid fa-user"></i> Мой Профиль</a>
                     <a href="/quests"><i class="fa-solid fa-check-double"></i> Задания</a>
                     <a href="/leaderboard"><i class="fa-solid fa-trophy"></i> Лидербоард</a>
                     <a href="/menu"><i class="fa-solid fa-gear"></i> Настройки</a>
@@ -197,7 +197,7 @@
                         <i class="fa-solid fa-rotate-right" id="refresh-icon"></i>
                     </div>
                 </div>
-                <img src="https://via.placeholder.com/64x64/555555/ffffff?text=U" alt="Avatar" class="user-avatar" id="user-avatar" onclick="window.location.href='/profile'">
+                <img src="https://via.placeholder.com/64x64/555555/ffffff?text=U" alt="Avatar" class="user-avatar" id="user-avatar" onclick="window.location.href='public/profile/profile_menu.html'">
                 <button id="open-menu-btn" class="glass-burger">
                     <span></span><span></span><span></span>
                 </button>
