@@ -26,7 +26,7 @@
 
         /* 🔥 Убираем гигантский отступ на ПК */
         body.desktop-mode {
-        --safe-top-gap: 20px; /* 20px хватит для красоты, но можешь поставить 0 */
+        --safe-top-gap: 45px; /* 20px хватит для красоты, но можешь поставить 0 */
         }
         
         /* --- Общие стили --- */
@@ -1016,10 +1016,49 @@
 .inv-overlay-btn:active {
     transform: scale(0.95);
 }
+
+        /* --- КНОПКА НОВЫЙ ПРОФИЛЬ --- */
+        .btn-new-profile {
+            position: fixed; /* Прибиваем к верху экрана */
+            top: calc(env(safe-area-inset-top, 15px) + 15px); /* Прячем под челку */
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: var(--text-color-muted);
+            font-size: 9px;
+            padding: 4px 12px;
+            border-radius: 12px;
+            text-decoration: none;
+            z-index: 99999;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        .btn-new-profile:active {
+            background: rgba(255, 255, 255, 0.15);
+            color: #fff;
+            transform: translateX(-50%) scale(0.95);
+        }
+
+        /* Прижимаем кнопку на ПК к самому верху */
+        body.desktop-mode .btn-new-profile {
+            top: 10px;
+        }
         
     </style>
 </head>
 <body>
+
+   <!-- 🔥 КНОПКА ПЕРЕХОДА В НОВЫЙ ПРОФИЛЬ 🔥 -->
+    <!-- Не забудь поменять href на правильную ссылку твоего нового SPA профиля -->
+    <a href="/public/profile_spa.html" class="btn-new-profile">Перейти в новый профиль</a>
 
     <div id="loader-overlay" class="loader-overlay">
         <div class="spinner"></div>
