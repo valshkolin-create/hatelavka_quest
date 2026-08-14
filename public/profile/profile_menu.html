@@ -969,50 +969,43 @@ body.is-android .system-top-banner {
         /* 1. Сдвигаем сам контейнер ровно ПОД шапку, на уровень сортировки */
         body.is-browser #content-area {
             position: absolute !important;
-            /* Начинаем контейнер там, где заканчивается стекло шапки */
             top: calc(var(--safe-top-gap) + 160px) !important;
-            /* Высота экрана минус высота шапки, чтобы не было двойного скролла */
             height: calc(100vh - (var(--safe-top-gap) + 160px)) !important;
             padding-top: 15px !important; 
             padding-bottom: 120px !important;
-            /* Принудительно включаем видимость скроллбара при загрузке страницы! */
             overflow-y: scroll !important; 
         }
 
-        /* 2. Делаем общую зону ОЧЕНЬ широкой (40px), чтобы вместить и жирную линию, и большой отступ */
+        /* 2. Общая ширина 44px (чтобы вместить сдвиг и сохранить толщину) */
         body.is-browser #content-area::-webkit-scrollbar {
-            width: 40px !important; 
+            width: 44px !important; 
             background: transparent !important;
         }
 
-        /* 3. Трек начинается с самого верха контейнера (а контейнер теперь под шапкой) */
         body.is-browser #content-area::-webkit-scrollbar-track {
             background: transparent !important;
-            margin-top: 0 !important; /* Больше никаких хаков с отступами! */
-            margin-bottom: 95px !important; /* Упирается над нижним меню */
+            margin-top: 0 !important; 
+            margin-bottom: 95px !important; 
         }
 
-        /* 4. Ползунок в 3 раза жирнее и БЕЗОПАСЕН для рамки окна */
+        /* 3. Ползунок сдвинут левее на 4 пикселя */
         body.is-browser #content-area::-webkit-scrollbar-thumb {
             background-color: rgba(255, 255, 255, 0.4) !important;
             border-radius: 20px !important;
             
-            /* 🔥 ЗАЩИТА ОТ РАМКИ ОКНА: Отодвигаем аж на 16px от правого края! 
-               Теперь ты будешь целиться в линию и никогда не заденешь расширение окна. */
-            border-right: 16px solid transparent !important; 
+            /* 🔥 СДВИНУЛИ ЛЕВЕЕ: теперь отступ от края 20px (было 16px) */
+            border-right: 23px solid transparent !important; 
             
-            /* Отступ слева 6px. 
-               ИТОГОВАЯ ТОЛЩИНА: 40 - 16 - 6 = 18px (очень жирная, удобная линия) */
+            /* Толщина линии осталась жирной: 44 - 20 - 6 = 18px */
             border-left: 6px solid transparent !important; 
             
             background-clip: padding-box !important;
         }
 
-        /* 5. Подсветка при захвате ползунка */
         body.is-browser #content-area::-webkit-scrollbar-thumb:hover,
         body.is-browser #content-area::-webkit-scrollbar-thumb:active {
             background-color: rgba(255, 255, 255, 0.8) !important;
-            border-right: 16px solid transparent !important;
+            border-right: 20px solid transparent !important;
             border-left: 6px solid transparent !important;
             background-clip: padding-box !important;
         }
