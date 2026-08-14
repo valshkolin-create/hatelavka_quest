@@ -975,11 +975,10 @@ body.is-android .system-top-banner {
             background-color: rgba(255, 255, 255, 0.03) !important; 
             border-radius: 10px !important;
             
-            /* 🔥 ФИКС ДЛЯ ВСЕХ БРАУЗЕРОВ (Safari/iOS) 🔥 */
-            /* Вместо margin используем толстый прозрачный border */
-            border-top: calc(var(--safe-top-gap) + 125px) solid transparent !important;
-            border-bottom: 95px solid transparent !important;
-            background-clip: padding-box !important; /* Чтобы фон не залезал под прозрачную рамку */
+            /* 🔥 ЖЕЛЕЗОБЕТОННЫЙ ФИКС ДЛЯ CHROME / YANDEX 🔥 */
+            /* Пишем формулу напрямую, без использования var(--переменных) */
+            margin-top: calc(env(safe-area-inset-top, 15px) + 165px) !important; 
+            margin-bottom: 95px !important; 
         }
 
         body.is-browser #content-area::-webkit-scrollbar-thumb {
@@ -1013,7 +1012,7 @@ body.is-android .system-top-banner {
 
             /* На ПК контейнер и так съехал вниз, поэтому скроллбару возвращаем дефолтный отступ */
         body.is-browser #content-area::-webkit-scrollbar-track {
-            border-top: 5px solid transparent !important;
+            margin-top: 5px !important;
         }
 
             /* 2. Умная сетка инвентаря (ПЕРЕБИВАЕТ JS) */
