@@ -963,34 +963,43 @@ body.is-android .system-top-banner {
 }
 
         /* ========================================== */
-        /* 🔥 ФИКС СКРОЛЛА ИМЕННО ДЛЯ TELEGRAM WEB 🔥 */
+        /* 🔥 ФИНАЛЬНЫЙ ФИКС СКРОЛЛА (ДЛЯ БРАУЗЕРА) 🔥 */
         /* ========================================== */
 
-        /* Физически отрываем правый край контента от границы окна на 12px.
-           Теперь скроллбар не будет срезаться рамкой iframe'а Телеграма! */
-        body.is-browser #content-area {
-            width: calc(100% - 12px) !important;
-        }
-
+        /* Делаем невидимую зону широкой, чтобы легко было попасть курсором */
         body.is-browser #content-area::-webkit-scrollbar {
-            width: 6px;
-            background: transparent;
+            width: 16px !important; 
+            background: transparent !important;
         }
 
+        /* ТРЕК (Путь скроллбара) */
         body.is-browser #content-area::-webkit-scrollbar-track {
-            background: transparent;
-            /* Начинаем ползунок строго из-под жидкого стекла шапки */
-            margin-top: calc(var(--safe-top-gap) + 125px); 
-            margin-bottom: 90px; 
+            background: transparent !important;
+            /* 🔥 ГЛАВНЫЙ ФИКС: 175px — это точный отступ твоего контента. 
+               Теперь ползунок физически упрется в эту границу и НИКОГДА не заедет под шапку 🔥 */
+            margin-top: calc(var(--safe-top-gap) + 175px) !important; 
+            margin-bottom: 100px !important; 
         }
 
+        /* ПОЛЗУНОК */
         body.is-browser #content-area::-webkit-scrollbar-thumb {
-            background-color: rgba(255, 255, 255, 0.3);
-            border-radius: 10px;
+            background-color: rgba(255, 255, 255, 0.3) !important;
+            border-radius: 20px !important;
+            
+            /* Сдвигаем ползунок влево на 6px, чтобы он не прилипал к краю окна 
+               и за него можно было легко схватиться мышкой */
+            border-right: 6px solid transparent !important; 
+            border-left: 4px solid transparent !important; 
+            background-clip: padding-box !important;
         }
 
-        body.is-browser #content-area::-webkit-scrollbar-thumb:hover {
-            background-color: rgba(255, 255, 255, 0.7);
+        /* ПОЛЗУНОК (ПРИ НАВЕДЕНИИ) */
+        body.is-browser #content-area::-webkit-scrollbar-thumb:hover,
+        body.is-browser #content-area::-webkit-scrollbar-thumb:active {
+            background-color: rgba(255, 255, 255, 0.7) !important;
+            border-right: 6px solid transparent !important;
+            border-left: 4px solid transparent !important;
+            background-clip: padding-box !important;
         }
         
     </style>
