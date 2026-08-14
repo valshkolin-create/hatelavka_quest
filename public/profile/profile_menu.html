@@ -963,68 +963,58 @@ body.is-android .system-top-banner {
 }
 
 /* ========================================== */
-        /* 🔥 ИДЕАЛЬНЫЙ СКРОЛЛ ДЛЯ TELEGRAM WEB 🔥    */
+        /* 🔥 СКРОЛЛБАР КАК НА СКРИНШОТЕ 🔥           */
         /* ========================================== */
-
-        /* 1. Сдвигаем сам контейнер ровно ПОД шапку, на уровень сортировки */
-        body.is-browser #content-area {
-            position: absolute !important;
-            top: calc(var(--safe-top-gap) + 160px) !important;
-            height: calc(100vh - (var(--safe-top-gap) + 160px)) !important;
-            padding-top: 15px !important; 
-            padding-bottom: 120px !important;
-            overflow-y: scroll !important; 
-        }
-
-        /* 2. Общая зона захвата мыши (20px — достаточно, чтобы комфортно схватить) */
+        
         body.is-browser #content-area::-webkit-scrollbar {
-            width: 20px !important; 
+            width: 14px !important; /* Классическая удобная ширина */
             background: transparent !important;
         }
 
         body.is-browser #content-area::-webkit-scrollbar-track {
-            background: transparent !important;
-            margin-top: 0 !important; 
+            /* Добавляем легкую, едва заметную подложку (как на скрине) */
+            background: rgba(255, 255, 255, 0.03) !important; 
+            border-radius: 10px !important;
+            margin-top: 5px !important; 
             margin-bottom: 95px !important; 
         }
 
-        /* 3. Классический тонкий ползунок, сдвинутый ПРАВЕЕ */
         body.is-browser #content-area::-webkit-scrollbar-thumb {
+            /* Симпатичный серый цвет ползунка */
             background-color: rgba(255, 255, 255, 0.25) !important;
             border-radius: 10px !important;
             
-            /* 🔥 СДВИНУЛИ ПРАВЕЕ: отступ от края окна теперь маленький и аккуратный (6px) */
-            border-right: 6px solid transparent !important; 
-            
-            /* Отступ слева от контента. Толщина самой белой линии: 20 - 6 - 8 = 6px (Классика!) */
-            border-left: 8px solid transparent !important; 
-            
+            /* Равномерные прозрачные рамки со всех сторон создают эффект 
+               парящего толстого ползунка, который ни за что не цепляется */
+            border: 3px solid transparent !important; 
             background-clip: padding-box !important;
         }
 
         body.is-browser #content-area::-webkit-scrollbar-thumb:hover,
         body.is-browser #content-area::-webkit-scrollbar-thumb:active {
-            background-color: rgba(255, 255, 255, 0.6) !important;
-            border-right: 6px solid transparent !important;
-            border-left: 8px solid transparent !important;
-            background-clip: padding-box !important;
+            background-color: rgba(255, 255, 255, 0.4) !important;
         }
-        
+
         /* ======================================================== */
         /* 🔥 ИДЕАЛЬНАЯ АДАПТАЦИЯ ДЛЯ ФУЛЛ-ЭКРАНА (TELEGRAM WEB) 🔥 */
         /* ======================================================== */
         @media (min-width: 768px) {
             
-            /* 1. Фиксим наезд контента под растолстевшую шапку */
+            /* 1. Позиционируем контент с учетом увеличенной шапки */
             body.is-browser #content-area {
-                /* Опускаем контент ниже, так как аватарка и шрифты стали больше */
-                top: calc(var(--safe-top-gap) + 195px) !important;
-                height: calc(100vh - (var(--safe-top-gap) + 195px)) !important;
+                position: absolute !important;
+                /* Отступ от шапки рассчитывается автоматически благодаря нашей переменной */
+                top: calc(var(--safe-top-gap) + 160px) !important;
+                height: calc(100vh - (var(--safe-top-gap) + 160px)) !important;
+                padding-top: 15px !important; 
+                padding-bottom: 120px !important;
+                /* Принудительно рисуем скроллбар сразу при загрузке */
+                overflow-y: scroll !important; 
             }
 
             /* 2. Умная сетка инвентаря (ПЕРЕБИВАЕТ JS) */
-            /* Теперь будет не 3 огромные сосиски, а столько карточек по 110px, сколько влезет на экран! */
             #inventory-list-container {
+                /* Карточки не растягиваются, а выстраиваются мозаикой по 110px */
                 grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)) !important;
                 gap: 12px !important;
             }
@@ -1040,15 +1030,12 @@ body.is-android .system-top-banner {
             }
 
             /* 5. Защищаем длинные элементы от растягивания на 2 километра */
-            /* Выстраиваем события и промокоды по центру аккуратной колонкой */
             .event-card, .reward-card, .events-header-bar {
                 max-width: 600px;
                 margin-left: auto !important;
                 margin-right: auto !important;
             }
         }
-        
-    </style>
 </head>
 <body>
 
