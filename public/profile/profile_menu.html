@@ -961,6 +961,37 @@ body.is-android .system-top-banner {
     /* Опускаем всплывающий баннер ошибки Твича ниже кнопки Назад */
     top: 65px;
 }
+
+        /* ========================================== */
+        /* 🔥 ФИКС СКРОЛЛА ИМЕННО ДЛЯ TELEGRAM WEB 🔥 */
+        /* ========================================== */
+
+        /* Физически отрываем правый край контента от границы окна на 12px.
+           Теперь скроллбар не будет срезаться рамкой iframe'а Телеграма! */
+        body.is-browser #content-area {
+            width: calc(100% - 12px) !important;
+        }
+
+        body.is-browser #content-area::-webkit-scrollbar {
+            width: 6px;
+            background: transparent;
+        }
+
+        body.is-browser #content-area::-webkit-scrollbar-track {
+            background: transparent;
+            /* Начинаем ползунок строго из-под жидкого стекла шапки */
+            margin-top: calc(var(--safe-top-gap) + 125px); 
+            margin-bottom: 90px; 
+        }
+
+        body.is-browser #content-area::-webkit-scrollbar-thumb {
+            background-color: rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+        }
+
+        body.is-browser #content-area::-webkit-scrollbar-thumb:hover {
+            background-color: rgba(255, 255, 255, 0.7);
+        }
         
     </style>
 </head>
@@ -1302,6 +1333,10 @@ const desktopPlatforms = ['tdesktop', 'macos', 'web', 'weba'];
 if (desktopPlatforms.includes(tg.platform)) {
     document.body.classList.add('is-desktop');
 }
+// 🔥 Добавляем отдельный класс ТОЛЬКО для веб-браузера
+if (['web', 'weba'].includes(tg.platform)) {
+    document.body.classList.add('is-browser');
+}    
 // Добавляем этот класс специально для фикса шапки на Android
 if (tg.platform === 'android') {
     document.body.classList.add('is-android');
