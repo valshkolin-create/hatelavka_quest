@@ -833,6 +833,40 @@ html body nav.floating-bottom-bar .comic-badge {
     top: 10px !important; 
         }
 
+        /* ========================================== */
+        /* 🔥 ИЗЯЩНЫЙ ФИКС ЛИНИИ СКРОЛЛА 🔥           */
+        /* ========================================== */
+
+        /* 1. Настраиваем толщину и прозрачность скроллбара контента */
+        #content-area::-webkit-scrollbar {
+            width: 6px; /* Тонкая и современная линия */
+            background: transparent; /* Прозрачный фон */
+        }
+
+        /* 2. ТРЕК (Путь, по которому ездит ползунок) */
+        #content-area::-webkit-scrollbar-track {
+            background: transparent;
+            /* 🔥 МАГИЯ ЗДЕСЬ: Опускаем начало скроллбара ровно под шапку 🔥 */
+            margin-top: calc(var(--safe-top-gap) + 175px); 
+            /* Поднимаем конец скроллбара, чтобы не залезал на нижнее меню */
+            margin-bottom: 90px; 
+        }
+
+        /* 3. ПОЛЗУНОК (Та самая линия, за которую хватаются) */
+        #content-area::-webkit-scrollbar-thumb {
+            background-color: rgba(255, 255, 255, 0.25);
+            border-radius: 10px;
+            /* Делаем микро-отступ от правого края экрана, чтобы выглядело дорого */
+            border: 1px solid transparent;
+            background-clip: content-box;
+        }
+
+        /* 4. Когда пользователь наводит или хватает ползунок — он подсвечивается */
+        #content-area::-webkit-scrollbar-thumb:hover,
+        #content-area::-webkit-scrollbar-thumb:active {
+            background-color: rgba(255, 255, 255, 0.6);
+        }
+
 /* ========================================== */
 /* 🔥 LIQUID GLASS: ПРЕМИАЛЬНЫЕ ЭФФЕКТЫ 🔥 */
 /* ========================================== */
