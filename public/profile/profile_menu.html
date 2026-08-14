@@ -1010,6 +1010,44 @@ body.is-android .system-top-banner {
             background-clip: padding-box !important;
         }
         
+        /* ======================================================== */
+        /* 🔥 ИДЕАЛЬНАЯ АДАПТАЦИЯ ДЛЯ ФУЛЛ-ЭКРАНА (TELEGRAM WEB) 🔥 */
+        /* ======================================================== */
+        @media (min-width: 768px) {
+            
+            /* 1. Фиксим наезд контента под растолстевшую шапку */
+            body.is-browser #content-area {
+                /* Опускаем контент ниже, так как аватарка и шрифты стали больше */
+                top: calc(var(--safe-top-gap) + 195px) !important;
+                height: calc(100vh - (var(--safe-top-gap) + 195px)) !important;
+            }
+
+            /* 2. Умная сетка инвентаря (ПЕРЕБИВАЕТ JS) */
+            /* Теперь будет не 3 огромные сосиски, а столько карточек по 110px, сколько влезет на экран! */
+            #inventory-list-container {
+                grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)) !important;
+                gap: 12px !important;
+            }
+
+            /* 3. Умная сетка для ачивок */
+            #achievements-list-container > div {
+                grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important;
+            }
+
+            /* 4. Умная сетка для окна "Выберите замену" */
+            .replacement-grid {
+                grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)) !important;
+            }
+
+            /* 5. Защищаем длинные элементы от растягивания на 2 километра */
+            /* Выстраиваем события и промокоды по центру аккуратной колонкой */
+            .event-card, .reward-card, .events-header-bar {
+                max-width: 600px;
+                margin-left: auto !important;
+                margin-right: auto !important;
+            }
+        }
+        
     </style>
 </head>
 <body>
