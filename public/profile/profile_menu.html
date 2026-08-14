@@ -976,9 +976,9 @@ body.is-android .system-top-banner {
             overflow-y: scroll !important; 
         }
 
-        /* 2. Общая ширина 44px (чтобы вместить сдвиг и сохранить толщину) */
+        /* 2. Общая зона захвата мыши (20px — достаточно, чтобы комфортно схватить) */
         body.is-browser #content-area::-webkit-scrollbar {
-            width: 44px !important; 
+            width: 20px !important; 
             background: transparent !important;
         }
 
@@ -988,25 +988,25 @@ body.is-android .system-top-banner {
             margin-bottom: 95px !important; 
         }
 
-        /* 3. Ползунок сдвинут левее на 4 пикселя */
+        /* 3. Классический тонкий ползунок, сдвинутый ПРАВЕЕ */
         body.is-browser #content-area::-webkit-scrollbar-thumb {
-            background-color: rgba(255, 255, 255, 0.4) !important;
-            border-radius: 20px !important;
+            background-color: rgba(255, 255, 255, 0.25) !important;
+            border-radius: 10px !important;
             
-            /* 🔥 СДВИНУЛИ ЛЕВЕЕ: теперь отступ от края 20px (было 16px) */
-            border-right: 23px solid transparent !important; 
+            /* 🔥 СДВИНУЛИ ПРАВЕЕ: отступ от края окна теперь маленький и аккуратный (6px) */
+            border-right: 6px solid transparent !important; 
             
-            /* Толщина линии осталась жирной: 44 - 20 - 6 = 18px */
-            border-left: 6px solid transparent !important; 
+            /* Отступ слева от контента. Толщина самой белой линии: 20 - 6 - 8 = 6px (Классика!) */
+            border-left: 8px solid transparent !important; 
             
             background-clip: padding-box !important;
         }
 
         body.is-browser #content-area::-webkit-scrollbar-thumb:hover,
         body.is-browser #content-area::-webkit-scrollbar-thumb:active {
-            background-color: rgba(255, 255, 255, 0.8) !important;
-            border-right: 20px solid transparent !important;
-            border-left: 6px solid transparent !important;
+            background-color: rgba(255, 255, 255, 0.6) !important;
+            border-right: 6px solid transparent !important;
+            border-left: 8px solid transparent !important;
             background-clip: padding-box !important;
         }
         
