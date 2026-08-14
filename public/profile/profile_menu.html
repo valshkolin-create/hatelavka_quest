@@ -997,50 +997,76 @@ body.is-android .system-top-banner {
             background-color: rgba(255, 255, 255, 0.6) !important;
         }
         
-        /* ======================================================== */
-        /* 🔥 ИДЕАЛЬНАЯ АДАПТАЦИЯ ДЛЯ ФУЛЛ-ЭКРАНА (TELEGRAM WEB) 🔥 */
+/* ======================================================== */
+        /* 🔥 ИДЕАЛЬНАЯ АДАПТАЦИЯ ДЛЯ ФУЛЛ-ЭКРАНА (TELEGRAM WEB И ПК) 🔥 */
         /* ======================================================== */
         @media (min-width: 768px) {
             
+            /* 🔥 НОВОЕ: Центрируем шапку и меню навигации.
+               Фон-стекло будет на весь экран, но аватарка и статистика не улетят по краям на 21:9 мониторах */
+            .profile-header, .nav-bar {
+                max-width: 900px;
+                margin-left: auto !important;
+                margin-right: auto !important;
+            }
+
             /* 1. Позиционируем контент с учетом увеличенной шапки */
-            body.is-browser #content-area {
+            #content-area {
                 position: absolute !important;
-                /* Отступ от шапки рассчитывается автоматически благодаря нашей переменной */
-                top: calc(var(--safe-top-gap) + 160px) !important;
-                height: calc(100vh - (var(--safe-top-gap) + 160px)) !important;
+                top: calc(var(--safe-top-gap) + 205px) !important;
+                height: calc(100vh - (var(--safe-top-gap) + 205px)) !important;
                 padding-top: 15px !important; 
                 padding-bottom: 120px !important;
                 /* Принудительно рисуем скроллбар сразу при загрузке */
                 overflow-y: scroll !important; 
             }
 
-            /* На ПК контейнер и так съехал вниз, поэтому скроллбару возвращаем дефолтный отступ */
-        body.is-browser #content-area::-webkit-scrollbar-track {
-                margin-top: 5px !important; /* На ПК сбрасываем огромный отступ */
+            /* Если вылезет ошибка Твича, не даем ей сломать внутренний отступ на ПК */
+            body.has-twitch-error #content-area {
+                padding-top: 15px !important;
             }
 
-            /* 2. Умная сетка инвентаря (ПЕРЕБИВАЕТ JS) */
+            /* На ПК контейнер и так съехал вниз, поэтому скроллбару возвращаем дефолтный отступ */
+            body.is-browser #content-area::-webkit-scrollbar-track {
+                margin-top: 5px !important; 
+            }
+
+            /* 🔥 НОВОЕ: Ограничиваем ширину сеток, чтобы инвентарь не растягивался в полосу из 20 предметов */
+            #inventory-list-container,
+            #achievements-list-container > div,
+            .replacement-grid {
+                max-width: 900px;
+                margin-left: auto !important;
+                margin-right: auto !important;
+            }
+
+            /* 2. Умная сетка инвентаря */
             #inventory-list-container {
-                /* Карточки не растягиваются, а выстраиваются мозаикой по 110px */
-                grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)) !important;
+                grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)) !important; /* Сделали карточки чуть крупнее для ПК */
                 gap: 12px !important;
             }
 
             /* 3. Умная сетка для ачивок */
             #achievements-list-container > div {
-                grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important;
+                grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)) !important;
             }
 
             /* 4. Умная сетка для окна "Выберите замену" */
             .replacement-grid {
-                grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)) !important;
+                grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important;
             }
 
-            /* 5. Защищаем длинные элементы от растягивания на 2 километра */
+            /* 5. Защищаем списки (События, Промокоды) от растягивания на 2 километра */
             .event-card, .reward-card, .events-header-bar {
-                max-width: 600px;
+                max-width: 700px; /* Для списков 700px выглядит приятнее и компактнее */
                 margin-left: auto !important;
                 margin-right: auto !important;
+            }
+
+            /* Фикс центрирования пустых стейтов ("Инвентарь пуст", "Загрузка...") внутри ограниченных сеток */
+            #inventory-list-container > div[style*="text-align: center"],
+            #achievements-list-container > div > div[style*="text-align:center"] {
+                grid-column: 1 / -1;
             }
         }
 </style>
