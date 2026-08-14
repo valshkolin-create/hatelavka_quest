@@ -962,39 +962,43 @@ body.is-android .system-top-banner {
     top: 65px;
 }
 
-/* ========================================== */
-        /* 🔥 СКРОЛЛБАР КАК НА СКРИНШОТЕ 🔥            */
+* ========================================== */
+        /* 🔥 СКРОЛЛБАР С КЛИКАБЕЛЬНЫМ СТОЛБИКОМ 🔥   */
         /* ========================================== */
         
         body.is-browser #content-area::-webkit-scrollbar {
-            width: 10px !important; 
+            width: 14px !important; /* Классическая ширина браузера, по которой удобно кликать */
             background: transparent !important;
         }
 
         body.is-browser #content-area::-webkit-scrollbar-track {
-            /* 🔥 Сделали столбик более видимым (10% белого вместо 3%) */
-            background-color: rgba(255, 255, 255, 0.1) !important; 
+            /* 🔥 Тот самый видимый полупрозрачный столбик */
+            background-color: rgba(255, 255, 255, 0.08) !important; 
             border-radius: 10px !important;
             
-            /* 🔥 Добавили легкую внутреннюю тень, чтобы столбик выглядел как "желобок" */
-            box-shadow: inset 0 0 4px rgba(0, 0, 0, 0.5) !important;
+            /* Легкая внутренняя тень, чтобы столбик казался вдавленным "желобком" */
+            box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3) !important;
             
+            /* Железобетонный фикс Chrome / Yandex */
             margin-top: calc(env(safe-area-inset-top, 15px) + 165px) !important; 
             margin-bottom: 95px !important; 
         }
 
         body.is-browser #content-area::-webkit-scrollbar-thumb {
-            background-color: rgba(255, 255, 255, 0.25) !important;
+            background-color: rgba(255, 255, 255, 0.35) !important;
             border-radius: 10px !important;
-            border: 2px solid transparent !important; 
+            
+            /* Прозрачная рамка в 3px делает сам ползунок чуть тоньше столбика (8px), 
+               он будет красиво ездить ровно внутри трека */
+            border: 3px solid transparent !important; 
             background-clip: padding-box !important;
         }
 
         body.is-browser #content-area::-webkit-scrollbar-thumb:hover,
         body.is-browser #content-area::-webkit-scrollbar-thumb:active {
-            background-color: rgba(255, 255, 255, 0.4) !important;
+            background-color: rgba(255, 255, 255, 0.6) !important;
         }
-
+        
         /* ======================================================== */
         /* 🔥 ИДЕАЛЬНАЯ АДАПТАЦИЯ ДЛЯ ФУЛЛ-ЭКРАНА (TELEGRAM WEB) 🔥 */
         /* ======================================================== */
@@ -1014,8 +1018,8 @@ body.is-android .system-top-banner {
 
             /* На ПК контейнер и так съехал вниз, поэтому скроллбару возвращаем дефолтный отступ */
         body.is-browser #content-area::-webkit-scrollbar-track {
-            margin-top: 5px !important;
-        }
+                margin-top: 5px !important; /* На ПК сбрасываем огромный отступ */
+            }
 
             /* 2. Умная сетка инвентаря (ПЕРЕБИВАЕТ JS) */
             #inventory-list-container {
