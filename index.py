@@ -90,83 +90,104 @@ SHOP_CACHE_TTL = 600  # Хранить товары 10 минут (600 секу�
 _background_supabase_client: Optional[httpx.AsyncClient] = None
 
 
-# =========================================================================
-# 🛠️ ГЛОБАЛЬНЫЕ УТИЛИТЫ CS MARKET БАЛАНС + ОГРАНИЧЕНИЕ
-# =========================================================================
-
-# =========================================================================
-# 🛠️ ГЛОБАЛЬНЫЕ УТИЛИТЫ CS MARKET БАЛАНС + ОГРАНИЧЕНИЕ
-# =========================================================================
-
 async def verify_activity_lock(user_record: dict, supabase: httpx.AsyncClient):
     import json
     import logging
+    from datetime import datetime, timedelta, timezone
     from fastapi import HTTPException
     
+    telegram_id = user_record.get("telegram_id")
+    trust_level = user_record.get("trust_level", "gray")
+    is_admin = user_record.get("is_admin", False)
+
+    # ==========================================
     # 1. Читаем актуальный баланс из нашей базы
+    # ==========================================
     market_balance = 5000.0 # Дефолт
     try:
         settings_res = await supabase.get("/settings", params={"key": "eq.market_balance", "select": "value"})
-        
         if settings_res.status_code == 200:
             settings_data = settings_res.json()
-            
             if isinstance(settings_data, list) and len(settings_data) > 0:
                 raw_value = settings_data[0].get("value", {})
-                
                 if isinstance(raw_value, str):
                     try:
                         raw_value = json.loads(raw_value)
                     except json.JSONDecodeError:
                         raw_value = {}
-                        
                 market_balance = float(raw_value.get("balance", 5000.0))
-        else:
-            logging.error(f"[ACTIVITY LOCK] Supabase вернул статус {settings_res.status_code}: {settings_res.text}")
-            
     except Exception as e:
-        logging.error(f"[ACTIVITY LOCK] Ошибка чтения баланса из БД: {e}")
+        logging.error(f"[ACTIVITY LOCK] Ошибка чтения баланса: {e}")
 
-    # 2. Берем актив юзера и СОЕДИНЯЕМ его (Twitch + Telegram)
+    # ==========================================
+    # 2. ЛИМИТЫ ВЫВОДА ПО ТРАСТУ (ВКЛЮЧАЮТСЯ ТОЛЬКО ПРИ БАЛАНСЕ < 2000)
+    # ==========================================
+    if market_balance < 2000 and not is_admin:
+        weekly_limit = 2 if trust_level == "red" else 4
+        seven_days_ago = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+        
+        try:
+            drops_res = await supabase.get(
+                "/cs_history", 
+                params={
+                    "user_id": f"eq.{telegram_id}",
+                    "created_at": f"gte.{seven_days_ago}",
+                    "source": "eq.shop", 
+                    "status": "in.(pending,offer_sent,available)", 
+                    "select": "created_at",
+                    "order": "created_at.asc"
+                }
+            )
+            
+            if drops_res.status_code == 200:
+                drops_data = drops_res.json()
+                current_weekly_drops = len(drops_data)
+                
+                if current_weekly_drops >= weekly_limit:
+                    oldest_drop_time_str = drops_data[0].get("created_at")
+                    oldest_drop_time = datetime.fromisoformat(oldest_drop_time_str)
+                    unlock_time = oldest_drop_time + timedelta(days=7)
+                    
+                    raise HTTPException(
+                        status_code=403, 
+                        detail={
+                            "error_code": "WEEKLY_TRUST_LIMIT",
+                            "trust_level": trust_level,
+                            "limit": weekly_limit,
+                            "current_drops": current_weekly_drops,
+                            "unlock_time": unlock_time.isoformat(),
+                            "message": f"Бюджет ограничен. Следующий скин можно будет забрать {unlock_time.strftime('%d.%m %H:%M')}."
+                        }
+                    )
+        except HTTPException:
+            raise 
+        except Exception as e:
+            logging.error(f"[TRUST LOCK] Ошибка проверки лимита: {e}")
+
+    # ==========================================
+    # 3. БАЛАНС И ХАРДКОРНАЯ ЛЕСТНИЦА ПОРОГОВ АКТИВНОСТИ
+    # ==========================================
     twitch_msgs = int(user_record.get("monthly_message_count") or 0)
     tg_msgs = int(user_record.get("telegram_monthly_message_count") or 0)
-    
-    # 🔥 Главное изменение: теперь актив суммируется
     user_total_msgs = twitch_msgs + tg_msgs
 
-    # ==========================================
-    # 🔥 ХАРДКОРНАЯ ЛЕСТНИЦА ПОРОГОВ 🔥
-    # ==========================================
-    if market_balance >= 5000:
-        required_msgs = 50    # Баланса много, минимальный актив для галочки
-    elif market_balance >= 3500:
-        required_msgs = 150   # Чуть просели — уже надо постараться
-    elif market_balance >= 2000:
-        required_msgs = 300   # Средний баланс — средний гринд
-    elif market_balance >= 1500:
-        required_msgs = 500   # Гайки затягиваются
-    elif market_balance >= 1000:
-        required_msgs = 750   # Запасы тают, нужен жесткий актив
-    elif market_balance >= 500:
-        required_msgs = 1000  # Денег почти нет — пусть работают
-    elif market_balance >= 200:
-        required_msgs = 1500  # Критический уровень
-    else:
-        required_msgs = 2000  # < 200 руб: Печатай до посинения или сиди без кейсов
-    # ==========================================
-
-    # 4. Проверка и Блокировка
-    is_admin = user_record.get("is_admin", False)
-    
-    # Сравниваем ОБЩУЮ сумму с требуемым порогом
+    if market_balance >= 5000: required_msgs = 50    
+    elif market_balance >= 3500: required_msgs = 150   
+    elif market_balance >= 2000: required_msgs = 300   
+    elif market_balance >= 1500: required_msgs = 500   
+    elif market_balance >= 1000: required_msgs = 750   
+    elif market_balance >= 500: required_msgs = 1000  
+    elif market_balance >= 200: required_msgs = 1500  
+    else: required_msgs = 2000  
+        
     if user_total_msgs < required_msgs and not is_admin:
         raise HTTPException(
             status_code=403, 
             detail={
                 "error_code": "ACTIVITY_LOCK",
-                "current_msgs": user_total_msgs, # Отдаем фронту общую сумму
+                "current_msgs": user_total_msgs,
                 "required_msgs": required_msgs,
-                "market_balance": market_balance # Отдаем на фронт для дебага
+                "market_balance": market_balance 
             }
         )
         
