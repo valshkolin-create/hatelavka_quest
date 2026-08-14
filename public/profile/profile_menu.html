@@ -962,43 +962,50 @@ body.is-android .system-top-banner {
     top: 65px;
 }
 
-        /* ========================================== */
-        /* 🔥 ФИНАЛЬНЫЙ ФИКС СКРОЛЛА (ДЛЯ БРАУЗЕРА) 🔥 */
+/* ========================================== */
+        /* 🔥 ЖИРНЫЙ И МГНОВЕННЫЙ СКРОЛЛ ДЛЯ WEB 🔥    */
         /* ========================================== */
 
-        /* Делаем невидимую зону широкой, чтобы легко было попасть курсором */
+        /* ПРИНУДИТЕЛЬНО показываем скроллбар сразу при открытии окна */
+        body.is-browser #content-area {
+            overflow-y: scroll !important; 
+        }
+
+        /* 1. Делаем невидимую зону огромной (24px), чтобы по ней было легко кликнуть */
         body.is-browser #content-area::-webkit-scrollbar {
-            width: 16px !important; 
+            width: 24px !important;
             background: transparent !important;
         }
 
-        /* ТРЕК (Путь скроллбара) */
+        /* 2. Настраиваем путь (трек) */
         body.is-browser #content-area::-webkit-scrollbar-track {
             background: transparent !important;
-            /* 🔥 ГЛАВНЫЙ ФИКС: 175px — это точный отступ твоего контента. 
-               Теперь ползунок физически упрется в эту границу и НИКОГДА не заедет под шапку 🔥 */
+            /* Ставь тут отступ, который идеально встал под твою шапку (165px или 175px) */
             margin-top: calc(var(--safe-top-gap) + 175px) !important; 
-            margin-bottom: 100px !important; 
+            margin-bottom: 95px !important; 
         }
 
-        /* ПОЛЗУНОК */
+        /* 3. Делаем линию жирнее и двигаем левее */
         body.is-browser #content-area::-webkit-scrollbar-thumb {
-            background-color: rgba(255, 255, 255, 0.3) !important;
+            /* Делаем её сразу достаточно яркой */
+            background-color: rgba(255, 255, 255, 0.4) !important;
             border-radius: 20px !important;
             
-            /* Сдвигаем ползунок влево на 6px, чтобы он не прилипал к краю окна 
-               и за него можно было легко схватиться мышкой */
-            border-right: 6px solid transparent !important; 
-            border-left: 4px solid transparent !important; 
+            /* 🔥 ОТОДВИГАЕМ от правого края окна на 10px (чтобы не уходила за рамки) */
+            border-right: 10px solid transparent !important; 
+            
+            /* Отступ слева. Итоговая толщина: 24 - 10 - 6 = 8px (Жирная, удобная линия) */
+            border-left: 6px solid transparent !important; 
+            
             background-clip: padding-box !important;
         }
 
-        /* ПОЛЗУНОК (ПРИ НАВЕДЕНИИ) */
+        /* 4. При наведении/захвате делаем еще ярче */
         body.is-browser #content-area::-webkit-scrollbar-thumb:hover,
         body.is-browser #content-area::-webkit-scrollbar-thumb:active {
-            background-color: rgba(255, 255, 255, 0.7) !important;
-            border-right: 6px solid transparent !important;
-            border-left: 4px solid transparent !important;
+            background-color: rgba(255, 255, 255, 0.8) !important;
+            border-right: 10px solid transparent !important;
+            border-left: 6px solid transparent !important;
             background-clip: padding-box !important;
         }
         
