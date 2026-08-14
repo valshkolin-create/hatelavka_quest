@@ -844,11 +844,11 @@ html body nav.floating-bottom-bar .comic-badge {
         }
 
         /* 2. ТРЕК (Путь, по которому ездит ползунок) */
+        /* 2. ТРЕК (Путь, по которому ездит ползунок) */
         #content-area::-webkit-scrollbar-track {
             background: transparent;
-            /* 🔥 МАГИЯ ЗДЕСЬ: Опускаем начало скроллбара ровно под шапку 🔥 */
-            margin-top: calc(var(--safe-top-gap) + 175px); 
-            /* Поднимаем конец скроллбара, чтобы не залезал на нижнее меню */
+            /* 🔥 Уменьшили отступ: теперь ползунок стартует ровно от нижней границы стекла 🔥 */
+            margin-top: calc(var(--safe-top-gap) + 125px); 
             margin-bottom: 90px; 
         }
 
