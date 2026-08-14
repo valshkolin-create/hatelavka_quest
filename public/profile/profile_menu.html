@@ -1657,7 +1657,7 @@ window.clearAllRewards = function() {
             };
         }
 
-        // --- УТИЛИТА ДЛЯ API С ПОДДЕРЖКОЙ ЗАЩИТ ---
+// --- УТИЛИТА ДЛЯ API С ПОДДЕРЖКОЙ ЗАЩИТ ---
         async function apiRequest(endpoint, method = 'POST', body = null, isSilent = false) {
             if (!isSilent) document.getElementById('global-loader').classList.add('active');
             let url = endpoint;
@@ -1677,6 +1677,14 @@ window.clearAllRewards = function() {
                 const data = await res.json();
                 
                 if (!res.ok) {
+                    // 🔥 НОВОЕ: ПЕРЕХВАТ ЛИМИТОВ ПО ТРАСТУ
+                    if (data.detail && typeof data.detail === 'object' && data.detail.error_code === "WEEKLY_TRUST_LIMIT") {
+                        if(typeof window.showTrustLockModal === 'function') {
+                            window.showTrustLockModal(data.detail.trust_level, data.detail.limit, data.detail.unlock_time);
+                        }
+                        throw new Error("Trust Lock");
+                    }
+
                     if (data.detail && typeof data.detail === 'object' && data.detail.error_code === "ACTIVITY_LOCK") {
                         if(typeof window.showActivityWallModal === 'function') {
                             window.showActivityWallModal(data.detail.current_msgs, data.detail.required_msgs);
@@ -1709,7 +1717,8 @@ window.clearAllRewards = function() {
                 }
                 return data;
             } catch (e) {
-                if (e.message !== 'Security Block' && e.message !== 'USER_BANNED' && e.message !== 'Activity Lock' && !isSilent) {
+                // 🔥 НОВОЕ: Исключаем 'Trust Lock' из показа дефолтного customAlert
+                if (e.message !== 'Security Block' && e.message !== 'USER_BANNED' && e.message !== 'Activity Lock' && e.message !== 'Trust Lock' && !isSilent) {
                     customAlert(`Ошибка: ${e.message}`);
                 }
                 throw e;
@@ -1718,8 +1727,8 @@ window.clearAllRewards = function() {
             }
         }
 
-// ==========================================
-        // ОКНО АКТИВНОСТИ (1в1 из menu.js с фактами)
+        // ==========================================
+        // 🔥 ОКНО АКТИВНОСТИ (ACTIVITY LOCK) 🔥
         // ==========================================
         window.hasShownActivityWall = false;
 
@@ -1832,6 +1841,95 @@ window.clearAllRewards = function() {
                     overlay.remove();
                     if (typeof unlockAppScroll === 'function') unlockAppScroll();
                     window.hasShownActivityWall = false; 
+                }, 300);
+            };
+        };
+
+        // ==========================================
+        // 🔥 ОКНО ЛИМИТА ПО ТРАСТУ (TRUST LOCK) 🔥
+        // ==========================================
+        window.hasShownTrustLock = false;
+
+        window.showTrustLockModal = function(trustLevel, limit, unlockTimeISO) {
+            if (window.hasShownTrustLock || document.getElementById('trust-lock-modal')) return;
+            window.hasShownTrustLock = true;
+
+            if (typeof lockAppScroll === 'function') lockAppScroll(); 
+            
+            // Прячем лоадер, чтобы не перекрывал окно
+            const glLoader = document.getElementById('global-loader');
+            if (glLoader) glLoader.classList.remove('active');
+
+            const overlay = document.createElement('div');
+            overlay.id = 'trust-lock-modal';
+            overlay.style.cssText = "position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.85); z-index: 2147483647; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px); opacity: 0; transition: opacity 0.3s;";
+
+            // Парсим дату отката, чтобы вывести локальное время
+            const unlockDate = new Date(unlockTimeISO);
+            const dateStr = unlockDate.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+            const timeStr = unlockDate.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+
+            // Цвета и названия статусов
+            let trustColor = '#8e8e93';
+            let trustName = 'Серый (Стандарт)';
+            if (trustLevel === 'red') { 
+                trustColor = '#ff3b30'; 
+                trustName = 'Красный (Штрафник)'; 
+            } else if (trustLevel === 'green') { 
+                trustColor = '#34c759'; 
+                trustName = 'Зеленый (Траст+)'; 
+            }
+
+            overlay.innerHTML = `
+                <div class="custom-confirm-box" style="padding: 24px 20px; width: 90%; max-width: 350px; background: #1c1c1e; border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.1); text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.8);">
+                    
+                    <i class="fa-solid fa-hourglass-half" style="font-size:44px; color:#ff9f0a; margin-bottom:15px; filter: drop-shadow(0 0 15px rgba(255, 159, 10, 0.4));"></i>
+                    <h3 style="color: #fff; font-size: 18px; margin-bottom: 10px; font-weight: 900; text-transform: uppercase;">Лимит вывода</h3>
+                    
+                    <div style="font-size: 13px; color: #bbb; line-height: 1.5; text-align: center; margin-bottom: 20px;">
+                        В данный момент бюджет лавки ограничен, поэтому включились динамические лимиты. Вы уже забрали максимум на эту неделю.
+                    </div>
+
+                    <div style="background: rgba(0,0,0,0.4); padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 15px; text-align: left;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 12px; font-weight: 800;">
+                            <span style="color: var(--text-color-muted);">Ваш Траст-фактор:</span>
+                            <span style="color: ${trustColor};">${trustName}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 12px; font-weight: 800;">
+                            <span style="color: var(--text-color-muted);">Лимит в неделю:</span>
+                            <span style="color: #fff;">${limit} шт.</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 800;">
+                            <span style="color: var(--text-color-muted);">Слот освободится:</span>
+                            <span style="color: #ff9f0a;">${dateStr} в ${timeStr}</span>
+                        </div>
+                    </div>
+
+                    <div style="font-size: 11px; color: rgba(255,255,255,0.4); margin-bottom: 20px; line-height: 1.4; text-align: left; background: rgba(255, 255, 255, 0.03); padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                        <span style="color: #ff9f0a; font-weight: 800;">💡 Подсказка:</span> Лимиты отключаются автоматически для всех, когда касса MAX превышает 2000₽.
+                    </div>
+
+                    <button id="close-trust-wall-btn" style="width: 100%; padding: 14px; background: rgba(255,255,255,0.1); color: #fff; border: 1px solid var(--glass-border); border-radius: 12px; font-weight: 800; text-transform: uppercase; cursor: pointer; transition: background 0.2s;">Понятно</button>
+                </div>
+            `;
+
+            document.body.appendChild(overlay);
+            requestAnimationFrame(() => overlay.style.opacity = '1');
+
+            if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('warning');
+
+            const closeBtn = overlay.querySelector('#close-trust-wall-btn');
+            closeBtn.onmouseover = () => closeBtn.style.background = 'rgba(255,255,255,0.15)';
+            closeBtn.onmouseout = () => closeBtn.style.background = 'rgba(255,255,255,0.1)';
+
+            closeBtn.onclick = function(e) {
+                e.preventDefault();
+                e.stopPropagation(); 
+                overlay.style.opacity = '0';
+                setTimeout(() => {
+                    overlay.remove();
+                    if (typeof unlockAppScroll === 'function') unlockAppScroll();
+                    window.hasShownTrustLock = false; 
                 }, 300);
             };
         };
