@@ -963,31 +963,28 @@ body.is-android .system-top-banner {
 }
 
 /* ========================================== */
-/* 🔥 СКРОЛЛБАР КАК НА СКРИНШОТЕ 🔥            */
-/* ========================================== */
+        /* 🔥 СКРОЛЛБАР КАК НА СКРИНШОТЕ 🔥            */
+        /* ========================================== */
+        
+        body.is-browser #content-area::-webkit-scrollbar {
+            width: 10px !important; /* Уменьшили общую зону захвата */
+            background: transparent !important;
+        }
 
-body.is-browser #content-area::-webkit-scrollbar {
-    width: 8px !important; /* <--- Сделали поуже (было 14px) */
-    background: transparent !important;
-}
-
-body.is-browser #content-area::-webkit-scrollbar-track {
-    /* Добавляем легкую, едва заметную подложку (как на скрине) */
-    background: rgba(255, 255, 255, 0.03) !important;
-    border-radius: 10px !important;
-    /* <--- ВОТ ФИКС: Возвращаем динамический отступ от шапки (было 5px) */
-    margin-top: calc(var(--safe-top-gap) + 125px) !important; 
-    margin-bottom: 95px !important;
-}
+        body.is-browser #content-area::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.03) !important; 
+            border-radius: 10px !important;
+            /* Фикс: отступ от шапки остался правильным */
+            margin-top: calc(var(--safe-top-gap) + 125px) !important; 
+            margin-bottom: 95px !important; 
+        }
 
         body.is-browser #content-area::-webkit-scrollbar-thumb {
-            /* Симпатичный серый цвет ползунка */
             background-color: rgba(255, 255, 255, 0.25) !important;
             border-radius: 10px !important;
             
-            /* Равномерные прозрачные рамки со всех сторон создают эффект 
-               парящего толстого ползунка, который ни за что не цепляется */
-            border: 3px solid transparent !important; 
+            /* Пропорционально уменьшили невидимую рамку, чтобы ползунок был видимым и кликабельным */
+            border: 2px solid transparent !important; 
             background-clip: padding-box !important;
         }
 
