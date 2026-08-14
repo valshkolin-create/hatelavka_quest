@@ -966,43 +966,40 @@ body.is-android .system-top-banner {
         /* 🔥 ИДЕАЛЬНЫЙ СКРОЛЛ ДЛЯ TELEGRAM WEB 🔥    */
         /* ========================================== */
 
-        /* 1. Сдвигаем сам контейнер ровно ПОД шапку, на уровень сортировки */
-        body.is-browser #content-area {
-            position: absolute !important;
-            /* Начинаем контейнер там, где заканчивается стекло шапки */
-            top: calc(var(--safe-top-gap) + 160px) !important;
-            /* Высота экрана минус высота шапки, чтобы не было двойного скролла */
-            height: calc(100vh - (var(--safe-top-gap) + 160px)) !important;
-            padding-top: 15px !important; 
-            padding-bottom: 120px !important;
-            /* Принудительно включаем видимость скроллбара при загрузке страницы! */
-            overflow-y: scroll !important; 
-        }
-
-        /* 2. Делаем зону захвата огромной (28px), чтобы легко было попасть мышкой */
+        /* 1. Делаем общую невидимую зону ЕЩЕ шире (32px) */
         body.is-browser #content-area::-webkit-scrollbar {
-            width: 28px !important;
+            width: 32px !important;
             background: transparent !important;
         }
 
-        /* 3. Трек начинается с самого верха контейнера (а контейнер теперь под шапкой) */
+        /* 2. Трек оставляем как есть */
         body.is-browser #content-area::-webkit-scrollbar-track {
             background: transparent !important;
-            margin-top: 0 !important; /* Больше никаких хаков с отступами! */
-            margin-bottom: 95px !important; /* Упирается над нижним меню */
+            margin-top: 0 !important; 
+            margin-bottom: 95px !important; 
         }
 
-        /* 4. Ползунок в 1.5 раза жирнее (видимая толщина 12px) */
+        /* 3. ДЕЛАЕМ ЛИНИЮ МАКСИМАЛЬНО ЖИРНОЙ */
         body.is-browser #content-area::-webkit-scrollbar-thumb {
-            background-color: rgba(255, 255, 255, 0.4) !important;
+            background-color: rgba(255, 255, 255, 0.5) !important; /* Чуть добавил непрозрачности, чтобы массивнее смотрелось */
             border-radius: 20px !important;
             
-            /* Отодвигаем от самого правого края браузера на 10px, чтобы не цеплять рамку окна */
+            /* Правый отступ оставляем 10px, чтобы не конфликтовать с рамкой окна */
             border-right: 10px solid transparent !important; 
             
-            /* Отступ слева 6px. (28px - 10px - 6px = 12px чистой видимой белой линии) */
-            border-left: 6px solid transparent !important; 
+            /* Левый отступ делаем 4px. 
+               ИТОГОВАЯ ТОЛЩИНА: 32px (общая) - 10px (справа) - 4px (слева) = 18px чистой белой линии! */
+            border-left: 4px solid transparent !important; 
             
+            background-clip: padding-box !important;
+        }
+
+        /* 4. При наведении делаем ярче */
+        body.is-browser #content-area::-webkit-scrollbar-thumb:hover,
+        body.is-browser #content-area::-webkit-scrollbar-thumb:active {
+            background-color: rgba(255, 255, 255, 0.9) !important;
+            border-right: 10px solid transparent !important;
+            border-left: 4px solid transparent !important;
             background-clip: padding-box !important;
         }
 
