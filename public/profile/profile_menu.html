@@ -963,21 +963,22 @@ body.is-android .system-top-banner {
 }
 
 /* ========================================== */
-        /* 🔥 СКРОЛЛБАР КАК НА СКРИНШОТЕ 🔥           */
-        /* ========================================== */
-        
-        body.is-browser #content-area::-webkit-scrollbar {
-            width: 14px !important; /* Классическая удобная ширина */
-            background: transparent !important;
-        }
+/* 🔥 СКРОЛЛБАР КАК НА СКРИНШОТЕ 🔥            */
+/* ========================================== */
 
-        body.is-browser #content-area::-webkit-scrollbar-track {
-            /* Добавляем легкую, едва заметную подложку (как на скрине) */
-            background: rgba(255, 255, 255, 0.03) !important; 
-            border-radius: 10px !important;
-            margin-top: 5px !important; 
-            margin-bottom: 95px !important; 
-        }
+body.is-browser #content-area::-webkit-scrollbar {
+    width: 8px !important; /* <--- Сделали поуже (было 14px) */
+    background: transparent !important;
+}
+
+body.is-browser #content-area::-webkit-scrollbar-track {
+    /* Добавляем легкую, едва заметную подложку (как на скрине) */
+    background: rgba(255, 255, 255, 0.03) !important;
+    border-radius: 10px !important;
+    /* <--- ВОТ ФИКС: Возвращаем динамический отступ от шапки (было 5px) */
+    margin-top: calc(var(--safe-top-gap) + 125px) !important; 
+    margin-bottom: 95px !important;
+}
 
         body.is-browser #content-area::-webkit-scrollbar-thumb {
             /* Симпатичный серый цвет ползунка */
@@ -1011,6 +1012,11 @@ body.is-android .system-top-banner {
                 /* Принудительно рисуем скроллбар сразу при загрузке */
                 overflow-y: scroll !important; 
             }
+
+            /* На ПК контейнер и так съехал вниз, поэтому скроллбару возвращаем дефолтный отступ */
+    body.is-browser #content-area::-webkit-scrollbar-track {
+        margin-top: 5px !important;
+    }
 
             /* 2. Умная сетка инвентаря (ПЕРЕБИВАЕТ JS) */
             #inventory-list-container {
