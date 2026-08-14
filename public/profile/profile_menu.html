@@ -963,44 +963,50 @@ body.is-android .system-top-banner {
 }
 
 /* ========================================== */
-        /* 🔥 ЖИРНЫЙ И МГНОВЕННЫЙ СКРОЛЛ ДЛЯ WEB 🔥    */
+        /* 🔥 ИДЕАЛЬНЫЙ СКРОЛЛ ДЛЯ TELEGRAM WEB 🔥    */
         /* ========================================== */
 
-        /* ПРИНУДИТЕЛЬНО показываем скроллбар сразу при открытии окна */
+        /* 1. Сдвигаем сам контейнер ровно ПОД шапку, на уровень сортировки */
         body.is-browser #content-area {
+            position: absolute !important;
+            /* Начинаем контейнер там, где заканчивается стекло шапки */
+            top: calc(var(--safe-top-gap) + 160px) !important;
+            /* Высота экрана минус высота шапки, чтобы не было двойного скролла */
+            height: calc(100vh - (var(--safe-top-gap) + 160px)) !important;
+            padding-top: 15px !important; 
+            padding-bottom: 120px !important;
+            /* Принудительно включаем видимость скроллбара при загрузке страницы! */
             overflow-y: scroll !important; 
         }
 
-        /* 1. Делаем невидимую зону огромной (24px), чтобы по ней было легко кликнуть */
+        /* 2. Делаем зону захвата огромной (28px), чтобы легко было попасть мышкой */
         body.is-browser #content-area::-webkit-scrollbar {
-            width: 24px !important;
+            width: 28px !important;
             background: transparent !important;
         }
 
-        /* 2. Настраиваем путь (трек) */
+        /* 3. Трек начинается с самого верха контейнера (а контейнер теперь под шапкой) */
         body.is-browser #content-area::-webkit-scrollbar-track {
             background: transparent !important;
-            /* Ставь тут отступ, который идеально встал под твою шапку (165px или 175px) */
-            margin-top: calc(var(--safe-top-gap) + 175px) !important; 
-            margin-bottom: 95px !important; 
+            margin-top: 0 !important; /* Больше никаких хаков с отступами! */
+            margin-bottom: 95px !important; /* Упирается над нижним меню */
         }
 
-        /* 3. Делаем линию жирнее и двигаем левее */
+        /* 4. Ползунок в 1.5 раза жирнее (видимая толщина 12px) */
         body.is-browser #content-area::-webkit-scrollbar-thumb {
-            /* Делаем её сразу достаточно яркой */
             background-color: rgba(255, 255, 255, 0.4) !important;
             border-radius: 20px !important;
             
-            /* 🔥 ОТОДВИГАЕМ от правого края окна на 10px (чтобы не уходила за рамки) */
+            /* Отодвигаем от самого правого края браузера на 10px, чтобы не цеплять рамку окна */
             border-right: 10px solid transparent !important; 
             
-            /* Отступ слева. Итоговая толщина: 24 - 10 - 6 = 8px (Жирная, удобная линия) */
+            /* Отступ слева 6px. (28px - 10px - 6px = 12px чистой видимой белой линии) */
             border-left: 6px solid transparent !important; 
             
             background-clip: padding-box !important;
         }
 
-        /* 4. При наведении/захвате делаем еще ярче */
+        /* 5. Подсветка при захвате ползунка */
         body.is-browser #content-area::-webkit-scrollbar-thumb:hover,
         body.is-browser #content-area::-webkit-scrollbar-thumb:active {
             background-color: rgba(255, 255, 255, 0.8) !important;
