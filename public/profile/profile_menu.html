@@ -967,23 +967,24 @@ body.is-android .system-top-banner {
         /* ========================================== */
         
         body.is-browser #content-area::-webkit-scrollbar {
-            width: 10px !important; /* Уменьшили общую зону захвата */
+            width: 10px !important; 
             background: transparent !important;
         }
 
         body.is-browser #content-area::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.03) !important; 
+            background-color: rgba(255, 255, 255, 0.03) !important; 
             border-radius: 10px !important;
-            /* Фикс: отступ от шапки остался правильным */
-            margin-top: calc(var(--safe-top-gap) + 125px) !important; 
-            margin-bottom: 95px !important; 
+            
+            /* 🔥 ФИКС ДЛЯ ВСЕХ БРАУЗЕРОВ (Safari/iOS) 🔥 */
+            /* Вместо margin используем толстый прозрачный border */
+            border-top: calc(var(--safe-top-gap) + 125px) solid transparent !important;
+            border-bottom: 95px solid transparent !important;
+            background-clip: padding-box !important; /* Чтобы фон не залезал под прозрачную рамку */
         }
 
         body.is-browser #content-area::-webkit-scrollbar-thumb {
             background-color: rgba(255, 255, 255, 0.25) !important;
             border-radius: 10px !important;
-            
-            /* Пропорционально уменьшили невидимую рамку, чтобы ползунок был видимым и кликабельным */
             border: 2px solid transparent !important; 
             background-clip: padding-box !important;
         }
@@ -1011,9 +1012,9 @@ body.is-android .system-top-banner {
             }
 
             /* На ПК контейнер и так съехал вниз, поэтому скроллбару возвращаем дефолтный отступ */
-    body.is-browser #content-area::-webkit-scrollbar-track {
-        margin-top: 5px !important;
-    }
+        body.is-browser #content-area::-webkit-scrollbar-track {
+            border-top: 5px solid transparent !important;
+        }
 
             /* 2. Умная сетка инвентаря (ПЕРЕБИВАЕТ JS) */
             #inventory-list-container {
