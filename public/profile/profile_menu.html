@@ -2026,35 +2026,35 @@ window.clearAllRewards = function() {
             }
 
             overlay.innerHTML = `
-                <div class="custom-confirm-box" style="padding: 24px 20px; width: 90%; max-width: 350px; background: #1c1c1e; border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.1); text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.8);">
+                <div class="custom-confirm-box" style="padding: 24px 20px; width: 90%; max-width: 350px; background: transparent; text-align: center;">
                     
-                    <i class="fa-solid fa-hourglass-half" style="font-size:44px; color:#ff9f0a; margin-bottom:15px; filter: drop-shadow(0 0 15px rgba(255, 159, 10, 0.4));"></i>
-                    <h3 style="color: #fff; font-size: 18px; margin-bottom: 10px; font-weight: 900; text-transform: uppercase;">Лимит вывода</h3>
+                    <i class="fa-solid fa-hourglass-half" style="font-size:44px; color:#ff9f0a; margin-bottom:15px; filter: drop-shadow(0 0 15px rgba(255, 159, 10, 0.6));"></i>
+                    <h3 style="color: #fff; font-size: 18px; margin-bottom: 10px; font-weight: 900; text-transform: uppercase; text-shadow: 0 2px 10px rgba(0,0,0,0.5);">Лимит вывода</h3>
                     
-                    <div style="font-size: 13px; color: #bbb; line-height: 1.5; text-align: center; margin-bottom: 20px;">
+                    <div style="font-size: 13px; color: #fff; line-height: 1.5; text-align: center; margin-bottom: 20px; text-shadow: 0 1px 5px rgba(0,0,0,0.8);">
                         В данный момент бюджет лавки ограничен, поэтому включились динамические лимиты. Вы уже забрали максимум на эту неделю.
                     </div>
 
-                    <div style="background: rgba(0,0,0,0.4); padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 15px; text-align: left;">
+                    <div style="background: transparent; margin-bottom: 15px; text-align: left;">
                         <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 12px; font-weight: 800;">
-                            <span style="color: var(--text-color-muted);">Ваш Траст-фактор:</span>
-                            <span style="color: ${trustColor};">${trustName}</span>
+                            <span style="color: #fff; text-shadow: 0 1px 5px rgba(0,0,0,0.8);">Ваш Траст-фактор:</span>
+                            <span style="color: ${trustColor}; text-shadow: 0 1px 5px rgba(0,0,0,0.8);">${trustName}</span>
                         </div>
                         <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 12px; font-weight: 800;">
-                            <span style="color: var(--text-color-muted);">Лимит в неделю:</span>
-                            <span style="color: #fff;">${limit} шт.</span>
+                            <span style="color: #fff; text-shadow: 0 1px 5px rgba(0,0,0,0.8);">Лимит в неделю:</span>
+                            <span style="color: #fff; text-shadow: 0 1px 5px rgba(0,0,0,0.8);">${limit} шт.</span>
                         </div>
                         <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 800;">
-                            <span style="color: var(--text-color-muted);">Вновь можно будет забрать:</span>
-                            <span style="color: #ff9f0a;">${dateStr} в ${timeStr}</span>
+                            <span style="color: #fff; text-shadow: 0 1px 5px rgba(0,0,0,0.8);">Вновь можно будет забрать:</span>
+                            <span style="color: #ff9f0a; text-shadow: 0 1px 5px rgba(0,0,0,0.8);">${dateStr} в ${timeStr}</span>
                         </div>
                     </div>
 
-                    <div style="font-size: 11px; color: rgba(255,255,255,0.4); margin-bottom: 20px; line-height: 1.4; text-align: left; background: rgba(255, 255, 255, 0.03); padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                    <div style="font-size: 11px; color: #fff; margin-bottom: 20px; line-height: 1.4; text-align: center; text-shadow: 0 1px 5px rgba(0,0,0,0.8);">
                         <span style="color: #ff9f0a; font-weight: 800;">Важно!</span> Лимиты отключаются автоматически для всех, когда баланс лавки превышает 2000₽.
                     </div>
 
-                    <button id="close-trust-wall-btn" style="width: 100%; padding: 14px; background: rgba(255,255,255,0.1); color: #fff; border: 1px solid var(--glass-border); border-radius: 12px; font-weight: 800; text-transform: uppercase; cursor: pointer; transition: background 0.2s;">Понятно</button>
+                    <button id="close-trust-wall-btn" style="width: 100%; padding: 14px; background: rgba(255, 159, 10, 0.1); color: #ff9f0a; border: 1px solid #ff9f0a; border-radius: 12px; font-weight: 900; text-transform: uppercase; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 0 15px rgba(255, 159, 10, 0.4), inset 0 0 10px rgba(255, 159, 10, 0.2); text-shadow: 0 0 5px rgba(255, 159, 10, 0.8);">Понятно</button>
                 </div>
             `;
 
@@ -2064,8 +2064,14 @@ window.clearAllRewards = function() {
             if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('warning');
 
             const closeBtn = overlay.querySelector('#close-trust-wall-btn');
-            closeBtn.onmouseover = () => closeBtn.style.background = 'rgba(255,255,255,0.15)';
-            closeBtn.onmouseout = () => closeBtn.style.background = 'rgba(255,255,255,0.1)';
+            closeBtn.onmouseover = () => {
+                closeBtn.style.background = 'rgba(255, 159, 10, 0.25)';
+                closeBtn.style.boxShadow = '0 0 20px rgba(255, 159, 10, 0.6), inset 0 0 15px rgba(255, 159, 10, 0.3)';
+            };
+            closeBtn.onmouseout = () => {
+                closeBtn.style.background = 'rgba(255, 159, 10, 0.1)';
+                closeBtn.style.boxShadow = '0 0 15px rgba(255, 159, 10, 0.4), inset 0 0 10px rgba(255, 159, 10, 0.2)';
+            };
 
             closeBtn.onclick = function(e) {
                 e.preventDefault();
@@ -4122,7 +4128,7 @@ window.closeFullscreenCard = function() {
                     document.getElementById('global-loader').classList.remove('active');
                     hideWithdrawLoader();
 
-                    if (e.message !== 'Activity Lock') customAlert("Ошибка: " + e.message);
+                    if (e.message !== 'Activity Lock' && e.message !== 'Trust Lock') customAlert("Ошибка: " + e.message);
                 } finally {
                     // Сброс состояния после завершения анимаций
                     setTimeout(() => {
