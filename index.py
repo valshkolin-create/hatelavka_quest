@@ -190,6 +190,9 @@ async def verify_activity_lock(user_record: dict, supabase: httpx.AsyncClient):
                 "market_balance": market_balance 
             }
         )
+
+    # ВОТ ЭТО ВАЖНО - ВОЗВРАЩАЕМ БАЛАНС ДЛЯ МАРШРУТА
+    return market_balance
         
 # =========================================================================
 # 🛠️ ГЛОБАЛЬНЫЕ УТИЛИТЫ ДЛЯ БАЛАНСА И ПРОМОКОДОВ (BOT-T)
@@ -21930,7 +21933,7 @@ async def buy_bott_item_proxy(
         raise HTTPException(status_code=403, detail="Ваш аккаунт заблокирован за нарушение правил.")
 
     # 👇 ВСТАВИТЬ ВОТ СЮДА (Жесткая проверка актива на всё, включая купоны) 👇
-    await verify_activity_lock(user_record, supabase)
+    market_balance = await verify_activity_lock(user_record, supabase)
     # 👆 КОНЕЦ ВСТАВКИ 👆
 
     trade_link = user_record.get("trade_link")
@@ -22292,6 +22295,54 @@ async def buy_bott_item_proxy(
 
         base_case_price = float(price) / 2.0 if currency == 'tickets' else float(price)
         target_value = base_case_price * 0.70 if currency == 'tickets' else base_case_price * 0.66
+
+        # =========================================================================
+        # 🔥🔥🔥 ДИНАМИЧЕСКАЯ ЗАЩИТА ЭКОНОМИКИ (НЕВИДИМАЯ ДЛЯ ЮЗЕРА) 🔥🔥🔥
+        # =========================================================================
+        is_admin_user = user_record.get("is_admin", False)
+        
+        if market_balance <= 2000 and not is_admin_user:
+            new_weights = []
+            
+            for skin, w in zip(all_items, weights):
+                skin_price = float(skin.get('price_rub', 0))
+                adjusted_weight = w
+                
+                # Считаем окуп: если кейс 5, а скин 7.5, то profit_ratio = 1.5
+                profit_ratio = skin_price / base_case_price if base_case_price > 0 else 1
+                
+                if market_balance <= 1000:
+                    # === КРИТИЧЕСКИЙ БАЛАНС (< 1000) ===
+                    if profit_ratio > 1.8:
+                        adjusted_weight = w * 0.0001  # Полностью отрезаем жирный окуп
+                    elif profit_ratio > 1.2:
+                        adjusted_weight = w * 0.1     # Шанс на окуп выше 20% режем в 10 раз
+                    elif profit_ratio > 1.0:
+                        adjusted_weight = w * 0.5     # Мелкий окуп (копейки) режем в 2 раза
+                    else:
+                        adjusted_weight = w * 2.0     # Мусор падает в 2 раза чаще
+                        
+                    # Спасаем гарант юзера: 
+                    # Если у него 5/5, мы не даем ему мусор в счет гаранта, а просто замораживаем счетчик
+                    current_lacky = 0
+                    db_lacky = last_lacky
+                    
+                else:
+                    # === ПРЕДКРИТИЧЕСКИЙ БАЛАНС (1001 - 2000) (на ~50% мягче) ===
+                    if profit_ratio > 2.5:
+                        adjusted_weight = w * 0.1     # Жирный окуп режем сильно
+                    elif profit_ratio > 1.5:
+                        adjusted_weight = w * 0.5     # Средний окуп режем в 2 раза
+                    elif profit_ratio > 1.0:
+                        adjusted_weight = w * 0.8     # Мелкий окуп режем совсем чуть-чуть
+                    else:
+                        adjusted_weight = w * 1.2     # Шанс на мусор слегка повышен
+
+                new_weights.append(adjusted_weight)
+                
+            # Подменяем веса для рулетки
+            weights = new_weights
+        # =========================================================================
         
         final_items = []
         final_weights = []
