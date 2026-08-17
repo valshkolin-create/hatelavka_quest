@@ -138,7 +138,7 @@ async def verify_activity_lock(user_record: dict, supabase: httpx.AsyncClient):
                 # Если у юзера 2 или больше трейдов висят в ожидании принятия
                 if len(transit_data) >= 2:
                     raise HTTPException(
-                        status_code=403, 
+                        status_code=400, 
                         detail="⏳ У вас уже есть 2 предмета в процессе отправки! Пожалуйста, примите текущие трейды в Steam (или дождитесь ошибки), прежде чем покупать новые."
                     )
         except HTTPException:
