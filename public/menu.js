@@ -390,7 +390,17 @@ function getPlatformType() {
             }
             // 👇 ЛОВИМ ЛИМИТ ВЫВОДА (TRUST LOCK) 👇
             if (result.detail && typeof result.detail === 'object' && result.detail.error_code === "WEEKLY_TRUST_LIMIT") {
-                window.customAlert("Вы уже забрали максимальное количество скинов на этой неделе! Ваш выбитый скин в безопасности и дожидается вас во вкладке «Профиль».", "Понятно");
+                window.customAlert(
+                    "<span style='color: #ff3b30; font-size: 16px; font-weight: 900; text-transform: uppercase;'>Лимит выводов достигнут!</span><br><br>" +
+                    "<span style='color: #fff; font-size: 15px; font-weight: 800;'>Не переживайте, скин вы не потеряете! 🎁</span><br><br>" +
+                    "<span style='color: #e5e5ea; font-size: 13px; line-height: 1.4; font-weight: 500; display: inline-block; margin-bottom: 12px;'>" +
+                    "Он надежно сохранен. Вы можете нажать «Назад» и прямо сейчас <b style='color: #ffd700;'>продать его за билеты</b>, либо оставить в инвентаре до снятия лимита." +
+                    "</span><br>" +
+                    "<div style='background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); padding: 10px; border-radius: 10px; color: #ccc; font-size: 11px; line-height: 1.4; text-align: left;'>" +
+                    "<i class='fa-solid fa-circle-info' style='color: #2AABEE; margin-right: 4px;'></i> Чтобы открыть инвентарь, нажмите на свою <b>Аватарку</b> или кнопку меню ( <i class='fa-solid fa-bars'></i> ) на главном экране." +
+                    "</div>",
+                    "ВСЁ ПОНЯТНО"
+                );
                 throw new Error("Trust Lock");
             }
             // 👆 КОНЕЦ ВСТАВКИ 👆
