@@ -28907,15 +28907,6 @@ async def sell_all_inventory_items(
     user_id = user_data['id']
     await verify_user_not_banned(user_id, supabase)
 
-    # 👇 ВСТАВИТЬ ВОТ СЮДА 👇
-    user_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}"})
-    u_list = user_res.json()
-    if not u_list or not isinstance(u_list, list) or len(u_list) == 0:
-        raise HTTPException(status_code=400, detail="User error")
-    
-    await verify_activity_lock(u_list[0], supabase)
-    # 👆 КОНЕЦ ВСТАВКИ 👆
-
     # 1. Получаем ТОЛЬКО предметы пользователя, доступные для продажи 
     # (ДООБАВЛЕНО: updated_at, created_at, source для проверки на сгорание)
     check_resp = await supabase.get(
@@ -29032,15 +29023,7 @@ async def sell_inventory_item(
     # 🔥 ЖЕЛЕЗНЫЙ ЩИТ: Рубим забаненных
     await verify_user_not_banned(user_id, supabase)
 
-    # 👇 ВСТАВИТЬ ВОТ СЮДА 👇
-    user_res = await supabase.get("/users", params={"telegram_id": f"eq.{user_id}"})
-    u_list = user_res.json()
-    if not u_list or not isinstance(u_list, list) or len(u_list) == 0:
-        raise HTTPException(status_code=400, detail="User error")
-    
-    await verify_activity_lock(u_list[0], supabase)
-    # 👆 КОНЕЦ ВСТАВКИ 👆
-    
+   
     print(f"[SELL] Запрос обмена: User={user_id}, HistoryID={req.history_id}")
 
     # 1. Получаем текущие данные (ДООБАВЛЕНО: updated_at, created_at, source)
