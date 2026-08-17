@@ -2025,10 +2025,20 @@ window.clearAllRewards = function() {
                 trustName = 'Зеленый (Траст+)'; 
             }
 
+            // 🔥 Динамический цвет из ачивки (по умолчанию оранжевый)
+            const themeHex = (typeof currentUserData !== 'undefined' && currentUserData && currentUserData.equipped_glow) ? currentUserData.equipped_glow : '#ff9f0a';
+            const hex2rgba = (hex, alpha) => {
+                let r = 0, g = 0, b = 0;
+                let h = hex.replace('#', '');
+                if (h.length === 3) { r = parseInt(h[0]+h[0], 16); g = parseInt(h[1]+h[1], 16); b = parseInt(h[2]+h[2], 16); }
+                else if (h.length === 6) { r = parseInt(h.substring(0,2), 16); g = parseInt(h.substring(2,4), 16); b = parseInt(h.substring(4,6), 16); }
+                return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+            };
+
             overlay.innerHTML = `
                 <div class="custom-confirm-box" style="padding: 24px 20px; width: 90%; max-width: 350px; background: transparent; text-align: center;">
                     
-                    <i class="fa-solid fa-hourglass-half" style="font-size:44px; color:#ff9f0a; margin-bottom:15px; filter: drop-shadow(0 0 15px rgba(255, 159, 10, 0.6));"></i>
+                    <i class="fa-solid fa-hourglass-half" style="font-size:44px; color:${themeHex}; margin-bottom:15px; filter: drop-shadow(0 0 15px ${hex2rgba(themeHex, 0.6)});"></i>
                     <h3 style="color: #fff; font-size: 18px; margin-bottom: 10px; font-weight: 900; text-transform: uppercase; text-shadow: 0 2px 10px rgba(0,0,0,0.5);">Лимит вывода</h3>
                     
                     <div style="font-size: 13px; color: #fff; line-height: 1.5; text-align: center; margin-bottom: 20px; text-shadow: 0 1px 5px rgba(0,0,0,0.8);">
@@ -2046,15 +2056,15 @@ window.clearAllRewards = function() {
                         </div>
                         <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 800;">
                             <span style="color: #fff; text-shadow: 0 1px 5px rgba(0,0,0,0.8);">Вновь можно будет забрать:</span>
-                            <span style="color: #ff9f0a; text-shadow: 0 1px 5px rgba(0,0,0,0.8);">${dateStr} в ${timeStr}</span>
+                            <span style="color: ${themeHex}; text-shadow: 0 1px 5px rgba(0,0,0,0.8);">${dateStr} в ${timeStr}</span>
                         </div>
                     </div>
 
                     <div style="font-size: 11px; color: #fff; margin-bottom: 20px; line-height: 1.4; text-align: center; text-shadow: 0 1px 5px rgba(0,0,0,0.8);">
-                        <span style="color: #ff9f0a; font-weight: 800;">Важно!</span> Лимиты отключаются автоматически для всех, когда баланс лавки превышает 2000₽.
+                        <span style="color: ${themeHex}; font-weight: 800;">Важно!</span> Лимиты отключаются автоматически для всех, когда баланс лавки превышает 2000₽.
                     </div>
 
-                    <button id="close-trust-wall-btn" style="width: 100%; padding: 14px; background: rgba(255, 159, 10, 0.1); color: #ff9f0a; border: 1px solid #ff9f0a; border-radius: 12px; font-weight: 900; text-transform: uppercase; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 0 15px rgba(255, 159, 10, 0.4), inset 0 0 10px rgba(255, 159, 10, 0.2); text-shadow: 0 0 5px rgba(255, 159, 10, 0.8);">Понятно</button>
+                    <button id="close-trust-wall-btn" style="width: 100%; padding: 14px; background: ${hex2rgba(themeHex, 0.1)}; color: ${themeHex}; border: 1px solid ${themeHex}; border-radius: 12px; font-weight: 900; text-transform: uppercase; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 0 15px ${hex2rgba(themeHex, 0.4)}, inset 0 0 10px ${hex2rgba(themeHex, 0.2)}; text-shadow: 0 0 5px ${hex2rgba(themeHex, 0.8)};">Понятно</button>
                 </div>
             `;
 
@@ -2065,12 +2075,12 @@ window.clearAllRewards = function() {
 
             const closeBtn = overlay.querySelector('#close-trust-wall-btn');
             closeBtn.onmouseover = () => {
-                closeBtn.style.background = 'rgba(255, 159, 10, 0.25)';
-                closeBtn.style.boxShadow = '0 0 20px rgba(255, 159, 10, 0.6), inset 0 0 15px rgba(255, 159, 10, 0.3)';
+                closeBtn.style.background = hex2rgba(themeHex, 0.25);
+                closeBtn.style.boxShadow = `0 0 20px ${hex2rgba(themeHex, 0.6)}, inset 0 0 15px ${hex2rgba(themeHex, 0.3)}`;
             };
             closeBtn.onmouseout = () => {
-                closeBtn.style.background = 'rgba(255, 159, 10, 0.1)';
-                closeBtn.style.boxShadow = '0 0 15px rgba(255, 159, 10, 0.4), inset 0 0 10px rgba(255, 159, 10, 0.2)';
+                closeBtn.style.background = hex2rgba(themeHex, 0.1);
+                closeBtn.style.boxShadow = `0 0 15px ${hex2rgba(themeHex, 0.4)}, inset 0 0 10px ${hex2rgba(themeHex, 0.2)}`;
             };
 
             closeBtn.onclick = function(e) {
