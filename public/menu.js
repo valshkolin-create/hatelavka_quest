@@ -394,7 +394,7 @@ function getPlatformType() {
                     "<span style='color: #ff3b30; font-size: 16px; font-weight: 900; text-transform: uppercase;'>Лимит выводов достигнут!</span><br><br>" +
                     "<span style='color: #fff; font-size: 15px; font-weight: 800;'>Не переживайте, скин вы не потеряете! 🎁</span><br><br>" +
                     "<span style='color: #e5e5ea; font-size: 13px; line-height: 1.4; font-weight: 500; display: inline-block; margin-bottom: 12px;'>" +
-                    "Он надежно сохранен. Вы можете нажать «Назад» и прямо сейчас <b style='color: #ffd700;'>продать его за билеты</b>, либо оставить в инвентаре до снятия лимита." +
+                    "Он надежно сохранен. Вы можете нажать кнопку <b style='color: #aaa;'>«Закрыть»</b>, чтобы оставить его в инвентаре до снятия лимита, либо прямо сейчас выбрать <b style='color: #ffd700;'>«Продать за билеты»</b>." +
                     "</span><br>" +
                     "<div style='background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); padding: 10px; border-radius: 10px; color: #ccc; font-size: 11px; line-height: 1.4; text-align: left;'>" +
                     "<i class='fa-solid fa-circle-info' style='color: #2AABEE; margin-right: 4px;'></i> Чтобы открыть инвентарь, нажмите на свою <b>Аватарку</b> или кнопку меню ( <i class='fa-solid fa-bars'></i> ) на главном экране." +
