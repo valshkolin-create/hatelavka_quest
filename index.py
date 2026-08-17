@@ -101,12 +101,6 @@ async def verify_activity_lock(user_record: dict, supabase: httpx.AsyncClient):
     is_admin = user_record.get("is_admin", False)
 
     # ==========================================
-    # 🧪 ТЕСТОВЫЙ РЕЖИМ (ПОТОМ УДАЛИТЬ) 🧪
-    is_admin = False             # Принудительно делаем тебя обычным юзером
-    trust_level = "gray"         # Тестируем обычный траст
-    # ==========================================
-
-    # ==========================================
     # 1. Читаем актуальный баланс из нашей базы
     # ==========================================
     market_balance = 5000.0 # Дефолт
@@ -126,6 +120,33 @@ async def verify_activity_lock(user_record: dict, supabase: httpx.AsyncClient):
         logging.error(f"[ACTIVITY LOCK] Ошибка чтения баланса: {e}")
 
     # ==========================================
+    # 🔥 1.5. ЗАЩИТА ОТ СПАМА ТРЕЙДАМИ (МАКСИМУМ 2 В ПРОЦЕССЕ)
+    # ==========================================
+    if not is_admin:
+        try:
+            # Ищем все скины, которые прямо сейчас едут к юзеру
+            transit_res = await supabase.get(
+                "/cs_history",
+                params={
+                    "user_id": f"eq.{telegram_id}",
+                    "status": "in.(market_pending,auto_queued,processing,offer_sent,sent)",
+                    "select": "id"
+                }
+            )
+            if transit_res.status_code == 200:
+                transit_data = transit_res.json()
+                # Если у юзера 2 или больше трейдов висят в ожидании принятия
+                if len(transit_data) >= 2:
+                    raise HTTPException(
+                        status_code=403, 
+                        detail="⏳ У вас уже есть 2 предмета в процессе отправки! Пожалуйста, примите текущие трейды в Steam (или дождитесь ошибки), прежде чем покупать новые."
+                    )
+        except HTTPException:
+            raise
+        except Exception as e:
+            logging.error(f"[ANTI-SPAM] Ошибка проверки активных трейдов: {e}")
+
+    # ==========================================
     # 2. ЛИМИТЫ ВЫВОДА ПО ТРАСТУ (ВКЛЮЧАЮТСЯ ТОЛЬКО ПРИ БАЛАНСЕ < 2000)
     # ==========================================
     if market_balance < 2000 and not is_admin:
@@ -139,7 +160,8 @@ async def verify_activity_lock(user_record: dict, supabase: httpx.AsyncClient):
                     "user_id": f"eq.{telegram_id}",
                     "created_at": f"gte.{seven_days_ago}",
                     "source": "eq.shop", 
-                    "status": "in.(pending,offer_sent,available)", 
+                    # 🔥 ИСПРАВЛЕНА ДЫРА: Теперь учитываем и успешные выводы (received), и те, что в пути!
+                    "status": "in.(pending,available,auto_queued,market_pending,processing,offer_sent,sent,received)", 
                     "select": "created_at",
                     "order": "created_at.asc"
                 }
@@ -197,7 +219,7 @@ async def verify_activity_lock(user_record: dict, supabase: httpx.AsyncClient):
             }
         )
 
-    # ВОТ ЭТО ВАЖНО - ВОЗВРАЩАЕМ БАЛАНС ДЛЯ МАРШРУТА
+    # ВОЗВРАЩАЕМ БАЛАНС ДЛЯ ДИНАМИЧЕСКИХ ШАНСОВ
     return market_balance
         
 # =========================================================================
