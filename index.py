@@ -149,7 +149,8 @@ async def verify_activity_lock(user_record: dict, supabase: httpx.AsyncClient):
     # ==========================================
     # 2. ЛИМИТЫ ВЫВОДА ПО ТРАСТУ (ВКЛЮЧАЮТСЯ ТОЛЬКО ПРИ БАЛАНСЕ < 2000)
     # ==========================================
-    if market_balance < 2000 and not is_admin:
+    # 🔥 УБРАЛИ "and not is_admin". Теперь админ тоже может вывести только 2-4 скина!
+    if market_balance < 2000:
         weekly_limit = 2 if trust_level == "red" else 4
         seven_days_ago = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
         
@@ -160,7 +161,6 @@ async def verify_activity_lock(user_record: dict, supabase: httpx.AsyncClient):
                     "user_id": f"eq.{telegram_id}",
                     "created_at": f"gte.{seven_days_ago}",
                     "source": "eq.shop", 
-                    # 🔥 ИСПРАВЛЕНА ДЫРА: Теперь учитываем и успешные выводы (received), и те, что в пути!
                     "status": "in.(pending,available,auto_queued,market_pending,processing,offer_sent,sent,received)", 
                     "select": "created_at",
                     "order": "created_at.asc"
@@ -29326,7 +29326,7 @@ async def withdraw_inventory_item(
             detail="⏳ Время на вывод вышло! Нажмите «Оспаривать» в инвентаре для связи с поддержкой."
         )
 
-    # ==========================================
+# ==========================================
     # 🕒 ЖЕСТКАЯ БЛОКИРОВКА ПОВТОРНЫХ ВЫВОДОВ
     # ==========================================
     processing_statuses = {"market_pending", "auto_queued", "sent", "offer_sent", "processing"}
@@ -29345,7 +29345,33 @@ async def withdraw_inventory_item(
             status_code=400, 
             detail="Этот предмет нельзя вывести (уже продан или получен)."
         )
-        
+
+    # 👇🔥 НОВЫЙ БЛОК: ЗАЩИТА ОТ СПАМА В ОЧЕРЕДИ (МАКСИМУМ 2 СКИНА В ПУТИ) 🔥👇
+    # УБРАНА ПРОВЕРКА НА АДМИНА: Лимит действует на ВСЕХ
+    try:
+        # Считаем, сколько скинов у юзера ПРЯМО СЕЙЧАС в процессе вывода
+        transit_res = await supabase.get(
+            "/cs_history",
+            params={
+                "user_id": f"eq.{user_id}",
+                "status": "in.(market_pending,auto_queued,processing,offer_sent,sent)",
+                "select": "id"
+            }
+        )
+        if transit_res.status_code == 200:
+            transit_items = transit_res.json()
+            # Если 2 или больше трейдов уже висят — бьем по рукам
+            if isinstance(transit_items, list) and len(transit_items) >= 2:
+                raise HTTPException(
+                    status_code=400,
+                    detail="⏳ У вас уже есть 2 предмета в процессе вывода! Пожалуйста, примите их в Steam (или дождитесь ошибки), прежде чем выводить следующие."
+                )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"[ANTI-SPAM] Ошибка проверки активных трейдов для {user_id}: {e}")
+    # 👆🔥 КОНЕЦ НОВОГО БЛОКА 🔥👆
+
     # ==========================================
     # 🔥 АТОМАРНАЯ ПЛОМБА В БД ДО ВЫСТРЕЛА 🔥
     # ==========================================
