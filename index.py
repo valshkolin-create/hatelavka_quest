@@ -29283,15 +29283,15 @@ async def withdraw_inventory_item(
     current_status = history_record.get('status')
     item_source = history_record.get('source', 'shop') # Узнаем откуда предмет
 
-    # --- Обработка данных Юзера ---
+# --- Обработка данных Юзера ---
     user_list = user_res.json()
     if not user_list or not isinstance(user_list, list):
         raise HTTPException(status_code=400, detail="User error")
     
     user_info = user_list[0]
     
-    # 👇 Проверяем актив ТОЛЬКО если это не розыгрыш 👇
-    if item_source != "raffle":
+    # 👇 Проверяем актив ТОЛЬКО если это не розыгрыш и не аукцион 👇
+    if item_source not in ["raffle", "auction"]:
         await verify_activity_lock(user_info, supabase)
         
     trade_link = user_info.get('trade_link')
