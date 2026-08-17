@@ -388,6 +388,11 @@ function getPlatformType() {
                 window.showActivityWallModal(result.detail.current_msgs, result.detail.required_msgs);
                 throw new Error("Activity Lock");
             }
+            // 👇 ЛОВИМ ЛИМИТ ВЫВОДА (TRUST LOCK) 👇
+            if (result.detail && typeof result.detail === 'object' && result.detail.error_code === "WEEKLY_TRUST_LIMIT") {
+                window.customAlert("Вы уже забрали максимальное количество скинов на этой неделе! Ваш выбитый скин в безопасности и дожидается вас во вкладке «Профиль».", "Понятно");
+                throw new Error("Trust Lock");
+            }
             // 👆 КОНЕЦ ВСТАВКИ 👆
             
             // Защита от краша: если detail это массив (ошибка 422 от FastAPI) или объект, превращаем в строку
@@ -464,18 +469,19 @@ function getPlatformType() {
             // Обычная проверка на 403 (другие ограничения)
             if (response.status === 403) {
                 // Для обычных 403 тоже используем алерт, чтобы зря не блокировать экран трейд-ссылкой
-                window.customAlert(result.detail || "Доступ ограничен.");
+                window.customAlert(rawError || "Доступ ограничен.");
                 throw new Error("Security Block");
             }
             
-            throw new Error(result.detail || result.message || 'Ошибка сервера');
+            // Используем rawError, чтобы избежать [object Object]
+            throw new Error(rawError || 'Ошибка сервера');
         }
         return result;
     } catch (e) {
         if (e.name === 'AbortError') e.message = "Превышено время ожидания ответа от сервера.";
         
-        // 🔥 ВАЖНО: Если это Бан, Блок, Ошибка Бота или Блокировка Актива, НЕ показываем стандартный customAlert
-        const silentErrors = ['Cooldown active', 'Security Block', 'USER_BANNED', 'Bot Auth Required', 'Activity Lock'];
+        // 🔥 ВАЖНО: Если это Бан, Блок, Ошибка Бота, Блокировка Актива или Лимит Вывода, НЕ показываем стандартный customAlert
+        const silentErrors = ['Cooldown active', 'Security Block', 'USER_BANNED', 'Bot Auth Required', 'Activity Lock', 'Trust Lock'];
         if (!silentErrors.includes(e.message) && !isSilent) {
              customAlert(`Ошибка: ${e.message}`);
         }
