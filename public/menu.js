@@ -4287,7 +4287,6 @@ window.openSwapModal = async () => {
         else if (inventoryRes && Array.isArray(inventoryRes.items)) rawItems = inventoryRes.items;
         else if (inventoryRes && Array.isArray(inventoryRes.data)) rawItems = inventoryRes.data;
 
-        // 🔥 БРОНЯ 2: Защита от null-элементов и битых скинов
         // 🔥 БРОНЯ 2: Защита от null-элементов, битых скинов И запрещенных источников
         const availableItems = rawItems.filter(item => 
             item && // Защита от пустого объекта
@@ -4296,7 +4295,7 @@ window.openSwapModal = async () => {
             item.image_url && item.image_url.startsWith('http') &&
             item.source !== 'raffle' && // 🚫 Запрещаем скины с розыгрышей
             item.source !== 'auction' &&  // 🚫 Запрещаем скины с аукционов
-            !exp.isExpired;              // 🚫 ЗАПРЕТ ПРОСРОЧЕННЫХ
+            !item.isExpired               // 🚫 ЗАПРЕТ ПРОСРОЧЕННЫХ (убрали точку с запятой и exp заменили на item)
         );
         
         renderSwapInventory(availableItems);
