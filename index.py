@@ -22481,7 +22481,7 @@ async def buy_bott_item_proxy(
                 "code_used": current_code,
                 "status": "pending", 
                 "lacky": db_lacky,  # 🔥 ВОТ ЗДЕСЬ МЕНЯЕМ current_lacky НА db_lacky 🔥
-                "source": "shop",
+                "source": "case",
                 "details": f"Выигрыш: {winner['name']}"
             }, headers={"Prefer": "return=representation"})
             
