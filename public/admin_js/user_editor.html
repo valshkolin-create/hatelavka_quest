@@ -579,7 +579,7 @@
         // Словарь для красивых русских статусов
         const statusTranslations = {
             'available': 'В инвентаре (Доступен)',
-            'pending': 'В процессе вывода',
+            'pending': 'Не выведен (В профиле)',
             'received': 'Успешно выведен',
             'exchanged_swap': 'Объединен в свапе',
             'failed': 'Заморожен / Ошибка',
@@ -1398,7 +1398,7 @@ async function submitCoins() {
                     <select id="newStatusSelect_${item.id}" style="flex: 1; padding: 10px; font-size: 13px;">
                         <option value="available" ${item.status === 'available' ? 'selected' : ''}>В инвентаре (available)</option>
                         <option value="failed" ${item.status === 'failed' ? 'selected' : ''}>Заморозить/Ошибка (failed)</option>
-                        <option value="pending" ${item.status === 'pending' ? 'selected' : ''}>В процессе вывода (pending)</option>
+                        <option value="pending" ${item.status === 'pending' ? 'selected' : ''}>Не выведен (В профиле) (pending)</option>
                         <option value="received" ${item.status === 'received' ? 'selected' : ''}>Успешно выдан (received)</option>
                         <option value="exchanged_swap" ${item.status === 'exchanged_swap' ? 'selected' : ''}>Объединен в свапе (swap)</option>
                         <option value="exchanged" ${item.status === 'exchanged' ? 'selected' : ''}>Продан за баланс (exchanged)</option>
