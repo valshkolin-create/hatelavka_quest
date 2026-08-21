@@ -344,8 +344,6 @@ async def check_twinks_and_send_alert(
     last_alert_time = ALERT_COOLDOWN_CACHE.get(telegram_id, 0)
     
     if current_time - last_alert_time < COOLDOWN_SECONDS:
-        # Можно раскомментировать лог ниже для дебага, но обычно он только мусорит в консоли
-        # logging.debug(f"[TWINK CHECK] Алерт для {telegram_id} пропущен (кулдаун).")
         return
 
     try:
@@ -361,16 +359,20 @@ async def check_twinks_and_send_alert(
             elif client_ip and t.get('last_ip') == client_ip:
                 ip_twinks.append(t_username)
 
-        # Формируем красивый алерт в зависимости от степени угрозы
+        # 🔥 ГЛАВНОЕ ИЗМЕНЕНИЕ: Если нет совпадения по Device ID — обрубаем алерт! 🔥
+        if not device_twinks:
+            return
+
+        # Формируем красивый алерт (мы дошли сюда, значит красная угроза 100% есть)
         alert_lines = []
         
-        if device_twinks:
-            alert_lines.append("🔴 <b>КРИТИЧЕСКОЕ СОВПАДЕНИЕ (Один девайс):</b>")
-            alert_lines.append("\n".join([f"• {u}" for u in device_twinks]))
-            alert_lines.append("") # Отступ
+        alert_lines.append("🔴 <b>КРИТИЧЕСКОЕ СОВПАДЕНИЕ (Один девайс):</b>")
+        alert_lines.append("\n".join([f"• {u}" for u in device_twinks]))
+        alert_lines.append("") # Отступ
             
+        # Желтый список IP покажем только в довесок к красному
         if ip_twinks:
-            alert_lines.append("🟡 <b>Совпадение по IP (Возможно VPN/Wi-Fi):</b>")
+            alert_lines.append("🟡 <b>Так же есть совпадение по IP с:</b>")
             alert_lines.append("\n".join([f"• {u}" for u in ip_twinks]))
             alert_lines.append("")
 
@@ -388,10 +390,10 @@ async def check_twinks_and_send_alert(
             f"💻 <b>Платформа:</b> <code>{display_platform}</code>\n"
             f"📱 <b>Device ID:</b> <code>{device_id[:12] if device_id else 'Не передан'}...</code>\n\n"
             f"{''.join(alert_lines)}"
-            f"<i>*Система маппинга зафиксировала пересечение данных в лавке.</i>"
+            f"<i>*Система маппинга зафиксировала пересечение данных в MAX.</i>"
         )
 
-        # ТВОЙ ИДЕАЛЬНЫЙ БЛОК ОТПРАВКИ ЛОГА АДМИНУ
+        # БЛОК ОТПРАВКИ ЛОГА АДМИНУ
         if ADMIN_NOTIFY_CHAT_ID:
             try:
                 await bot.send_message(
@@ -10654,7 +10656,7 @@ async def get_current_user_data(
         logging.info(f"[USER/ME] Запуск вызова RPC для {telegram_id}")
         rpc_resp = await supabase.post("/rpc/get_user_dashboard_data", json={
             "p_telegram_id": telegram_id,
-            "p_client_ip": client_ip,      # 🔥 Передаем IP в RPC-функцию
+            "p_client_ip": None,           # 🔥 ОТКЛЮЧАЕМ ПОИСК ПО IP ДЛЯ ЭКОНОМИИ РЕСУРСОВ
             "p_device_id": device_id,       # 🔥 Передаем Device ID в RPC-функцию
             "p_platform_type": platform_type # 🔥 Прокидываем в базу
         })
@@ -10700,7 +10702,7 @@ async def get_current_user_data(
             logging.info(f"[USER/ME] Повторный вызов RPC для {telegram_id} после регистрации")
             retry_resp = await supabase.post("/rpc/get_user_dashboard_data", json={
                 "p_telegram_id": telegram_id,
-                "p_client_ip": client_ip,      
+                "p_client_ip": None,       # 🔥 ОТКЛЮЧАЕМ ПОИСК ПО IP ЗДЕСЬ ТОЖЕ      
                 "p_device_id": device_id,       
                 "p_platform_type": platform_type # 🔥 ДОБАВЛЕНО! Иначе у новичков платформа будет пустой
             })
