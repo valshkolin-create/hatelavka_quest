@@ -4403,8 +4403,8 @@ window.handleSwapMainBtn = async () => {
         const btn = document.getElementById('swap-main-btn');
         const originalText = btn.innerText;
 
-        // Считаем сумму выбранных предметов
-        const totalSum = Array.from(swapGivenItems.values()).reduce((sum, item) => sum + item.price, 0);
+        // Считаем сумму выбранных предметов (с правильным подсчетом копеек)
+        const totalSum = Number(Array.from(swapGivenItems.values()).reduce((sum, item) => sum + item.price, 0).toFixed(2));
         
         if (totalSum <= 0) {
             return customAlert("Выберите хотя бы один предмет для обмена!");
@@ -4415,8 +4415,8 @@ window.handleSwapMainBtn = async () => {
 
         // 🔥 МАТЕМАТИКА КОМИССИИ (НАЦЕНКА 20%) 🔥
         // Юзер получает только 80% от суммы своих скинов
-        const maxPrice = totalSum * 0.80; 
-        const minPrice = totalSum * 0.40; // Снизили минималку, чтобы выбор был шире
+        const maxPrice = Number((totalSum * 0.80).toFixed(2)); 
+        const minPrice = Number((totalSum * 0.40).toFixed(2)); // Снизили минималку, чтобы выбор был шире
 
         try {
             // Ищем скины на бэке по новым лимитам
@@ -4488,7 +4488,10 @@ function renderSwapInventory(items) {
     }
     
     grid.innerHTML = items.map(item => {
-        const price = (parseFloat(item.replaced_price) > 0) ? parseFloat(item.replaced_price) : Math.floor(parseFloat(item.price_rub) || 0);
+        // 🔥 ИСПРАВЛЕНИЕ: Убрали Math.floor и сохранили 2 знака после запятой
+        const rawPrice = (parseFloat(item.replaced_price) > 0) ? parseFloat(item.replaced_price) : (parseFloat(item.price_rub) || 0);
+        const price = Number(rawPrice.toFixed(2));
+        
         const shortName = (item.name || "Скин").split('|').pop().trim();
 
         // 🔒 ОТРИСОВКА ЗАБЛОКИРОВАННОГО СКИНА (Серый, с причиной)
@@ -4529,6 +4532,24 @@ function renderSwapInventory(items) {
     }).join('');
 }
 
+        // ✅ ОТРИСОВКА ОБЫЧНОГО СКИНА (Который можно выбрать)
+        const isSelected = swapGivenItems.has(item.history_id);
+        const border = isSelected ? '#34c759' : 'transparent';
+
+        return `
+            <div class="swap-card-inv" id="swap-inv-${item.history_id}" onclick="toggleGiveItem(${item.history_id}, ${price}, '${item.name.replace(/'/g, "\\'")}', '${item.image_url}')" 
+                 style="background: #232325; border: 1px solid ${border}; border-radius: 10px; padding: 8px; text-align: center; cursor: pointer; position: relative; display: flex; flex-direction: column; align-items: center; height: 115px; justify-content: space-between; box-sizing: border-box; transition: 0.2s;">
+                <img src="${item.image_url}" style="width: 100%; height: 50px; object-fit: contain;">
+                <div style="font-size: 9px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; margin-top: 4px;">${shortName}</div>
+                <div style="font-size: 11px; color: #FFD700; font-weight: bold; display: flex; align-items: center; gap: 4px;">
+                    ${price} <div style="width: 10px; height: 10px; background: #ffd700; border-radius: 50%;"></div>
+                </div>
+                <div class="swap-check ${isSelected ? '' : 'hidden'}" style="position: absolute; top: 4px; right: 4px; background: #34c759; color: #fff; width: 14px; height: 14px; border-radius: 50%; font-size: 8px; display: flex; align-items: center; justify-content: center;"><i class="fa-solid fa-check"></i></div>
+            </div>
+        `;
+    }).join('');
+}
+
 window.toggleGiveItem = (historyId, price, name, imageUrl) => {
     const card = document.getElementById(`swap-inv-${historyId}`);
     if (!card) return;
@@ -4546,7 +4567,8 @@ window.toggleGiveItem = (historyId, price, name, imageUrl) => {
         card.querySelector('.swap-check').classList.remove('hidden');
     }
     
-    const totalSum = Array.from(swapGivenItems.values()).reduce((sum, item) => sum + item.price, 0);
+    // 🔥 ИСПРАВЛЕНИЕ: Аккуратный подсчет копеек
+    const totalSum = Number(Array.from(swapGivenItems.values()).reduce((sum, item) => sum + item.price, 0).toFixed(2));
     if (swapTargetItem && swapTargetItem.price > totalSum) {
         swapTargetItem = null;
     }
@@ -4669,7 +4691,8 @@ window.selectTargetItem = (name, price, imageUrl) => {
     if (swapTargetItem && swapTargetItem.name === name) swapTargetItem = null;
     else swapTargetItem = { name, price, image_url: imageUrl };
     
-    document.getElementById('swap-take-price').innerText = swapTargetItem ? swapTargetItem.price : 0;
+    // 🔥 ИСПРАВЛЕНИЕ: Вывод цены с копейками (если они есть)
+    document.getElementById('swap-take-price').innerText = swapTargetItem ? Number(swapTargetItem.price.toFixed(2)) : 0;
     
     // 2. СНИМАЕМ ВЫДЕЛЕНИЕ со всех карточек на витрине (чтобы снять рамки с прошлых кликов)
     document.querySelectorAll('#swap-market-grid .market-card-item').forEach(card => {
@@ -4709,7 +4732,8 @@ function updateSwapBtnStep2() {
 
 // ЭТАП 3: Подтверждение
 function renderSwapConfirmation() {
-    const totalSum = Array.from(swapGivenItems.values()).reduce((sum, item) => sum + item.price, 0);
+    // 🔥 ИСПРАВЛЕНИЕ: Аккуратный подсчет суммы с копейками
+    const totalSum = Number(Array.from(swapGivenItems.values()).reduce((sum, item) => sum + item.price, 0).toFixed(2));
     document.getElementById('swap-confirm-sum').innerText = totalSum;
     
     const giveGrid = document.getElementById('swap-confirm-give-grid');
@@ -4722,7 +4746,8 @@ function renderSwapConfirmation() {
     if (swapTargetItem) {
         document.getElementById('swap-confirm-take-img').src = swapTargetItem.image_url;
         document.getElementById('swap-confirm-take-name').innerText = swapTargetItem.name.split('|').pop();
-        document.getElementById('swap-confirm-take-price').innerText = swapTargetItem.price;
+        // 🔥 ИСПРАВЛЕНИЕ: Вывод цены с копейками
+        document.getElementById('swap-confirm-take-price').innerText = Number(swapTargetItem.price.toFixed(2));
     }
 }
 
