@@ -4296,6 +4296,7 @@ window.openSwapModal = async () => {
             item.image_url && item.image_url.startsWith('http') &&
             item.source !== 'raffle' && // 🚫 Запрещаем скины с розыгрышей
             item.source !== 'auction'   // 🚫 Запрещаем скины с аукционов
+            !exp.isExpired;              // 🚫 ЗАПРЕТ ПРОСРОЧЕННЫХ
         );
         
         renderSwapInventory(availableItems);
