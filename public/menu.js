@@ -4488,7 +4488,7 @@ function renderSwapInventory(items) {
     }
     
     grid.innerHTML = items.map(item => {
-        // 🔥 ИСПРАВЛЕНИЕ: Убрали Math.floor и сохранили 2 знака после запятой
+        // Подсчет цены с копейками
         const rawPrice = (parseFloat(item.replaced_price) > 0) ? parseFloat(item.replaced_price) : (parseFloat(item.price_rub) || 0);
         const price = Number(rawPrice.toFixed(2));
         
@@ -4502,10 +4502,8 @@ function renderSwapInventory(items) {
                     
                     <img src="${item.image_url}" style="width: 100%; height: 50px; object-fit: contain; filter: grayscale(100%);">
                     
-                    <!-- Имя скина: Убрали зачеркивание -->
                     <div style="font-size: 9px; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; margin-top: 4px;">${shortName}</div>
                     
-                    <!-- Плашка с причиной: Уменьшен шрифт, запрещен перенос строк, добавлено троеточие для защиты от растягивания карточки -->
                     <div style="font-size: 8px; color: #ff3b30; font-weight: bold; background: rgba(255,59,48,0.1); padding: 3px 2px; border-radius: 4px; display: flex; align-items: center; justify-content: center; gap: 3px; margin-top: auto; width: 100%; box-sizing: border-box;">
                         <i class="fa-solid fa-lock" style="font-size: 7px; flex-shrink: 0;"></i> 
                         <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.lockReason}</span>
@@ -4513,24 +4511,6 @@ function renderSwapInventory(items) {
                 </div>
             `;
         }
-
-        // ✅ ОТРИСОВКА ОБЫЧНОГО СКИНА (Который можно выбрать)
-        const isSelected = swapGivenItems.has(item.history_id);
-        const border = isSelected ? '#34c759' : 'transparent';
-
-        return `
-            <div class="swap-card-inv" id="swap-inv-${item.history_id}" onclick="toggleGiveItem(${item.history_id}, ${price}, '${item.name.replace(/'/g, "\\'")}', '${item.image_url}')" 
-                 style="background: #232325; border: 1px solid ${border}; border-radius: 10px; padding: 8px; text-align: center; cursor: pointer; position: relative; display: flex; flex-direction: column; align-items: center; height: 115px; justify-content: space-between; box-sizing: border-box; transition: 0.2s;">
-                <img src="${item.image_url}" style="width: 100%; height: 50px; object-fit: contain;">
-                <div style="font-size: 9px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; margin-top: 4px;">${shortName}</div>
-                <div style="font-size: 11px; color: #FFD700; font-weight: bold; display: flex; align-items: center; gap: 4px;">
-                    ${price} <div style="width: 10px; height: 10px; background: #ffd700; border-radius: 50%;"></div>
-                </div>
-                <div class="swap-check ${isSelected ? '' : 'hidden'}" style="position: absolute; top: 4px; right: 4px; background: #34c759; color: #fff; width: 14px; height: 14px; border-radius: 50%; font-size: 8px; display: flex; align-items: center; justify-content: center;"><i class="fa-solid fa-check"></i></div>
-            </div>
-        `;
-    }).join('');
-}
 
         // ✅ ОТРИСОВКА ОБЫЧНОГО СКИНА (Который можно выбрать)
         const isSelected = swapGivenItems.has(item.history_id);
