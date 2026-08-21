@@ -27295,6 +27295,9 @@ async def execute_directed_swap(
             item_data = row.get('item') or {}
             total_given_sum += float(item_data.get('price_rub', 0)) # 🔥 ИСПРАВЛЕНО: берем монеты
 
+    # 🔥 ИСПРАВЛЕНИЕ: Жестко фиксируем сумму юзера до копеек
+    total_given_sum = round(total_given_sum, 2)
+
     if total_given_sum <= 0:
         raise HTTPException(status_code=400, detail="Сумма ваших предметов равна нулю")
 
@@ -27326,11 +27329,13 @@ async def execute_directed_swap(
     if not image_url or image_url.strip() == "":
         raise HTTPException(status_code=400, detail="Этот предмет недоступен для обмена (отсутствует фото)")
 
-    target_price = float(target_item.get('price_rub', 0))
+    # 🔥 ИСПРАВЛЕНИЕ: Округляем цену предмета с маркета
+    target_price = round(float(target_item.get('price_rub', 0)), 2)
 
     # 4. ГЛАВНАЯ ПРОВЕРКА: Комиссия 20%
     # Максимальная цена, которую он может забрать - на 20% дешевле отданного
-    max_allowed_price = total_given_sum * 0.80
+    # 🔥 ИСПРАВЛЕНИЕ: Округляем лимит, чтобы избежать погрешностей Питона
+    max_allowed_price = round(total_given_sum * 0.80, 2)
 
     if target_price > max_allowed_price:
         raise HTTPException(
@@ -28111,10 +28116,11 @@ async def get_market_items(
     ]
     
     # 💰 4. ПРИМЕНЯЕМ ОКНО ЦЕН (Бюджет юзера) 💰
+    # 🔥 ИСПРАВЛЕНИЕ: Жестко округляем до 2 знаков, чтобы в базу не летел мусор вроде 15.48000000001
     if max_price is not None:
-        query_params.append(("price_rub", f"lte.{max_price}"))
+        query_params.append(("price_rub", f"lte.{round(max_price, 2)}"))
     if min_price is not None:
-        query_params.append(("price_rub", f"gte.{min_price}"))
+        query_params.append(("price_rub", f"gte.{round(min_price, 2)}"))
         
     resp = await supabase.get(
         "/market_cache",
@@ -28125,7 +28131,7 @@ async def get_market_items(
         return []
 
     return resp.json()
-
+    
 # ==========================================
 # 🎮 ИГРА "УГАДАЙ СЛОВО" (FOSSABOT + OBS + ADMIN)
 # ==========================================
