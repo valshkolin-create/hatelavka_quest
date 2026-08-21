@@ -4288,13 +4288,16 @@ window.openSwapModal = async () => {
         else if (inventoryRes && Array.isArray(inventoryRes.data)) rawItems = inventoryRes.data;
 
         // 🔥 БРОНЯ 2: Защита от null-элементов и битых скинов
+        // 🔥 БРОНЯ 2: Защита от null-элементов, битых скинов И запрещенных источников
         const availableItems = rawItems.filter(item => 
             item && // Защита от пустого объекта
             item.status && ['pending', 'available'].includes(item.status) && 
             item.is_swapped !== true && 
-            item.image_url && item.image_url.startsWith('http')
+            item.image_url && item.image_url.startsWith('http') &&
+            item.source !== 'raffle' && // 🚫 Запрещаем скины с розыгрышей
+            item.source !== 'auction'   // 🚫 Запрещаем скины с аукционов
         );
-
+        
         renderSwapInventory(availableItems);
         
         if (loader) loader.style.display = 'none';
@@ -4429,10 +4432,16 @@ window.toggleGiveItem = (historyId, price, name, imageUrl) => {
 function renderSwapInventory(items) {
     const grid = document.getElementById('swap-inventory-grid');
     if (items.length === 0) {
-        grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: #888; font-size: 12px; margin-top: 20px;">Нет предметов для обмена</div>';
+        grid.innerHTML = `
+            <div style="grid-column: 1/-1; text-align: center; color: #888; font-size: 12px; margin-top: 20px; line-height: 1.4;">
+                <i class="fa-solid fa-box-open" style="font-size: 24px; color: #555; margin-bottom: 10px;"></i><br>
+                Нет доступных предметов<br>
+                <span style="font-size: 9px; opacity: 0.6;">(Предметы с розыгрышей и аукционов не участвуют в обмене)</span>
+            </div>
+        `;
         return;
     }
-
+    
     grid.innerHTML = items.map(item => {
         const price = (parseFloat(item.replaced_price) > 0) ? parseFloat(item.replaced_price) : Math.floor(parseFloat(item.price_rub) || 0);
         const shortName = (item.name || "Скин").split('|').pop().trim();
