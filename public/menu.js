@@ -4499,10 +4499,13 @@ function renderSwapInventory(items) {
                     
                     <img src="${item.image_url}" style="width: 100%; height: 50px; object-fit: contain; filter: grayscale(100%);">
                     
-                    <div style="font-size: 9px; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; margin-top: 4px; text-decoration: line-through;">${shortName}</div>
+                    <!-- Имя скина: Убрали зачеркивание -->
+                    <div style="font-size: 9px; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; margin-top: 4px;">${shortName}</div>
                     
-                    <div style="font-size: 9px; color: #ff3b30; font-weight: bold; background: rgba(255,59,48,0.1); padding: 3px 6px; border-radius: 4px; display: flex; align-items: center; gap: 4px; margin-top: auto;">
-                        <i class="fa-solid fa-lock" style="font-size: 8px;"></i> ${item.lockReason}
+                    <!-- Плашка с причиной: Уменьшен шрифт, запрещен перенос строк, добавлено троеточие для защиты от растягивания карточки -->
+                    <div style="font-size: 8px; color: #ff3b30; font-weight: bold; background: rgba(255,59,48,0.1); padding: 3px 2px; border-radius: 4px; display: flex; align-items: center; justify-content: center; gap: 3px; margin-top: auto; width: 100%; box-sizing: border-box;">
+                        <i class="fa-solid fa-lock" style="font-size: 7px; flex-shrink: 0;"></i> 
+                        <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.lockReason}</span>
                     </div>
                 </div>
             `;
