@@ -172,9 +172,12 @@ async def verify_activity_lock(user_record: dict, supabase: httpx.AsyncClient):
                 current_weekly_drops = len(drops_data)
                 
                 if current_weekly_drops >= weekly_limit:
-                    oldest_drop_time_str = drops_data[0].get("created_at")
-                    oldest_drop_time = datetime.fromisoformat(oldest_drop_time_str)
-                    unlock_time = oldest_drop_time + timedelta(days=7)
+                    # Вычисляем индекс скина, истечение которого освободит слот
+                    target_index = current_weekly_drops - weekly_limit
+                    
+                    target_drop_time_str = drops_data[target_index].get("created_at")
+                    target_drop_time = datetime.fromisoformat(target_drop_time_str)
+                    unlock_time = target_drop_time + timedelta(days=7)
                     
                     raise HTTPException(
                         status_code=403, 
