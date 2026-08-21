@@ -4287,18 +4287,64 @@ window.openSwapModal = async () => {
         else if (inventoryRes && Array.isArray(inventoryRes.items)) rawItems = inventoryRes.items;
         else if (inventoryRes && Array.isArray(inventoryRes.data)) rawItems = inventoryRes.data;
 
-        // 🔥 БРОНЯ 2: Защита от null-элементов, битых скинов И запрещенных источников
-        const availableItems = rawItems.filter(item => 
-            item && // Защита от пустого объекта
-            item.status && ['pending', 'available'].includes(item.status) && 
-            item.is_swapped !== true && 
-            item.image_url && item.image_url.startsWith('http') &&
-            item.source !== 'raffle' && // 🚫 Запрещаем скины с розыгрышей
-            item.source !== 'auction' &&  // 🚫 Запрещаем скины с аукционов
-            !item.isExpired               // 🚫 ЗАПРЕТ ПРОСРОЧЕННЫХ (убрали точку с запятой и exp заменили на item)
-        );
+        // 🔥 БРОНЯ 2: Защита от null-элементов, битых скинов, запрещенных источников И просрочки
+        const amnestyDateMs = new Date("2026-07-15T00:00:00+03:00").getTime();
+        const nowMs = Date.now();
+
+        // 🔥 ВМЕСТО УДАЛЕНИЯ, МЫ ПОМЕЧАЕМ БЛОКИРОВКУ
+        let processedItems = rawItems
+            .filter(item => item && item.status && ['pending', 'available'].includes(item.status) && item.is_swapped !== true && item.image_url && item.image_url.startsWith('http'))
+            .map(item => {
+                // 1. Логика сгорания 1-в-1 как на Python-бэкенде
+                let isExpired = false;
+                if (item.updated_at) {
+                    // JS отлично парсит ISO даты, которые отдает Supabase
+                    const updatedTimeMs = new Date(item.updated_at).getTime();
+                    let lifeDays = 14;
+                    
+                    // Если скин обновился после даты амнистии
+                    if (updatedTimeMs >= amnestyDateMs) {
+                        if (['raffle', 'auction', 'twitch'].includes(item.source)) {
+                            lifeDays = 3;
+                        } else {
+                            lifeDays = 14;
+                        }
+                    }
+                    
+                    // Прибавляем нужное количество дней в миллисекундах
+                    const expireTimeMs = updatedTimeMs + (lifeDays * 24 * 60 * 60 * 1000);
+                    
+                    // Если текущее время больше или равно времени сгорания — скин сгорел
+                    isExpired = nowMs >= expireTimeMs;
+                }
+
+                // 2. Распределяем причины блокировки
+                let isLocked = false;
+                let lockReason = "";
+
+                if (item.source === 'raffle') {
+                    isLocked = true; 
+                    lockReason = "С розыгрыша";
+                } else if (item.source === 'auction') {
+                    isLocked = true; 
+                    lockReason = "С аукциона";
+                } else if (isExpired) {
+                    isLocked = true; 
+                    lockReason = "Сгорел";
+                }
+
+                // Возвращаем предмет, добавив к нему флаги
+                return { ...item, isLocked, lockReason };
+            });
+
+        // 🔥 СОРТИРОВКА: Доступные сверху, Заблокированные улетают вниз списка
+        processedItems.sort((a, b) => {
+            if (a.isLocked === b.isLocked) return 0;
+            return a.isLocked ? 1 : -1;
+        });
         
-        renderSwapInventory(availableItems);
+        // Отправляем массив с флагами на отрисовку
+        renderSwapInventory(processedItems);
         
         if (loader) loader.style.display = 'none';
         document.getElementById('swap-content-area')?.classList.remove('hidden');
@@ -4435,8 +4481,7 @@ function renderSwapInventory(items) {
         grid.innerHTML = `
             <div style="grid-column: 1/-1; text-align: center; color: #888; font-size: 12px; margin-top: 20px; line-height: 1.4;">
                 <i class="fa-solid fa-box-open" style="font-size: 24px; color: #555; margin-bottom: 10px;"></i><br>
-                Нет доступных предметов<br>
-                <span style="font-size: 9px; opacity: 0.6;">(Предметы с розыгрышей и аукционов не участвуют в обмене)</span>
+                Нет доступных предметов
             </div>
         `;
         return;
@@ -4445,6 +4490,25 @@ function renderSwapInventory(items) {
     grid.innerHTML = items.map(item => {
         const price = (parseFloat(item.replaced_price) > 0) ? parseFloat(item.replaced_price) : Math.floor(parseFloat(item.price_rub) || 0);
         const shortName = (item.name || "Скин").split('|').pop().trim();
+
+        // 🔒 ОТРИСОВКА ЗАБЛОКИРОВАННОГО СКИНА (Серый, с причиной)
+        if (item.isLocked) {
+            return `
+                <div class="swap-card-inv locked" onclick="customAlert('Этот предмет нельзя использовать в обмене! Причина: ${item.lockReason}')" 
+                     style="background: #1c1c1e; border: 1px solid rgba(255, 59, 48, 0.3); border-radius: 10px; padding: 8px; text-align: center; cursor: not-allowed; position: relative; display: flex; flex-direction: column; align-items: center; height: 115px; justify-content: space-between; box-sizing: border-box; opacity: 0.5;">
+                    
+                    <img src="${item.image_url}" style="width: 100%; height: 50px; object-fit: contain; filter: grayscale(100%);">
+                    
+                    <div style="font-size: 9px; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; margin-top: 4px; text-decoration: line-through;">${shortName}</div>
+                    
+                    <div style="font-size: 9px; color: #ff3b30; font-weight: bold; background: rgba(255,59,48,0.1); padding: 3px 6px; border-radius: 4px; display: flex; align-items: center; gap: 4px; margin-top: auto;">
+                        <i class="fa-solid fa-lock" style="font-size: 8px;"></i> ${item.lockReason}
+                    </div>
+                </div>
+            `;
+        }
+
+        // ✅ ОТРИСОВКА ОБЫЧНОГО СКИНА (Который можно выбрать)
         const isSelected = swapGivenItems.has(item.history_id);
         const border = isSelected ? '#34c759' : 'transparent';
 
